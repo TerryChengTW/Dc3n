@@ -1,16 +1,17 @@
 package com.exchange.model;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
-import jakarta.persistence.Column;
+import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "trades")
+@Table(name = "trades", indexes = {
+        @Index(name = "idx_buy_order_id", columnList = "buy_order_id"),
+        @Index(name = "idx_sell_order_id", columnList = "sell_order_id"),
+        @Index(name = "idx_trade_time", columnList = "trade_time")
+})
 @Data
 @NoArgsConstructor
 public class Trade {
@@ -19,11 +20,13 @@ public class Trade {
     @Column(length = 20, nullable = false)
     private String id;  // 雪花ID
 
-    @Column(nullable = false)
-    private String buyOrderId;
+    @ManyToOne
+    @JoinColumn(name = "buy_order_id", referencedColumnName = "id", nullable = false)
+    private Order buyOrder;
 
-    @Column(nullable = false)
-    private String sellOrderId;
+    @ManyToOne
+    @JoinColumn(name = "sell_order_id", referencedColumnName = "id", nullable = false)
+    private Order sellOrder;
 
     @Column(precision = 18, scale = 8, nullable = false)
     private BigDecimal price;

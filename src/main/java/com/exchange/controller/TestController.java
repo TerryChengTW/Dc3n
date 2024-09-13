@@ -34,20 +34,18 @@ public class TestController {
     @GetMapping("/testKafkaTPS")
     public String testKafkaTPS(@RequestParam String userId) {
         long start = System.currentTimeMillis();
-        int orderCount = 1;
+        int orderCount = 10000;
 
-        // 根據userId從資料庫中取得用戶
         Optional<User> optionalUser = userService.getUserById(userId);
         if (optionalUser.isEmpty()) {
             return "User not found!";
         }
-        User user = optionalUser.get();  // 找到用戶
+        User user = optionalUser.get();
 
-        // 建立並發送訂單
         for (int i = 0; i < orderCount; i++) {
             Order order = new Order(
-                    Long.toString(idGenerator.nextId()), // 使用 Snowflake 演算法生成的 ID
-                    user,  // 關聯的 user
+                    Long.toString(idGenerator.nextId()),
+                    user,
                     "BTC/USDT",
                     BigDecimal.valueOf(25000 + i),
                     BigDecimal.valueOf(1 + (i * 0.01)),
@@ -56,7 +54,9 @@ public class TestController {
                     BigDecimal.ZERO,
                     BigDecimal.ZERO,
                     LocalDateTime.now(),
-                    LocalDateTime.now()
+                    LocalDateTime.now(),
+                    null,
+                    null
             );
             orderProducer.sendOrder(order);
         }
@@ -72,18 +72,16 @@ public class TestController {
         int orderCount = 10000;
         List<Order> orders = new ArrayList<>();
 
-        // 根據userId從資料庫中取得用戶
         Optional<User> optionalUser = userService.getUserById(userId);
         if (optionalUser.isEmpty()) {
             return "User not found!";
         }
-        User user = optionalUser.get();  // 找到用戶
+        User user = optionalUser.get();
 
-        // 建立訂單並添加到列表
         for (int i = 0; i < orderCount; i++) {
             Order order = new Order(
-                    Long.toString(idGenerator.nextId()), // 使用 Snowflake 演算法生成的 ID
-                    user,  // 關聯的 user
+                    Long.toString(idGenerator.nextId()), // 使用 Snowflake 算法生成的 ID
+                    user,
                     "BTC/USDT",
                     BigDecimal.valueOf(25000 + i),
                     BigDecimal.valueOf(1 + (i * 0.01)),
@@ -92,7 +90,9 @@ public class TestController {
                     BigDecimal.ZERO,
                     BigDecimal.ZERO,
                     LocalDateTime.now(),
-                    LocalDateTime.now()
+                    LocalDateTime.now(),
+                    null,
+                    null
             );
             orders.add(order);
         }
@@ -107,21 +107,19 @@ public class TestController {
     @GetMapping("/testMySQLTPS")
     public String testMySQLTPS(@RequestParam String userId) {
         long start = System.currentTimeMillis();
-        int orderCount = 1001;
+        int orderCount = 10000;
         List<Order> orders = new ArrayList<>();
 
-        // 根據userId從資料庫中取得用戶
         Optional<User> optionalUser = userService.getUserById(userId);
         if (optionalUser.isEmpty()) {
             return "User not found!";
         }
-        User user = optionalUser.get();  // 找到用戶
+        User user = optionalUser.get();
 
-        // 建立訂單並添加到列表
         for (int i = 0; i < orderCount; i++) {
             Order order = new Order(
-                    Long.toString(idGenerator.nextId()), // 使用 Snowflake 演算法生成的 ID
-                    user,  // 關聯的 user
+                    Long.toString(idGenerator.nextId()), // 使用 Snowflake 算法生成的 ID
+                    user,
                     "BTC/USDT",
                     BigDecimal.valueOf(25000 + i),
                     BigDecimal.valueOf(1 + (i * 0.01)),
@@ -130,7 +128,9 @@ public class TestController {
                     BigDecimal.ZERO,
                     BigDecimal.ZERO,
                     LocalDateTime.now(),
-                    LocalDateTime.now()
+                    LocalDateTime.now(),
+                    null,
+                    null
             );
             orders.add(order);
         }

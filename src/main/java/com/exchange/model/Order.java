@@ -1,21 +1,18 @@
 package com.exchange.model;
 
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Table;
-import jakarta.persistence.Column;
-import jakarta.persistence.Id;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.JoinColumn;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
-@Table(name = "orders")
+@Table(name = "orders", indexes = {
+        @Index(name = "idx_user_id", columnList = "user_id"),
+        @Index(name = "idx_symbol", columnList = "symbol")
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -23,7 +20,7 @@ public class Order {
 
     @Id
     @Column(length = 20, nullable = false)
-    private String orderId;  // 雪花ID
+    private String id;  // 雪花ID
 
     @ManyToOne
     @JoinColumn(name = "user_id", referencedColumnName = "id")
@@ -57,6 +54,12 @@ public class Order {
 
     @Column(nullable = false)
     private LocalDateTime updatedAt = LocalDateTime.now();
+
+    @OneToMany(mappedBy = "buyOrder")
+    private List<Trade> buyTrades;
+
+    @OneToMany(mappedBy = "sellOrder")
+    private List<Trade> sellTrades;
 
     public enum OrderType {
         LIMIT,

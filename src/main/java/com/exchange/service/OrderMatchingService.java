@@ -27,10 +27,10 @@ public class OrderMatchingService {
     @Async
     public void saveOrdersToDatabase(List<Order> orders) {
         long startMySQL = System.currentTimeMillis();
-        String sql = "INSERT INTO orders (order_id, user_id, symbol, price, quantity, order_type, status, stop_price, take_profit_price, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO orders (id, user_id, symbol, price, quantity, order_type, status, stop_price, take_profit_price, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         for (Order order : orders) {
             jdbcTemplate.update(sql,
-                    order.getOrderId(),
+                    order.getId(),  // 修改為 getId()
                     order.getUser().getId(),
                     order.getSymbol(),
                     order.getPrice().doubleValue(),
