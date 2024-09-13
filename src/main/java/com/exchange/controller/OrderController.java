@@ -42,6 +42,7 @@ public class OrderController {
         order.setSymbol(orderRequest.getSymbol());
         order.setPrice(orderRequest.getPrice());
         order.setQuantity(orderRequest.getQuantity());
+        order.setSide(orderRequest.getSide());
         order.setOrderType(orderRequest.getOrderType());
         order.setStatus(Order.OrderStatus.PENDING);
         order.setCreatedAt(LocalDateTime.now());

@@ -35,11 +35,15 @@ public class Order {
     @Column(precision = 18, scale = 8, nullable = false)
     private BigDecimal quantity;
 
-    @Enumerated(EnumType.STRING)  // 使用 String 顯示枚舉值
+    @Enumerated(EnumType.STRING)
+    @Column(length = 4, nullable = false)
+    private Side side;
+
+    @Enumerated(EnumType.STRING)
     @Column(length = 20, nullable = false)
     private OrderType orderType; // "LIMIT" 或 "MARKET" 或其他類型
 
-    @Enumerated(EnumType.STRING)  // 使用 String 顯示枚舉值
+    @Enumerated(EnumType.STRING)
     @Column(length = 20, nullable = false)
     private OrderStatus status = OrderStatus.PENDING;  // 默認狀態
 
@@ -70,7 +74,13 @@ public class Order {
 
     public enum OrderStatus {
         PENDING,
+        PARTIALLY_FILLED,  // 新增：部分成交狀態
         COMPLETED,
         CANCELLED
+    }
+
+    public enum Side {
+        BUY,
+        SELL
     }
 }

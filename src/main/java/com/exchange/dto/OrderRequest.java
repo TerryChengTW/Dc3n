@@ -1,5 +1,6 @@
 package com.exchange.dto;
 
+import com.exchange.model.Order.Side;
 import com.exchange.model.Order.OrderType;
 import lombok.Data;
 
@@ -11,5 +12,6 @@ public class OrderRequest {
     private String symbol;
     private BigDecimal price;
     private BigDecimal quantity;
+    private Side side;
     private OrderType orderType;
 }
