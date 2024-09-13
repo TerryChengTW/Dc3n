@@ -18,6 +18,7 @@ public class OrderService {
     private OrderProducer orderProducer;
 
     public Order saveOrder(Order order) {
+        // TODO: 應該先放到 Kafka，再存到資料庫
         Order savedOrder = orderRepository.save(order);
         // 發送訂單到 Kafka
         orderProducer.sendOrder(savedOrder);
