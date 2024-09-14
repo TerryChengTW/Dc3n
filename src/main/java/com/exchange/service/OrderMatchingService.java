@@ -1,7 +1,8 @@
 package com.exchange.service;
 
 import com.exchange.model.Order;
-import com.exchange.repository.OrderRepository;
+import com.exchange.model.Trade;
+import com.exchange.producer.MatchedOrderProducer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
@@ -18,7 +19,7 @@ public class OrderMatchingService {
     private RedisTemplate<String, String> redisTemplate;
 
     @Autowired
-    private OrderRepository orderRepository;
+    private MatchedOrderProducer matchedOrderProducer;
 
     public void processOrder(Order order) {
         if (order.getOrderType() == Order.OrderType.MARKET) {
@@ -40,7 +41,6 @@ public class OrderMatchingService {
     }
 
     // 提取撮合邏輯
-// 提取撮合邏輯
     private void matchOrder(Order order, boolean isMarketOrder) {
         String orderbookKey = "orderbook:" + order.getSymbol() + ":" + order.getSide();
         String oppositeOrderbookKey = "orderbook:" + order.getSymbol() + ":" +
@@ -80,6 +80,9 @@ public class OrderMatchingService {
             // 更新成交量
             updateTrade(order, oppositeOrder, tradeQuantity);
 
+            // 保存交易數據
+            saveTrade(order, oppositeOrder, tradeQuantity, oppositeOrderPrice);
+
             // 更新對手訂單
             updateOrderInRedis(oppositeOrder, oppositeOrderbookKey);
             updateOrderInRedis(order, orderbookKey);
@@ -111,8 +114,9 @@ public class OrderMatchingService {
             order.setUpdatedAt(currentTime); // 更新部分成交時間
         }
 
-        // 保存匹配成功的訂單到 MySQL
-        saveMatchedOrdersToMySQL(order, oppositeOrder);
+        // 發送匹配成功的訂單和交易到 Kafka
+        matchedOrderProducer.sendMatchedOrder(order);
+        matchedOrderProducer.sendMatchedOrder(oppositeOrder);
     }
 
     // 更新訂單狀態到 Redis 和 ZSet
@@ -142,10 +146,23 @@ public class OrderMatchingService {
         redisTemplate.opsForHash().put(orderKey, "updatedAt", order.getUpdatedAt().toString());
     }
 
-    // 保存匹配成功的訂單到 MySQL
-    private void saveMatchedOrdersToMySQL(Order order, Order oppositeOrder) {
-        orderRepository.save(order);
-        orderRepository.save(oppositeOrder);
+    // 保存交易數據到 Kafka
+    private void saveTrade(Order buyOrder, Order sellOrder, BigDecimal tradeQuantity, BigDecimal price) {
+        Trade trade = new Trade();
+        trade.setId(generateTradeId()); // 使用雪花算法生成ID
+        trade.setBuyOrder(buyOrder.getSide() == Order.Side.BUY ? buyOrder : sellOrder);
+        trade.setSellOrder(buyOrder.getSide() == Order.Side.SELL ? buyOrder : sellOrder);
+        trade.setQuantity(tradeQuantity);
+        trade.setPrice(price);
+        trade.setTradeTime(LocalDateTime.now());
+
+        matchedOrderProducer.sendMatchedTrade(trade);
+    }
+
+    // 生成交易ID (可以使用你的雪花ID算法)
+    private String generateTradeId() {
+        // 這裡應實現生成唯一ID的邏輯 (例如雪花算法)
+        return "some_unique_id";
     }
 
     // 從 Redis 獲取訂單
