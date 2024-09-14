@@ -3,6 +3,7 @@ package com.exchange.service;
 import com.exchange.model.Order;
 import com.exchange.model.Trade;
 import com.exchange.producer.MatchedOrderProducer;
+import com.exchange.utils.SnowflakeIdGenerator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
@@ -20,6 +21,10 @@ public class OrderMatchingService {
 
     @Autowired
     private MatchedOrderProducer matchedOrderProducer;
+
+    @Autowired
+    private SnowflakeIdGenerator snowflakeIdGenerator;
+
 
     public void processOrder(Order order) {
         if (order.getOrderType() == Order.OrderType.MARKET) {
@@ -149,7 +154,7 @@ public class OrderMatchingService {
     // 保存交易數據到 Kafka
     private void saveTrade(Order buyOrder, Order sellOrder, BigDecimal tradeQuantity, BigDecimal price) {
         Trade trade = new Trade();
-        trade.setId(generateTradeId()); // 使用雪花算法生成ID
+        trade.setId(generateTradeId());
         trade.setBuyOrder(buyOrder.getSide() == Order.Side.BUY ? buyOrder : sellOrder);
         trade.setSellOrder(buyOrder.getSide() == Order.Side.SELL ? buyOrder : sellOrder);
         trade.setQuantity(tradeQuantity);
@@ -159,10 +164,8 @@ public class OrderMatchingService {
         matchedOrderProducer.sendMatchedTrade(trade);
     }
 
-    // 生成交易ID (可以使用你的雪花ID算法)
     private String generateTradeId() {
-        // 這裡應實現生成唯一ID的邏輯 (例如雪花算法)
-        return "some_unique_id";
+        return String.valueOf(snowflakeIdGenerator.nextId());
     }
 
     // 從 Redis 獲取訂單
