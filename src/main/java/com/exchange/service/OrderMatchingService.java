@@ -8,6 +8,7 @@ import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.Set;
 
 @Service
@@ -27,121 +28,157 @@ public class OrderMatchingService {
         }
     }
 
+    // 市價單撮合邏輯
     private void matchMarketOrder(Order order) {
-        String oppositeOrderbookKey = "orderbook:" + order.getSymbol() + ":" +
-                (order.getSide() == Order.Side.BUY ? "SELL" : "BUY");
-
-        while (order.getQuantity().compareTo(BigDecimal.ZERO) > 0) {
-            Set<ZSetOperations.TypedTuple<String>> oppositeOrders = redisTemplate.opsForZSet()
-                    .rangeWithScores(oppositeOrderbookKey, 0, 0);
-
-            if (oppositeOrders == null || oppositeOrders.isEmpty()) {
-                order.setOrderType(Order.OrderType.LIMIT);
-                matchLimitOrder(order);
-                break;
-            }
-
-            ZSetOperations.TypedTuple<String> oppositeOrderTuple = oppositeOrders.iterator().next();
-            String oppositeOrderId = oppositeOrderTuple.getValue();
-            BigDecimal oppositeOrderPrice = BigDecimal.valueOf(oppositeOrderTuple.getScore());
-
-            Order oppositeOrder = getOrderFromRedis(oppositeOrderId);
-            BigDecimal tradeQuantity = order.getQuantity().min(oppositeOrder.getQuantity());
-
-            redisTemplate.opsForZSet().remove(oppositeOrderbookKey, oppositeOrderId);
-            order.setQuantity(order.getQuantity().subtract(tradeQuantity));
-            oppositeOrder.setQuantity(oppositeOrder.getQuantity().subtract(tradeQuantity));
-
-            // 保存匹配成功的訂單到 MySQL
-            saveMatchedOrdersToMySQL(order, oppositeOrder);
-        }
+        matchOrder(order, true);
     }
 
+    // 限價單撮合邏輯
     private void matchLimitOrder(Order order) {
+        saveOrderToRedis(order);
+        matchOrder(order, false);
+    }
+
+    // 提取撮合邏輯
+// 提取撮合邏輯
+    private void matchOrder(Order order, boolean isMarketOrder) {
         String orderbookKey = "orderbook:" + order.getSymbol() + ":" + order.getSide();
         String oppositeOrderbookKey = "orderbook:" + order.getSymbol() + ":" +
                 (order.getSide() == Order.Side.BUY ? "SELL" : "BUY");
 
-        saveOrderToRedis(order);
-
-        while (order.getQuantity().compareTo(BigDecimal.ZERO) > 0) {
+        while (order.getQuantity().subtract(order.getFilledQuantity()).compareTo(BigDecimal.ZERO) > 0) {
             Set<ZSetOperations.TypedTuple<String>> oppositeOrders = redisTemplate.opsForZSet()
                     .rangeWithScores(oppositeOrderbookKey, 0, 0);
 
+            // 如果沒有對手訂單，對於限價單將訂單放回訂單簿並退出
             if (oppositeOrders == null || oppositeOrders.isEmpty()) {
-                redisTemplate.opsForZSet().add(orderbookKey, order.getId(), order.getPrice().doubleValue());
+                if (!isMarketOrder) {
+                    redisTemplate.opsForZSet().add(orderbookKey, order.getId(), order.getPrice().doubleValue());
+                }
                 break;
             }
 
             ZSetOperations.TypedTuple<String> oppositeOrderTuple = oppositeOrders.iterator().next();
             String oppositeOrderId = oppositeOrderTuple.getValue();
-            BigDecimal oppositeOrderPrice = BigDecimal.valueOf(oppositeOrderTuple.getScore());
+            Order oppositeOrder = getOrderFromRedis(oppositeOrderId);
+            BigDecimal oppositeOrderPrice = new BigDecimal(oppositeOrderTuple.getScore());
 
-            if ((order.getSide() == Order.Side.BUY && order.getPrice().compareTo(oppositeOrderPrice) < 0) ||
-                    (order.getSide() == Order.Side.SELL && order.getPrice().compareTo(oppositeOrderPrice) > 0)) {
-                redisTemplate.opsForZSet().add(orderbookKey, order.getId(), order.getPrice().doubleValue());
-                break;
+            // 對於限價單，檢查價格是否符合條件
+            if (!isMarketOrder) {
+                if ((order.getSide() == Order.Side.BUY && order.getPrice().compareTo(oppositeOrderPrice) < 0) ||
+                        (order.getSide() == Order.Side.SELL && order.getPrice().compareTo(oppositeOrderPrice) > 0)) {
+                    // 如果價格不匹配，將限價單保留在訂單簿中
+                    redisTemplate.opsForZSet().add(orderbookKey, order.getId(), order.getPrice().doubleValue());
+                    break;
+                }
             }
 
-            Order oppositeOrder = getOrderFromRedis(oppositeOrderId);
-            BigDecimal tradeQuantity = order.getQuantity().min(oppositeOrder.getQuantity());
-            redisTemplate.opsForZSet().remove(oppositeOrderbookKey, oppositeOrderId);
-            order.setQuantity(order.getQuantity().subtract(tradeQuantity));
-            oppositeOrder.setQuantity(oppositeOrder.getQuantity().subtract(tradeQuantity));
+            BigDecimal availableQuantity = order.getQuantity().subtract(order.getFilledQuantity());
+            BigDecimal oppositeAvailableQuantity = oppositeOrder.getQuantity().subtract(oppositeOrder.getFilledQuantity());
+            BigDecimal tradeQuantity = availableQuantity.min(oppositeAvailableQuantity);
 
-            // 保存匹配成功的訂單到 MySQL
-            saveMatchedOrdersToMySQL(order, oppositeOrder);
+            // 更新成交量
+            updateTrade(order, oppositeOrder, tradeQuantity);
+
+            // 更新對手訂單
+            updateOrderInRedis(oppositeOrder, oppositeOrderbookKey);
+            updateOrderInRedis(order, orderbookKey);
         }
     }
 
+    // 更新成交量並處理狀態
+    private void updateTrade(Order order, Order oppositeOrder, BigDecimal tradeQuantity) {
+        order.setFilledQuantity(order.getFilledQuantity().add(tradeQuantity));
+        oppositeOrder.setFilledQuantity(oppositeOrder.getFilledQuantity().add(tradeQuantity));
+
+        LocalDateTime currentTime = LocalDateTime.now(); // 取得當前時間
+
+        if (oppositeOrder.getFilledQuantity().compareTo(oppositeOrder.getQuantity()) >= 0) {
+            oppositeOrder.setStatus(Order.OrderStatus.COMPLETED);
+            oppositeOrder.setUpdatedAt(currentTime); // 更新完成時間
+            redisTemplate.delete("order:" + oppositeOrder.getId());
+        } else {
+            oppositeOrder.setStatus(Order.OrderStatus.PARTIALLY_FILLED);
+            oppositeOrder.setUpdatedAt(currentTime); // 更新部分成交時間
+        }
+
+        if (order.getFilledQuantity().compareTo(order.getQuantity()) >= 0) {
+            order.setStatus(Order.OrderStatus.COMPLETED);
+            order.setUpdatedAt(currentTime); // 更新完成時間
+            redisTemplate.delete("order:" + order.getId());
+        } else {
+            order.setStatus(Order.OrderStatus.PARTIALLY_FILLED);
+            order.setUpdatedAt(currentTime); // 更新部分成交時間
+        }
+
+        // 保存匹配成功的訂單到 MySQL
+        saveMatchedOrdersToMySQL(order, oppositeOrder);
+    }
+
+    // 更新訂單狀態到 Redis 和 ZSet
+    private void updateOrderInRedis(Order order, String orderbookKey) {
+        if (order.getStatus() != Order.OrderStatus.COMPLETED) {
+            saveOrderToRedis(order);
+        }
+        redisTemplate.opsForZSet().remove(orderbookKey, order.getId());
+        if (order.getStatus() == Order.OrderStatus.PARTIALLY_FILLED) {
+            redisTemplate.opsForZSet().add(orderbookKey, order.getId(), order.getPrice().doubleValue());
+        }
+    }
+
+    // 保存訂單到 Redis
     private void saveOrderToRedis(Order order) {
         String orderKey = "order:" + order.getId();
         redisTemplate.opsForHash().put(orderKey, "id", order.getId());
+        redisTemplate.opsForHash().put(orderKey, "userId", order.getUserId());
         redisTemplate.opsForHash().put(orderKey, "symbol", order.getSymbol());
         redisTemplate.opsForHash().put(orderKey, "price", order.getPrice().toString());
         redisTemplate.opsForHash().put(orderKey, "quantity", order.getQuantity().toString());
+        redisTemplate.opsForHash().put(orderKey, "filledQuantity", order.getFilledQuantity().toString());
         redisTemplate.opsForHash().put(orderKey, "side", order.getSide().toString());
         redisTemplate.opsForHash().put(orderKey, "orderType", order.getOrderType().toString());
+        redisTemplate.opsForHash().put(orderKey, "status", order.getStatus().toString());
         redisTemplate.opsForHash().put(orderKey, "createdAt", order.getCreatedAt().toString());
+        redisTemplate.opsForHash().put(orderKey, "updatedAt", order.getUpdatedAt().toString());
     }
 
-    // 使用 JPA 保存匹配成功的訂單
+    // 保存匹配成功的訂單到 MySQL
     private void saveMatchedOrdersToMySQL(Order order, Order oppositeOrder) {
-        System.out.println("Order symbol: " + order.getSymbol());
-        System.out.println("Opposite Order symbol: " + oppositeOrder.getSymbol());
-
-        order.setStatus(Order.OrderStatus.COMPLETED);
-        oppositeOrder.setStatus(Order.OrderStatus.COMPLETED);
-
-        // 使用 JPA 保存到 MySQL
         orderRepository.save(order);
         orderRepository.save(oppositeOrder);
     }
 
-
+    // 從 Redis 獲取訂單
     public Order getOrderFromRedis(String orderId) {
         String orderKey = "order:" + orderId;
         String priceStr = (String) redisTemplate.opsForHash().get(orderKey, "price");
+        String userIdStr = (String) redisTemplate.opsForHash().get(orderKey, "userId");
         String quantityStr = (String) redisTemplate.opsForHash().get(orderKey, "quantity");
+        String quantityFilledStr = (String) redisTemplate.opsForHash().get(orderKey, "filledQuantity");
         String orderTypeStr = (String) redisTemplate.opsForHash().get(orderKey, "orderType");
         String sideStr = (String) redisTemplate.opsForHash().get(orderKey, "side");
-        String symbolStr = (String) redisTemplate.opsForHash().get(orderKey, "symbol");  // 確認從 Redis 讀取 symbol
+        String symbolStr = (String) redisTemplate.opsForHash().get(orderKey, "symbol");
+        String statusStr = (String) redisTemplate.opsForHash().get(orderKey, "status");
+        String createdAtStr = (String) redisTemplate.opsForHash().get(orderKey, "createdAt");
+        String updatedAtStr = (String) redisTemplate.opsForHash().get(orderKey, "updatedAt");
 
-        // 檢查所有必須的屬性
-        if (priceStr == null || quantityStr == null || orderTypeStr == null || sideStr == null || symbolStr == null) {
+        if (priceStr == null || quantityStr == null || orderTypeStr == null || sideStr == null ||
+                symbolStr == null || userIdStr == null || statusStr == null || createdAtStr == null || updatedAtStr == null) {
             throw new IllegalStateException("Redis 中的訂單數據缺失: " + orderId);
         }
 
-        // 建立 Order 實例並設置屬性
         Order order = new Order();
         order.setId(orderId);
+        order.setUserId(userIdStr);
         order.setPrice(new BigDecimal(priceStr));
         order.setQuantity(new BigDecimal(quantityStr));
+        order.setFilledQuantity(new BigDecimal(quantityFilledStr));
         order.setOrderType(Order.OrderType.valueOf(orderTypeStr));
         order.setSide(Order.Side.valueOf(sideStr));
-        order.setSymbol(symbolStr);  // 設置 symbol
-        System.out.println("Fetched order from Redis, symbol: " + symbolStr);
+        order.setSymbol(symbolStr);
+        order.setStatus(Order.OrderStatus.valueOf(statusStr));
+        order.setCreatedAt(LocalDateTime.parse(createdAtStr));
+        order.setUpdatedAt(LocalDateTime.parse(updatedAtStr));
         return order;
     }
-
 }

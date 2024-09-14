@@ -22,9 +22,8 @@ public class Order {
     @Column(length = 20, nullable = false)
     private String id;  // 雪花ID
 
-    @ManyToOne
-    @JoinColumn(name = "user_id", referencedColumnName = "id")
-    private User user;
+    @Column(name = "user_id", length = 20, nullable = false)
+    private String userId;
 
     @Column(length = 10, nullable = false)
     private String symbol;   // 交易對，如 BTC/USDT
@@ -33,7 +32,10 @@ public class Order {
     private BigDecimal price;
 
     @Column(precision = 18, scale = 8, nullable = false)
-    private BigDecimal quantity;
+    private BigDecimal quantity;  // 原始下單數量
+
+    @Column(precision = 18, scale = 8, nullable = false)
+    private BigDecimal filledQuantity = BigDecimal.ZERO;
 
     @Enumerated(EnumType.STRING)
     @Column(length = 4, nullable = false)
@@ -74,7 +76,7 @@ public class Order {
 
     public enum OrderStatus {
         PENDING,
-        PARTIALLY_FILLED,  // 新增：部分成交狀態
+        PARTIALLY_FILLED,
         COMPLETED,
         CANCELLED
     }

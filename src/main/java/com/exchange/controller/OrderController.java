@@ -2,9 +2,7 @@ package com.exchange.controller;
 
 import com.exchange.dto.OrderRequest;
 import com.exchange.model.Order;
-import com.exchange.model.User;
 import com.exchange.service.OrderService;
-import com.exchange.service.UserService;
 import com.exchange.utils.SnowflakeIdGenerator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -17,28 +15,25 @@ import java.time.LocalDateTime;
 public class OrderController {
 
     private final OrderService orderService;
-    private final UserService userService;
     private final SnowflakeIdGenerator idGenerator;
 
     @Autowired
-    public OrderController(OrderService orderService, UserService userService, SnowflakeIdGenerator idGenerator) {
+    public OrderController(OrderService orderService, SnowflakeIdGenerator idGenerator) {
         this.orderService = orderService;
-        this.userService = userService;
         this.idGenerator = idGenerator;
     }
 
     @PostMapping("/submit")
     public ResponseEntity<?> submitOrder(@RequestBody OrderRequest orderRequest) {
-        // 獲取用戶
-        User user = userService.getUserById(orderRequest.getUserId()).orElse(null);
-        if (user == null) {
-            return ResponseEntity.badRequest().body("無效的用戶");
+        // 檢查 userId 是否有效
+        if (orderRequest.getUserId() == null || orderRequest.getUserId().isEmpty()) {
+            return ResponseEntity.badRequest().body("無效的用戶ID");
         }
 
         // 創建新訂單
         Order order = new Order();
         order.setId(String.valueOf(idGenerator.nextId()));
-        order.setUser(user);
+        order.setUserId(orderRequest.getUserId());  // 設置 userId
         order.setSymbol(orderRequest.getSymbol());
         order.setPrice(orderRequest.getPrice());
         order.setQuantity(orderRequest.getQuantity());
