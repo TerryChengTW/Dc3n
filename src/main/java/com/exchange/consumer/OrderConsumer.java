@@ -22,8 +22,10 @@ public class OrderConsumer {
         try {
             // 將接收到的 JSON 訂單轉換為 Order 對象
             Order order = objectMapper.readValue(orderJson, Order.class);
-            // 將訂單分發給 Redis 和 MySQL
+
+            // 將訂單保存到 Redis 並嘗試匹配
             matchingService.processOrder(order);
+
         } catch (Exception e) {
             e.printStackTrace();
         }
