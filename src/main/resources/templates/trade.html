@@ -15,48 +15,72 @@
 
 <h2>交易系統</h2>
 
-<!-- 交易視窗 -->
-<div class="trade-window">
-    <form id="orderForm">
-        <div class="form-group">
-            <label for="symbol">Symbol:</label>
-            <input type="text" id="symbol" name="symbol" value="BTCUSD">
-        </div>
+<!-- 主內容容器，包含訂單簿和下單表單 -->
+<div class="main-container">
 
-        <div class="form-group">
-            <label for="price">Price:</label>
-            <input type="number" id="price" name="price" step="0.01">
-        </div>
+    <!-- 訂單簿 -->
+    <div id="orderbookContainer">
+        <h3>訂單簿</h3>
+        <table>
+            <thead>
+            <tr>
+                <th>價格</th>
+                <th>數量</th>
+            </tr>
+            </thead>
+            <tbody id="asksList">
+            <!-- 賣單將在這裡動態插入 -->
+            </tbody>
+            <tbody id="bidsList">
+            <!-- 買單將在這裡動態插入 -->
+            </tbody>
+        </table>
+    </div>
 
-        <div class="form-group">
-            <label for="quantity">Quantity:</label>
-            <input type="number" id="quantity" name="quantity" value="1">
-        </div>
-
-        <div class="form-group">
-            <label>Side:</label>
-            <div class="btn-group">
-                <button type="button" id="buyButton" onclick="selectSide('BUY')">BUY</button>
-                <button type="button" id="sellButton" onclick="selectSide('SELL')">SELL</button>
+    <!-- 下單視窗 -->
+    <div class="trade-window">
+        <form id="orderForm">
+            <div class="form-group">
+                <label for="symbol">Symbol:</label>
+                <select id="symbol" name="symbol" onchange="updateSymbol()">
+                    <option value="BTCUSDT">BTCUSDT</option>
+                    <option value="ETHUSDT">ETHUSDT</option>
+                    <!-- 添加更多交易對 -->
+                </select>
             </div>
-        </div>
 
-        <div class="form-group">
-            <label>Order Type:</label>
-            <div class="btn-group">
-                <button type="button" id="limitButton" onclick="selectOrderType('LIMIT')">LIMIT</button>
-                <button type="button" id="marketButton" onclick="selectOrderType('MARKET')">MARKET</button>
+            <div class="form-group">
+                <label for="price">Price:</label>
+                <input type="number" id="price" name="price" step="0.01">
             </div>
-        </div>
 
-        <button type="button" class="submit-btn" onclick="submitOrder()">下單</button>
-    </form>
+            <div class="form-group">
+                <label for="quantity">Quantity:</label>
+                <input type="number" id="quantity" name="quantity" value="1">
+            </div>
+
+            <div class="form-group">
+                <label>Side:</label>
+                <div class="btn-group">
+                    <button type="button" id="buyButton" onclick="selectSide('BUY')">BUY</button>
+                    <button type="button" id="sellButton" onclick="selectSide('SELL')">SELL</button>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Order Type:</label>
+                <div class="btn-group">
+                    <button type="button" id="limitButton" onclick="selectOrderType('LIMIT')">LIMIT</button>
+                    <button type="button" id="marketButton" onclick="selectOrderType('MARKET')">MARKET</button>
+                </div>
+            </div>
+
+            <button type="button" class="submit-btn" onclick="submitOrder()">下單</button>
+        </form>
+    </div>
 </div>
 
-<div id="errorPopup">
-    <span id="errorPopupMessage"></span>
-</div>
-
+<!-- 用戶訂單列表 -->
 <div id="orderTableContainer">
     <h3>訂單列表</h3>
     <table id="orderTable">

@@ -5,6 +5,7 @@ import com.exchange.model.Trade;
 import com.exchange.producer.MatchedOrderProducer;
 import com.exchange.producer.WebSocketNotificationProducer;
 import com.exchange.utils.SnowflakeIdGenerator;
+import com.exchange.websocket.OrderbookWebSocketHandler;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
@@ -12,6 +13,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.Set;
 
 @Service
@@ -28,6 +30,12 @@ public class OrderMatchingService {
 
     @Autowired
     private SnowflakeIdGenerator snowflakeIdGenerator;
+
+    @Autowired
+    private OrderbookWebSocketHandler orderbookWebSocketHandler;
+
+    @Autowired
+    private OrderbookService orderbookService;
 
     public void processOrder(Order order) {
         if (order.getOrderType() == Order.OrderType.MARKET) {
@@ -130,9 +138,16 @@ public class OrderMatchingService {
         if (order.getStatus() == Order.OrderStatus.PARTIALLY_FILLED) {
             addOrderToOrderbook(order, orderbookKey);
         }
+        sendOrderbookUpdate(order.getSymbol());
     }
     private void addOrderToOrderbook(Order order, String orderbookKey) {
         redisTemplate.opsForZSet().add(orderbookKey, order.getId(), order.getPrice().doubleValue());
+        sendOrderbookUpdate(order.getSymbol());
+    }
+
+    private void sendOrderbookUpdate(String symbol) {
+        Map<String, Object> orderbookSnapshot = orderbookService.getOrderbookSnapshot(symbol);
+        orderbookWebSocketHandler.broadcastOrderbookUpdate(symbol, orderbookSnapshot);
     }
 
     private void saveOrderToRedis(Order order) {

@@ -1,68 +1,112 @@
-h2 {
-    color: #333;
+/* 全局設置 */
+* {
     margin: 0;
+    padding: 0;
+    box-sizing: border-box;
 }
 
-.trade-window {
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f9;
+    padding: 20px;
+}
+
+/* 主容器：Flexbox布局 */
+.main-container {
     display: flex;
-    width: 280px;
-    height: auto;
-    background-color: #ffffff;
-    margin: 10px;
-    padding: 10px;
-    border-radius: 10px;
-    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.2);
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 20px;
+}
+
+/* 訂單簿樣式 */
+/* 訂單簿樣式 */
+#orderbookContainer {
+    background-color: #fff;
+    padding: 10px; /* 減少 padding 使表格更緊湊 */
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); /* 調整陰影 */
+    width: 45%; /* 調整寬度以為K線圖騰出空間 */
+    max-height: 400px; /* 調整高度 */
+    overflow-y: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px; /* 減小字體 */
+    margin-bottom: 10px;
+}
+
+th, td {
+    border: 1px solid #ddd;
+    padding: 5px 8px; /* 減少 padding */
+    text-align: right; /* 將內容靠右對齊 */
+}
+
+th {
+    background-color: #f8f9fa;
+    font-weight: bold;
+}
+
+/* 買單使用綠色背景 */
+.bid-row td {
+    background-color: #d4f5e9; /* 綠色背景 */
+    color: #008000; /* 綠色字體 */
+}
+
+/* 賣單使用紅色背景 */
+.ask-row td {
+    background-color: #f5d4d4; /* 紅色背景 */
+    color: #d10000; /* 紅色字體 */
+}
+
+
+/* 下單窗口樣式 */
+.trade-window {
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+    width: 40%; /* 右側佔40% */
 }
 
 .trade-window label {
     display: block;
+    margin-bottom: 8px;
     font-weight: bold;
-    margin-bottom: 5px;
+    color: #555;
 }
 
-.trade-window input {
-    height: 100%;
+.trade-window input,
+.trade-window select {
+    width: 100%;
     padding: 10px;
-    margin-bottom: 10px;
-    border: 1px solid #ccc;
-    border-radius: 5px;
-    box-sizing: border-box;
+    margin-bottom: 15px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
 }
 
 .form-group {
-    display: flex;
-    align-items: center;
-    margin-bottom: 10px;
+    margin-bottom: 15px;
 }
 
-.form-group label {
-    flex: 1;
-    font-weight: bold;
-    margin-right: 10px;
-}
-
-.form-group input {
-    flex: 2;
-    padding: 10px;
-    border: 1px solid #ccc;
-    border-radius: 5px;
-    box-sizing: border-box;
-}
-
-.form-group .btn-group {
-    flex: 2;
+/* 按鈕組 */
+.btn-group {
     display: flex;
     justify-content: space-between;
 }
 
 .btn-group button {
-    width: 49%;
+    width: 48%;
     padding: 10px;
     font-size: 16px;
-    cursor: pointer;
     border: 1px solid #ccc;
+    border-radius: 4px;
+    cursor: pointer;
     background-color: #f9f9f9;
-    border-radius: 5px;
+    transition: background-color 0.3s;
 }
 
 .btn-group button.active {
@@ -70,42 +114,37 @@ h2 {
     color: white;
 }
 
+.btn-group button:hover {
+    background-color: #f1f1f1;
+}
+
+/* 提交按鈕 */
 .submit-btn {
     width: 100%;
-    padding: 10px;
+    padding: 12px;
     background-color: #28a745;
     color: white;
     border: none;
-    border-radius: 5px;
-    cursor: pointer;
+    border-radius: 4px;
     font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.3s;
 }
 
 .submit-btn:hover {
     background-color: #218838;
 }
 
+/* 訂單列表樣式 */
 #orderTableContainer {
-    width: 90%;
-    height: 200px;
-    border: 1px solid black;
-    overflow-y: auto;
-    background-color: #f9f9f9;
-}
-
-table {
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
     width: 100%;
-    border-collapse: collapse;
-}
-
-th, td {
-    border: 1px solid #ccc;
-    padding: 8px;
-    text-align: left;
-}
-
-th {
-    background-color: #f2f2f2;
+    margin-top: 20px;
+    max-height: 300px; /* 限制高度，超出內容可滾動 */
+    overflow-y: auto;
 }
 
 #errorPopup {
@@ -113,16 +152,10 @@ th {
     position: fixed;
     top: 20px;
     right: 20px;
-    background-color: red;
+    background-color: #ff4d4d;
     color: white;
-    padding: 10px;
+    padding: 15px;
     border-radius: 5px;
     z-index: 1000;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
 }
-
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
-

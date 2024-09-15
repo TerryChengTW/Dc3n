@@ -18,31 +18,41 @@ public class JwtWebSocketHandlerDecorator extends WebSocketHandlerDecorator {
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
         String token = extractToken(session);
+        String symbol = extractSymbol(session);
         if (token != null) {
-            System.out.println("Extracted Token: " + token);  // Debugging output
             String username = jwtUtil.extractUsername(token);
             if (username != null && !jwtUtil.isTokenExpired(token)) {
                 String userId = jwtUtil.extractUserId(token);
                 session.getAttributes().put("userId", userId);
                 session.getAttributes().put("username", username);
+                if (symbol != null) {
+                    session.getAttributes().put("symbol", symbol);
+                }
                 super.afterConnectionEstablished(session);
             } else {
-                System.out.println("Token is invalid or expired");
                 session.close(CloseStatus.POLICY_VIOLATION);
             }
         } else {
-            System.out.println("No token found in the query parameters");
             session.close(CloseStatus.POLICY_VIOLATION);
         }
     }
 
     private String extractToken(WebSocketSession session) {
         String query = session.getUri().getQuery();
+        return extractParameter(query, "token");
+    }
+
+    private String extractSymbol(WebSocketSession session) {
+        String query = session.getUri().getQuery();
+        return extractParameter(query, "symbol");
+    }
+
+    private String extractParameter(String query, String paramName) {
         if (query != null) {
             String[] params = query.split("&");
             for (String param : params) {
                 String[] keyValue = param.split("=");
-                if (keyValue.length == 2 && "token".equals(keyValue[0])) {
+                if (keyValue.length == 2 && paramName.equals(keyValue[0])) {
                     return keyValue[1];
                 }
             }
