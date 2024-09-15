@@ -29,7 +29,6 @@ public class OrderMatchingService {
     @Autowired
     private SnowflakeIdGenerator snowflakeIdGenerator;
 
-
     public void processOrder(Order order) {
         if (order.getOrderType() == Order.OrderType.MARKET) {
             matchMarketOrder(order);
@@ -38,12 +37,10 @@ public class OrderMatchingService {
         }
     }
 
-    // 市價單撮合邏輯
     private void matchMarketOrder(Order order) {
         matchOrder(order, true);
     }
 
-    // 限價單撮合邏輯
     private void matchLimitOrder(Order order) {
         System.out.println("Matching limit order: " + "Order ID: " + order.getId() + ", Symbol: " + order.getSymbol() +
                 ", Side: " + order.getSide() + ", Price: " + order.getPrice() + ", Quantity: " + order.getQuantity());
@@ -51,20 +48,24 @@ public class OrderMatchingService {
         saveOrderToRedis(order);
     }
 
-    // 提取撮合邏輯
     private void matchOrder(Order order, boolean isMarketOrder) {
         String orderbookKey = "orderbook:" + order.getSymbol() + ":" + order.getSide();
         String oppositeOrderbookKey = "orderbook:" + order.getSymbol() + ":" +
                 (order.getSide() == Order.Side.BUY ? "SELL" : "BUY");
 
         while (order.getQuantity().subtract(order.getFilledQuantity()).compareTo(BigDecimal.ZERO) > 0) {
-            Set<ZSetOperations.TypedTuple<String>> oppositeOrders = redisTemplate.opsForZSet()
-                    .rangeWithScores(oppositeOrderbookKey, 0, 0);
+            Set<ZSetOperations.TypedTuple<String>> oppositeOrders;
+            if (order.getSide() == Order.Side.BUY) {
+                // 買單應該匹配最低的賣價
+                oppositeOrders = redisTemplate.opsForZSet().rangeWithScores(oppositeOrderbookKey, 0, 0);
+            } else {
+                // 賣單應該匹配最高的買價
+                oppositeOrders = redisTemplate.opsForZSet().reverseRangeWithScores(oppositeOrderbookKey, 0, 0);
+            }
 
-            // 如果沒有對手訂單，對於限價單將訂單放回訂單簿並退出
             if (oppositeOrders == null || oppositeOrders.isEmpty()) {
                 if (!isMarketOrder) {
-                    redisTemplate.opsForZSet().add(orderbookKey, order.getId(), order.getPrice().doubleValue());
+                    addOrderToOrderbook(order, orderbookKey);
                 }
                 break;
             }
@@ -72,14 +73,12 @@ public class OrderMatchingService {
             ZSetOperations.TypedTuple<String> oppositeOrderTuple = oppositeOrders.iterator().next();
             String oppositeOrderId = oppositeOrderTuple.getValue();
             Order oppositeOrder = getOrderFromRedis(oppositeOrderId);
-            BigDecimal oppositeOrderPrice = new BigDecimal(oppositeOrderTuple.getScore());
+            BigDecimal oppositeOrderPrice = BigDecimal.valueOf(oppositeOrderTuple.getScore());
 
-            // 對於限價單，檢查價格是否符合條件
             if (!isMarketOrder) {
                 if ((order.getSide() == Order.Side.BUY && order.getPrice().compareTo(oppositeOrderPrice) < 0) ||
                         (order.getSide() == Order.Side.SELL && order.getPrice().compareTo(oppositeOrderPrice) > 0)) {
-                    // 如果價格不匹配，將限價單保留在訂單簿中
-                    redisTemplate.opsForZSet().add(orderbookKey, order.getId(), order.getPrice().doubleValue());
+                    addOrderToOrderbook(order, orderbookKey);
                     break;
                 }
             }
@@ -88,13 +87,9 @@ public class OrderMatchingService {
             BigDecimal oppositeAvailableQuantity = oppositeOrder.getQuantity().subtract(oppositeOrder.getFilledQuantity());
             BigDecimal tradeQuantity = availableQuantity.min(oppositeAvailableQuantity);
 
-            // 更新成交量
             updateTrade(order, oppositeOrder, tradeQuantity);
-
-            // 保存交易數據
             saveTrade(order, oppositeOrder, tradeQuantity, oppositeOrderPrice);
 
-            // 更新對手訂單
             updateOrderInRedis(oppositeOrder, oppositeOrderbookKey);
             if (!isMarketOrder) {
                 updateOrderInRedis(order, orderbookKey);
@@ -102,7 +97,6 @@ public class OrderMatchingService {
         }
     }
 
-    // 更新成交量並處理狀態
     private void updateTrade(Order order, Order oppositeOrder, BigDecimal tradeQuantity) {
         order.setFilledQuantity(order.getFilledQuantity().add(tradeQuantity));
         oppositeOrder.setFilledQuantity(oppositeOrder.getFilledQuantity().add(tradeQuantity));
@@ -112,7 +106,6 @@ public class OrderMatchingService {
         updateOrderStatus(oppositeOrder, currentTime);
         updateOrderStatus(order, currentTime);
 
-        // 發送匹配成功的訂單和交易到 Kafka
         matchedOrderProducer.sendMatchedOrder(order);
         matchedOrderProducer.sendMatchedOrder(oppositeOrder);
     }
@@ -131,18 +124,19 @@ public class OrderMatchingService {
         }
     }
 
-    // 更新訂單狀態到 Redis 和 ZSet
     private void updateOrderInRedis(Order order, String orderbookKey) {
         if (order.getStatus() != Order.OrderStatus.COMPLETED) {
             saveOrderToRedis(order);
         }
         redisTemplate.opsForZSet().remove(orderbookKey, order.getId());
         if (order.getStatus() == Order.OrderStatus.PARTIALLY_FILLED) {
-            redisTemplate.opsForZSet().add(orderbookKey, order.getId(), order.getPrice().doubleValue());
+            addOrderToOrderbook(order, orderbookKey);
         }
     }
+    private void addOrderToOrderbook(Order order, String orderbookKey) {
+        redisTemplate.opsForZSet().add(orderbookKey, order.getId(), order.getPrice().doubleValue());
+    }
 
-    // 保存訂單到 Redis
     private void saveOrderToRedis(Order order) {
         String orderKey = "order:" + order.getId();
         redisTemplate.opsForHash().put(orderKey, "id", order.getId());
@@ -159,7 +153,6 @@ public class OrderMatchingService {
         sendWebSocketNotification(order.getUserId(), "ORDER_CREATED", order);
     }
 
-    // 保存交易數據到 Kafka
     private void saveTrade(Order buyOrder, Order sellOrder, BigDecimal tradeQuantity, BigDecimal price) {
         Trade trade = new Trade();
         trade.setId(generateTradeId());
@@ -176,7 +169,6 @@ public class OrderMatchingService {
         return String.valueOf(snowflakeIdGenerator.nextId());
     }
 
-    // 從 Redis 獲取訂單
     public Order getOrderFromRedis(String orderId) {
         String orderKey = "order:" + orderId;
         String priceStr = (String) redisTemplate.opsForHash().get(orderKey, "price");
