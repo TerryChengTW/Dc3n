@@ -222,7 +222,7 @@ function updateOrderbookDisplay(orderbookUpdate) {
     const asksList = document.getElementById('asksList');
     asksList.innerHTML = '';
     const groupedAsks = groupOrdersByPriceRange(asks, 1); // 每1塊分組
-    groupedAsks.slice(-5).reverse().forEach(([price, totalQuantity]) => {
+    groupedAsks.slice(0, 5).forEach(([price, totalQuantity]) => { // 不再reverse
         const row = `<tr class="ask-row"><td>${price}</td><td>${totalQuantity.toFixed(2)}</td></tr>`;
         asksList.innerHTML += row;
     });
