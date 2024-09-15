@@ -4,141 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>交易介面</title>
-    <style>
-
-
-        h2 {
-            color: #333;
-            margin: 0;
-        }
-
-        .trade-window {
-            display: flex;
-            width: 280px;
-            height: auto;
-            background-color: #ffffff;
-            margin: 10px;
-            padding: 10px;
-            border-radius: 10px;
-            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.2);
-        }
-
-        .trade-window label {
-            display: block;
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-
-        .trade-window input {
-            height: 100%;
-            padding: 10px;
-            margin-bottom: 10px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            box-sizing: border-box;
-        }
-
-        .form-group {
-            display: flex;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-
-        .form-group label {
-            flex: 1;
-            font-weight: bold;
-            margin-right: 10px;
-        }
-
-        .form-group input {
-            flex: 2;
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            box-sizing: border-box;
-        }
-
-        /* 調整 .btn-group 以適應 form-group 佈局 */
-        .form-group .btn-group {
-            flex: 2;
-            display: flex;
-            justify-content: space-between;
-        }
-
-        .btn-group button {
-            width: 49%;
-            padding: 10px;
-            font-size: 16px;
-            cursor: pointer;
-            border: 1px solid #ccc;
-            background-color: #f9f9f9;
-            border-radius: 5px;
-        }
-
-        .btn-group button.active {
-            background-color: #007bff;
-            color: white;
-        }
-
-
-        .submit-btn {
-            width: 100%;
-            padding: 10px;
-            background-color: #28a745;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
-        }
-
-        .submit-btn:hover {
-            background-color: #218838;
-        }
-
-        /* 訂單列表區域 */
-        #orderTableContainer {
-            width: 90%;
-            height: 200px; /* 設定固定高度，防止超出頁面範圍 */
-            border: 1px solid black;
-            overflow-y: auto; /* 當內容過多時，表格內可以滾動 */
-            background-color: #f9f9f9;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        th, td {
-            border: 1px solid #ccc;
-            padding: 8px;
-            text-align: left;
-        }
-
-        th {
-            background-color: #f2f2f2;
-        }
-
-        #errorPopup {
-            display: none;
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background-color: red;
-            color: white;
-            padding: 10px;
-            border-radius: 5px;
-            z-index: 1000;
-        }
-
-         * {
-             margin: 0;
-             padding: 0;
-             box-sizing: border-box;
-         }
-
-    </style>
+    <link rel="stylesheet" href="/css/trade.css">
     <script src="/js/auth.js"></script>
 </head>
 <body>
@@ -152,7 +18,6 @@
 <!-- 交易視窗 -->
 <div class="trade-window">
     <form id="orderForm">
-        <!-- 將每個表單項目放入 form-group 中 -->
         <div class="form-group">
             <label for="symbol">Symbol:</label>
             <input type="text" id="symbol" name="symbol" value="BTCUSD">
@@ -168,7 +33,6 @@
             <input type="number" id="quantity" name="quantity" value="1">
         </div>
 
-        <!-- Side 選項 -->
         <div class="form-group">
             <label>Side:</label>
             <div class="btn-group">
@@ -177,7 +41,6 @@
             </div>
         </div>
 
-        <!-- Order Type 選項 -->
         <div class="form-group">
             <label>Order Type:</label>
             <div class="btn-group">
@@ -190,12 +53,10 @@
     </form>
 </div>
 
-<!-- 訂單錯誤訊息彈出框 -->
 <div id="errorPopup">
     <span id="errorPopupMessage"></span>
 </div>
 
-<!-- 訂單列表區域 -->
 <div id="orderTableContainer">
     <h3>訂單列表</h3>
     <table id="orderTable">
@@ -213,174 +74,11 @@
         </tr>
         </thead>
         <tbody>
-        <!-- 訂單會動態顯示在這裡 -->
         </tbody>
     </table>
 </div>
 
-<script>
-    let socket;
-    let selectedSide = '';
-    let selectedOrderType = '';
-
-    function connectWebSocket() {
-        const token = localStorage.getItem('jwtToken');
-        socket = new WebSocket(`ws://localhost:8081/ws?token=${token}`);
-
-        socket.onopen = function(e) {
-            console.log("WebSocket 連接已建立");
-        };
-
-        socket.onmessage = function(event) {
-            const notification = JSON.parse(event.data);
-            handleOrderNotification(notification);
-        };
-
-        socket.onclose = function(event) {
-            if (event.wasClean) {
-                console.log(`WebSocket 連接已關閉，代碼=${event.code} 原因=${event.reason}`);
-            } else {
-                console.log('WebSocket 連接已中斷');
-            }
-        };
-
-        socket.onerror = function(error) {
-            console.log(`WebSocket 錯誤: ${error.message}`);
-        };
-    }
-
-    // 處理訂單通知
-    function handleOrderNotification(notification) {
-        const order = notification.data;
-        const orderTableBody = document.querySelector('#orderTable tbody');
-
-        switch (notification.eventType) {
-            case 'ORDER_CREATED':
-                addOrUpdateOrderRow(order);
-                break;
-            case 'ORDER_UPDATED':
-                addOrUpdateOrderRow(order);
-                break;
-            case 'ORDER_DELETED':
-                removeOrderRow(order.id);
-                break;
-        }
-    }
-
-    function addOrUpdateOrderRow(order) {
-        let orderRow = document.getElementById(`order-${order.id}`);
-
-        if (!orderRow) {
-            orderRow = document.createElement('tr');
-            orderRow.id = `order-${order.id}`;
-            document.querySelector('#orderTable tbody').appendChild(orderRow);
-        }
-
-        orderRow.innerHTML = `
-            <td>${order.id}</td>
-            <td>${order.userId}</td>
-            <td>${order.symbol}</td>
-            <td>${order.price}</td>
-            <td>${order.quantity}</td>
-            <td>${order.filledQuantity}</td>
-            <td>${order.side}</td>
-            <td>${order.orderType}</td>
-            <td>${order.status}</td>
-        `;
-
-        if (order.status === 'COMPLETED') {
-            setTimeout(() => removeOrderRow(order.id), 5000); // 5秒後移除完全成交的訂單
-        }
-    }
-
-    // 移除訂單行
-    function removeOrderRow(orderId) {
-        const orderRow = document.getElementById(`order-${orderId}`);
-        if (orderRow) {
-            orderRow.remove();
-        }
-    }
-
-    function selectSide(side) {
-        selectedSide = side;
-
-        // 更新按鈕狀態
-        document.getElementById('buyButton').classList.remove('active');
-        document.getElementById('sellButton').classList.remove('active');
-        if (side === 'BUY') {
-            document.getElementById('buyButton').classList.add('active');
-        } else {
-            document.getElementById('sellButton').classList.add('active');
-        }
-    }
-
-    function selectOrderType(orderType) {
-        selectedOrderType = orderType;
-
-        // 更新按鈕狀態
-        document.getElementById('limitButton').classList.remove('active');
-        document.getElementById('marketButton').classList.remove('active');
-        if (orderType === 'LIMIT') {
-            document.getElementById('limitButton').classList.add('active');
-        } else {
-            document.getElementById('marketButton').classList.add('active');
-        }
-    }
-
-    function submitOrder() {
-        const data = {
-            symbol: document.getElementById("symbol").value,
-            price: parseFloat(document.getElementById("price").value),
-            quantity: parseFloat(document.getElementById("quantity").value),
-            side: selectedSide,
-            orderType: selectedOrderType
-        };
-
-        if (!data.side || !data.orderType) {
-            showErrorPopup("請選擇方向和訂單類型");
-            return;
-        }
-
-        const token = localStorage.getItem('jwtToken');
-        fetch('/orders/submit', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer ' + token
-            },
-            body: JSON.stringify(data),
-        })
-            .then(response => response.json().then(data => {
-                if (response.ok) {
-                    alert('下單成功: ' + data.message);
-                } else {
-                    throw new Error(data.error || '下單失敗');
-                }
-            }))
-            .catch((error) => {
-                showErrorPopup('下單失敗: ' + error.message);
-            });
-    }
-
-    function showErrorPopup(message) {
-        const errorPopup = document.getElementById('errorPopup');
-        const errorPopupMessage = document.getElementById('errorPopupMessage');
-
-        if (errorPopupMessage) {
-            errorPopupMessage.textContent = message;
-            errorPopup.style.display = 'block';
-
-            setTimeout(() => {
-                errorPopup.style.display = 'none';
-            }, 3000);
-        }
-    }
-
-    window.onload = function() {
-        connectWebSocket();
-    };
-
-</script>
+<script src="/js/trade.js"></script>
 
 </body>
 </html>
