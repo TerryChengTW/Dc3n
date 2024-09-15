@@ -200,7 +200,7 @@ function groupOrdersByPriceRange(orders, rangeSize) {
         if (!groupedOrders[roundedPrice]) {
             groupedOrders[roundedPrice] = 0;
         }
-        groupedOrders[roundedPrice] += quantity;
+        groupedOrders[roundedPrice] = parseFloat((groupedOrders[roundedPrice] + parseFloat(quantity)).toFixed(2));
     });
 
     return Object.entries(groupedOrders).sort((a, b) => a[0] - b[0]);
@@ -214,7 +214,7 @@ function updateOrderbookDisplay(orderbookUpdate) {
     bidsList.innerHTML = '';
     const groupedBids = groupOrdersByPriceRange(bids, 1); // 每1塊分組
     groupedBids.slice(-5).reverse().forEach(([price, totalQuantity]) => {
-        const row = `<tr class="bid-row"><td>${price}</td><td>${totalQuantity}</td></tr>`;
+        const row = `<tr class="bid-row"><td>${price}</td><td>${totalQuantity.toFixed(2)}</td></tr>`;
         bidsList.innerHTML += row;
     });
 
@@ -223,7 +223,7 @@ function updateOrderbookDisplay(orderbookUpdate) {
     asksList.innerHTML = '';
     const groupedAsks = groupOrdersByPriceRange(asks, 1); // 每1塊分組
     groupedAsks.slice(-5).reverse().forEach(([price, totalQuantity]) => {
-        const row = `<tr class="ask-row"><td>${price}</td><td>${totalQuantity}</td></tr>`;
+        const row = `<tr class="ask-row"><td>${price}</td><td>${totalQuantity.toFixed(2)}</td></tr>`;
         asksList.innerHTML += row;
     });
 }

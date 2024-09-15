@@ -8,7 +8,7 @@
 body {
     font-family: Arial, sans-serif;
     background-color: #f4f4f9;
-    padding: 20px;
+    padding: 0px;
 }
 
 /* 主容器：Flexbox布局 */
@@ -20,13 +20,12 @@ body {
 }
 
 /* 訂單簿樣式 */
-/* 訂單簿樣式 */
 #orderbookContainer {
     background-color: #fff;
     padding: 10px; /* 減少 padding 使表格更緊湊 */
     border-radius: 8px;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); /* 調整陰影 */
-    width: 45%; /* 調整寬度以為K線圖騰出空間 */
+    width: 15%; /* 調整寬度以為K線圖騰出空間 */
     max-height: 400px; /* 調整高度 */
     overflow-y: auto;
 }
@@ -65,10 +64,12 @@ th {
 /* 下單窗口樣式 */
 .trade-window {
     background-color: #fff;
-    padding: 20px;
+    padding: 10px;
     border-radius: 8px;
     box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
-    width: 40%; /* 右側佔40% */
+    width: 20%;
+    max-height: 46vh; /* 限制高度為畫面的一半 */
+    overflow-y: auto; /* 當內容超出高度時顯示滾動條 */
 }
 
 .trade-window label {
@@ -88,20 +89,46 @@ th {
     font-size: 14px;
 }
 
+/* 調整 form-group 讓 label 和輸入框更好對齊 */
+/* 調整 form-group 讓項目更緊湊 */
 .form-group {
-    margin-bottom: 15px;
+    display: flex;
+    justify-content: space-between; /* 調整位置 */
+    align-items: center; /* 垂直居中對齊 */
+    margin-bottom: 8px; /* 減少間距 */
 }
 
-/* 按鈕組 */
+/* 調整 label 的寬度 */
+.form-group label {
+    width: 35%; /* 調整寬度比例，使文字更易讀 */
+    text-align: left; /* 靠左對齊 */
+    margin-right: 5px; /* 減少 label 與輸入框的間距 */
+}
+
+/* 調整輸入框和選單的寬度與 padding */
+.form-group input,
+.form-group select {
+    width: 65%; /* 調整輸入框的寬度以平衡布局 */
+    padding: 6px; /* 減少 padding 使輸入框更緊湊 */
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+/* 調整按鈕組樣式讓按鈕更好對齊 */
 .btn-group {
     display: flex;
     justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    margin-bottom: 10px; /* 減少按鈕組的間距 */
 }
 
+/* 調整按鈕組樣式讓按鈕更好對齊 */
 .btn-group button {
-    width: 48%;
-    padding: 10px;
-    font-size: 16px;
+    width: 48%; /* 確保按鈕各占一半空間並對齊 */
+    padding: 8px; /* 減少按鈕 padding */
+    font-size: 14px;
     border: 1px solid #ccc;
     border-radius: 4px;
     cursor: pointer;
@@ -109,19 +136,32 @@ th {
     transition: background-color 0.3s;
 }
 
+/* 鼠標懸停時的背景色 */
+.btn-group button:hover {
+    background-color: #e0e0e0;
+}
+
+/* 點擊時的顏色變化 */
+.btn-group button:active {
+    background-color: #c0c0c0;
+}
+
+/* 按鈕被選中時的顏色 */
+.btn-group button:focus {
+    outline: none; /* 移除默認的藍色邊框 */
+    background-color: #b0b0b0;
+}
+
+/* 激活狀態的按鈕顏色 */
 .btn-group button.active {
     background-color: #007bff;
     color: white;
 }
 
-.btn-group button:hover {
-    background-color: #f1f1f1;
-}
-
 /* 提交按鈕 */
 .submit-btn {
     width: 100%;
-    padding: 12px;
+    padding: 10px; /* 減少提交按鈕 padding */
     background-color: #28a745;
     color: white;
     border: none;
@@ -131,9 +171,22 @@ th {
     transition: background-color 0.3s;
 }
 
+/* 鼠標懸停時變深 */
 .submit-btn:hover {
     background-color: #218838;
 }
+
+/* 點擊時的效果 */
+.submit-btn:active {
+    background-color: #1e7e34;
+}
+
+/* 點擊後保持聚焦效果 */
+.submit-btn:focus {
+    outline: none;
+    background-color: #1e7e34;
+}
+
 
 /* 訂單列表樣式 */
 #orderTableContainer {
