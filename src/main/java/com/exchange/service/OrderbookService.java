@@ -30,10 +30,10 @@ public class OrderbookService {
         Set<ZSetOperations.TypedTuple<String>> entries;
         if (isBuyOrder) {
             // 買單按價格降序排列
-            entries = redisTemplate.opsForZSet().reverseRangeWithScores(orderbookKey, 0, 9);
+            entries = redisTemplate.opsForZSet().reverseRangeWithScores(orderbookKey, 0, 999);
         } else {
             // 賣單按價格升序排列
-            entries = redisTemplate.opsForZSet().rangeWithScores(orderbookKey, 0, 9);
+            entries = redisTemplate.opsForZSet().rangeWithScores(orderbookKey, 0, 999);
         }
 
         List<List<String>> result = new ArrayList<>();
