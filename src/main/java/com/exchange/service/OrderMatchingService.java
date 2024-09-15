@@ -41,6 +41,8 @@ public class OrderMatchingService {
 
     // 限價單撮合邏輯
     private void matchLimitOrder(Order order) {
+        System.out.println("Matching limit order: " + "Order ID: " + order.getId() + ", Symbol: " + order.getSymbol() +
+                ", Side: " + order.getSide() + ", Price: " + order.getPrice() + ", Quantity: " + order.getQuantity());
         saveOrderToRedis(order);
         matchOrder(order, false);
     }

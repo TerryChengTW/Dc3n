@@ -1,8 +1,10 @@
 package com.exchange.controller;
 
+import com.exchange.dto.UserLoginRequest;
 import com.exchange.dto.UserRegistrationRequest;
 import com.exchange.model.User;
 import com.exchange.service.UserService;
+import com.exchange.utils.JwtUtil;
 import com.exchange.utils.SnowflakeIdGenerator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -10,6 +12,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/users")
@@ -18,29 +22,31 @@ public class UserController {
     private final UserService userService;
     private final SnowflakeIdGenerator idGenerator;
     private final PasswordEncoder passwordEncoder;
+    private final JwtUtil jwtUtil;
 
     @Autowired
-    public UserController(UserService userService, SnowflakeIdGenerator idGenerator, PasswordEncoder passwordEncoder) {
+    public UserController(UserService userService, SnowflakeIdGenerator idGenerator, PasswordEncoder passwordEncoder, JwtUtil jwtUtil) {
         this.userService = userService;
         this.idGenerator = idGenerator;
         this.passwordEncoder = passwordEncoder;
+        this.jwtUtil = jwtUtil;
     }
 
+    // 註冊 API
     @PostMapping("/register")
     public ResponseEntity<?> registerUser(@RequestBody UserRegistrationRequest request) {
-        System.out.println("Received request to register user");
-        // 檢查用戶名是否已存在
-        System.out.println("request.getUsername() = " + request.getUsername());
         if (userService.getUserByUsername(request.getUsername()) != null) {
-            return ResponseEntity.badRequest().body("用戶名已存在");
+            Map<String, String> response = new HashMap<>();
+            response.put("message", "用戶名已存在");
+            return ResponseEntity.badRequest().body(response);  // 返回 JSON
         }
 
-        // 檢查郵箱是否已存在
         if (userService.getUserByEmail(request.getEmail()) != null) {
-            return ResponseEntity.badRequest().body("郵箱已存在");
+            Map<String, String> response = new HashMap<>();
+            response.put("message", "郵箱已存在");
+            return ResponseEntity.badRequest().body(response);  // 返回 JSON
         }
 
-        // 創建新用戶
         User user = new User();
         user.setId(String.valueOf(idGenerator.nextId()));
         user.setUsername(request.getUsername());
@@ -50,9 +56,29 @@ public class UserController {
         user.setCreatedAt(LocalDateTime.now());
         user.setUpdatedAt(LocalDateTime.now());
 
-        // 保存用戶
         userService.saveUser(user);
 
-        return ResponseEntity.ok("用戶註冊成功");
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "用戶註冊成功");
+
+        return ResponseEntity.ok(response);  // 返回 JSON
+    }
+
+    // 登入 API
+    @PostMapping("/login")
+    public ResponseEntity<?> loginUser(@RequestBody UserLoginRequest request) {
+        User user = userService.getUserByUsername(request.getUsername());
+        if (user == null || !passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
+            Map<String, String> response = new HashMap<>();
+            response.put("message", "用戶名或密碼錯誤");
+            return ResponseEntity.badRequest().body(response);  // 返回 JSON
+        }
+
+        String token = jwtUtil.generateToken(user.getId(), user.getUsername());
+
+        Map<String, String> response = new HashMap<>();
+        response.put("token", token);
+
+        return ResponseEntity.ok(response);  // 返回 JSON
     }
 }

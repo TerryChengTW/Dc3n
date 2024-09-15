@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登入頁面</title>
+</head>
+<body>
+<h2>登入頁面</h2>
+<form id="loginForm">
+    <label for="loginUsername">Username:</label><br>
+    <input type="text" id="loginUsername" name="username"><br>
+
+    <label for="loginPassword">Password:</label><br>
+    <input type="password" id="loginPassword" name="password"><br>
+
+    <button type="button" onclick="loginUser()">登入</button>
+</form>
+
+<p>還沒有帳戶？<a href="/register">註冊</a></p>
+
+<script>
+    function loginUser() {
+        const loginData = {
+            username: document.getElementById("loginUsername").value,
+            password: document.getElementById("loginPassword").value
+        };
+
+        fetch('/users/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(loginData),
+        })
+            .then(response => {
+                return response.json().then(data => {
+                    // 檢查 response.ok 判斷是否成功
+                    if (response.ok) {
+                        localStorage.setItem('jwtToken', data.token);  // 保存 token 到 localStorage
+                        alert('登入成功');
+                        window.location.href = '/';  // 登入成功後跳轉到首頁
+                    } else {
+                        throw new Error(data.message || '登入失敗');
+                    }
+                });
+            })
+            .catch((error) => {
+                alert('登入失敗: ' + error.message);
+            });
+    }
+
+</script>
+</body>
+</html>

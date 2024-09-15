@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>交易介面</title>
+    <script src="/js/auth.js"></script> <!-- 引入 auth.js -->
+</head>
+<body>
+
+<div id="userStatus" style="position: absolute; top: 10px; right: 10px;"></div> <!-- 用戶狀態區 -->
+
+<h2>交易系統</h2>
+<form id="orderForm">
+    <label for="symbol">Symbol:</label><br>
+    <input type="text" id="symbol" name="symbol" value="BTCUSD"><br>
+
+    <label for="price">Price:</label><br>
+    <input type="number" id="price" name="price" step="0.01"><br>
+
+    <label for="quantity">Quantity:</label><br>
+    <input type="number" id="quantity" name="quantity" value="1"><br>
+
+    <label for="side">Side:</label><br>
+    <select id="side" name="side">
+        <option value="BUY">BUY</option>
+        <option value="SELL">SELL</option>
+    </select><br>
+
+    <label for="orderType">Order Type:</label><br>
+    <select id="orderType" name="orderType">
+        <option value="LIMIT">LIMIT</option>
+        <option value="MARKET">MARKET</option>
+    </select><br><br>
+
+    <button type="button" onclick="submitOrder()">下單</button>
+</form>
+
+<script>
+    function submitOrder() {
+        const data = {
+            symbol: document.getElementById("symbol").value,
+            price: parseFloat(document.getElementById("price").value),
+            quantity: parseFloat(document.getElementById("quantity").value),
+            side: document.getElementById("side").value,
+            orderType: document.getElementById("orderType").value
+        };
+
+        const token = localStorage.getItem('jwtToken');
+        fetch('/orders/submit', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token  // 傳遞 JWT token
+            },
+            body: JSON.stringify(data),
+        })
+            .then(response => {
+                return response.json().then(data => {
+                    if (response.ok) {
+                        alert('下單成功: ' + data.message);
+                    } else {
+                        throw new Error(data.message || '下單失敗');
+                    }
+                });
+            })
+            .catch((error) => {
+                alert('下單失敗: ' + error.message);
+            });
+    }
+</script>
+
+</body>
+</html>

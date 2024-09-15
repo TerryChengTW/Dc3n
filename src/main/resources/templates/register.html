@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>註冊頁面</title>
+</head>
+<body>
+<h2>註冊頁面</h2>
+<form id="registerForm">
+    <label for="regUsername">Username:</label><br>
+    <input type="text" id="regUsername" name="username"><br>
+
+    <label for="regEmail">Email:</label><br>
+    <input type="email" id="regEmail" name="email"><br>
+
+    <label for="regPassword">Password:</label><br>
+    <input type="password" id="regPassword" name="password"><br>
+
+    <button type="button" onclick="registerUser()">註冊</button>
+</form>
+
+<p>已經有帳戶了？<a href="/login">登入</a></p>
+
+<script>
+    function registerUser() {
+        const registrationData = {
+            username: document.getElementById("regUsername").value,
+            email: document.getElementById("regEmail").value,
+            password: document.getElementById("regPassword").value
+        };
+
+        fetch('/users/register', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(registrationData),
+        })
+            .then(response => {
+                return response.json().then(data => {
+                    if (response.ok) {
+                        alert('註冊成功: ' + data.message);
+                        window.location.href = '/login';  // 註冊成功後跳轉到登入頁面
+                    } else {
+                        throw new Error(data.message || '註冊失敗');
+                    }
+                });
+            })
+            .catch((error) => {
+                alert('註冊失敗: ' + error.message);
+            });
+    }
+</script>
+</body>
+</html>
