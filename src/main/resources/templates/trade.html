@@ -13,12 +13,14 @@
         }
 
         .trade-window {
+            display: flex;
             width: 280px;
             height: auto;
-            background-color: white;
-            padding: 20px;
+            background-color: #ffffff;
+            margin: 10px;
+            padding: 10px;
             border-radius: 10px;
-            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.2);
         }
 
         .trade-window label {
@@ -217,8 +219,87 @@
 </div>
 
 <script>
+    let socket;
     let selectedSide = '';
     let selectedOrderType = '';
+
+    function connectWebSocket() {
+        const token = localStorage.getItem('jwtToken');
+        socket = new WebSocket(`ws://localhost:8081/ws?token=${token}`);
+
+        socket.onopen = function(e) {
+            console.log("WebSocket 連接已建立");
+        };
+
+        socket.onmessage = function(event) {
+            const notification = JSON.parse(event.data);
+            handleOrderNotification(notification);
+        };
+
+        socket.onclose = function(event) {
+            if (event.wasClean) {
+                console.log(`WebSocket 連接已關閉，代碼=${event.code} 原因=${event.reason}`);
+            } else {
+                console.log('WebSocket 連接已中斷');
+            }
+        };
+
+        socket.onerror = function(error) {
+            console.log(`WebSocket 錯誤: ${error.message}`);
+        };
+    }
+
+    // 處理訂單通知
+    function handleOrderNotification(notification) {
+        const order = notification.data;
+        const orderTableBody = document.querySelector('#orderTable tbody');
+
+        switch (notification.eventType) {
+            case 'ORDER_CREATED':
+                addOrUpdateOrderRow(order);
+                break;
+            case 'ORDER_UPDATED':
+                addOrUpdateOrderRow(order);
+                break;
+            case 'ORDER_DELETED':
+                removeOrderRow(order.id);
+                break;
+        }
+    }
+
+    function addOrUpdateOrderRow(order) {
+        let orderRow = document.getElementById(`order-${order.id}`);
+
+        if (!orderRow) {
+            orderRow = document.createElement('tr');
+            orderRow.id = `order-${order.id}`;
+            document.querySelector('#orderTable tbody').appendChild(orderRow);
+        }
+
+        orderRow.innerHTML = `
+            <td>${order.id}</td>
+            <td>${order.userId}</td>
+            <td>${order.symbol}</td>
+            <td>${order.price}</td>
+            <td>${order.quantity}</td>
+            <td>${order.filledQuantity}</td>
+            <td>${order.side}</td>
+            <td>${order.orderType}</td>
+            <td>${order.status}</td>
+        `;
+
+        if (order.status === 'COMPLETED') {
+            setTimeout(() => removeOrderRow(order.id), 5000); // 5秒後移除完全成交的訂單
+        }
+    }
+
+    // 移除訂單行
+    function removeOrderRow(orderId) {
+        const orderRow = document.getElementById(`order-${orderId}`);
+        if (orderRow) {
+            orderRow.remove();
+        }
+    }
 
     function selectSide(side) {
         selectedSide = side;
