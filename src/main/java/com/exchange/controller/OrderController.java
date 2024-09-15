@@ -29,11 +29,8 @@ public class OrderController {
     @PostMapping("/submit")
     public ResponseEntity<?> submitOrder(@RequestBody OrderRequest orderRequest, HttpServletRequest request) {
         try {
-            // 從請求中獲取 userId
             String userId = (String) request.getAttribute("userId");
-            System.out.println("User ID: " + userId);
 
-            // 創建新訂單
             Order order = new Order();
             order.setId(String.valueOf(idGenerator.nextId()));
             order.setUserId(userId);

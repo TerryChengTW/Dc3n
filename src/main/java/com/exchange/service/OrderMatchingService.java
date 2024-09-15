@@ -42,10 +42,8 @@ public class OrderMatchingService {
     }
 
     private void matchLimitOrder(Order order) {
-        System.out.println("Matching limit order: " + "Order ID: " + order.getId() + ", Symbol: " + order.getSymbol() +
-                ", Side: " + order.getSide() + ", Price: " + order.getPrice() + ", Quantity: " + order.getQuantity());
-        matchOrder(order, false);
         saveOrderToRedis(order);
+        matchOrder(order, false);
     }
 
     private void matchOrder(Order order, boolean isMarketOrder) {
