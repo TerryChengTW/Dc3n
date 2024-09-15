@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>交易介面</title>
+</head>
+<body>
+<h2>交易系統</h2>
+<form id="orderForm">
+    <label for="userId">User ID:</label><br>
+    <select id="userIdSelect" name="userId" onchange="updateUserIdField()">
+        <option value="1834666615548022784">User 1834666615548022784</option>
+        <option value="1834666529875169280">User 1834666529875169280</option>
+        <option value="other">Other (Enter your own)</option>
+    </select><br>
+    <input type="text" id="userId" name="userId" value="1834666615548022784"><br>
+
+    <label for="symbol">Symbol:</label><br>
+    <input type="text" id="symbol" name="symbol" th:value="${symbol}" value="BTCUSD"><br>
+
+    <label for="price">Price:</label><br>
+    <input type="number" id="price" name="price" th:value="${price}" step="0.01"><br>
+
+    <label for="quantity">Quantity:</label><br>
+    <input type="number" id="quantity" name="quantity" th:value="${quantity}" value="1"><br>
+
+    <label for="side">Side:</label><br>
+    <select id="side" name="side" th:value="${side}">
+        <option value="BUY">BUY</option>
+        <option value="SELL">SELL</option>
+    </select><br>
+
+    <label for="orderType">Order Type:</label><br>
+    <select id="orderType" name="orderType" th:value="${orderType}">
+        <option value="LIMIT">LIMIT</option>
+        <option value="MARKET">MARKET</option>
+    </select><br><br>
+
+    <button type="button" onclick="submitOrder()">下單</button>
+</form>
+
+<script>
+    function updateUserIdField() {
+        const userIdSelect = document.getElementById("userIdSelect").value;
+        const userIdField = document.getElementById("userId");
+
+        if (userIdSelect === "other") {
+            userIdField.value = '';
+            userIdField.disabled = false;
+        } else {
+            userIdField.value = userIdSelect;
+            userIdField.disabled = true;
+        }
+    }
+
+    function submitOrder() {
+        const data = {
+            userId: document.getElementById("userId").value,
+            symbol: document.getElementById("symbol").value,
+            price: parseFloat(document.getElementById("price").value),
+            quantity: parseFloat(document.getElementById("quantity").value),
+            side: document.getElementById("side").value,
+            orderType: document.getElementById("orderType").value
+        };
+
+        fetch('/orders/submit', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data),
+        })
+            .then(response => response.json())
+            .then(data => {
+                alert('下單成功: ' + JSON.stringify(data));
+            })
+            .catch((error) => {
+                console.error('Error:', error);
+            });
+    }
+
+    // Initialize the user ID field as disabled for the default selected user
+    document.addEventListener("DOMContentLoaded", function() {
+        document.getElementById("userId").disabled = true;
+    });
+</script>
+</body>
+</html>
