@@ -20,7 +20,6 @@ function checkToken() {
     return null;  // 沒有 token 或已過期
 }
 
-// 渲染用戶狀態
 function renderUserStatus() {
     const userStatusDiv = document.getElementById('userStatus');
     const token = checkToken();
@@ -33,19 +32,21 @@ function renderUserStatus() {
             const username = decodedPayload.username;
 
             userStatusDiv.innerHTML = `
-                <p>歡迎，${username}</p>
-                <button onclick="logout()">登出</button>
+                <span style="margin-right: 20px;">歡迎，${username}</span>
+                <button onclick="logout()" style="background-color: #000000; color: #00dfb6; border: none; padding: 5px 10px; cursor: pointer;">登出</button>
             `;
         } catch (error) {
             console.error('無效的 JWT token:', error);
             userStatusDiv.innerHTML = `
-                <a href="/login">登入</a> / <a href="/register">註冊</a>
+                <a href="/login" style="color: #000000; margin-right: 10px;">登入</a> / 
+                <a href="/register" style="color: #000000;">註冊</a>
             `;
         }
     } else {
         // 顯示登入/註冊按鈕
         userStatusDiv.innerHTML = `
-            <a href="/login">登入</a> / <a href="/register">註冊</a>
+            <a href="/login" style="color: #000000; margin-right: 10px;">登入</a> / 
+            <a href="/register" style="color: #000000;">註冊</a>
         `;
     }
 }

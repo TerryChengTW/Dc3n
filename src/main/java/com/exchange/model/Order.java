@@ -28,7 +28,7 @@ public class Order {
     @Column(length = 10, nullable = false)
     private String symbol;   // 交易對，如 BTC/USDT
 
-    @Column(precision = 18, scale = 8, nullable = false)
+    @Column(precision = 18, scale = 8)
     private BigDecimal price;
 
     @Column(precision = 18, scale = 8, nullable = false)

@@ -3,6 +3,7 @@ package com.exchange.service;
 import com.exchange.model.Order;
 import com.exchange.model.Trade;
 import com.exchange.producer.MatchedOrderProducer;
+import com.exchange.producer.WebSocketNotificationProducer;
 import com.exchange.utils.SnowflakeIdGenerator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -21,6 +22,9 @@ public class OrderMatchingService {
 
     @Autowired
     private MatchedOrderProducer matchedOrderProducer;
+
+    @Autowired
+    private WebSocketNotificationProducer webSocketNotificationProducer;
 
     @Autowired
     private SnowflakeIdGenerator snowflakeIdGenerator;
@@ -43,8 +47,8 @@ public class OrderMatchingService {
     private void matchLimitOrder(Order order) {
         System.out.println("Matching limit order: " + "Order ID: " + order.getId() + ", Symbol: " + order.getSymbol() +
                 ", Side: " + order.getSide() + ", Price: " + order.getPrice() + ", Quantity: " + order.getQuantity());
-        saveOrderToRedis(order);
         matchOrder(order, false);
+        saveOrderToRedis(order);
     }
 
     // 提取撮合邏輯
@@ -92,7 +96,9 @@ public class OrderMatchingService {
 
             // 更新對手訂單
             updateOrderInRedis(oppositeOrder, oppositeOrderbookKey);
-            updateOrderInRedis(order, orderbookKey);
+            if (!isMarketOrder) {
+                updateOrderInRedis(order, orderbookKey);
+            }
         }
     }
 
@@ -101,29 +107,28 @@ public class OrderMatchingService {
         order.setFilledQuantity(order.getFilledQuantity().add(tradeQuantity));
         oppositeOrder.setFilledQuantity(oppositeOrder.getFilledQuantity().add(tradeQuantity));
 
-        LocalDateTime currentTime = LocalDateTime.now(); // 取得當前時間
+        LocalDateTime currentTime = LocalDateTime.now();
 
-        if (oppositeOrder.getFilledQuantity().compareTo(oppositeOrder.getQuantity()) >= 0) {
-            oppositeOrder.setStatus(Order.OrderStatus.COMPLETED);
-            oppositeOrder.setUpdatedAt(currentTime); // 更新完成時間
-            redisTemplate.delete("order:" + oppositeOrder.getId());
-        } else {
-            oppositeOrder.setStatus(Order.OrderStatus.PARTIALLY_FILLED);
-            oppositeOrder.setUpdatedAt(currentTime); // 更新部分成交時間
-        }
-
-        if (order.getFilledQuantity().compareTo(order.getQuantity()) >= 0) {
-            order.setStatus(Order.OrderStatus.COMPLETED);
-            order.setUpdatedAt(currentTime); // 更新完成時間
-            redisTemplate.delete("order:" + order.getId());
-        } else {
-            order.setStatus(Order.OrderStatus.PARTIALLY_FILLED);
-            order.setUpdatedAt(currentTime); // 更新部分成交時間
-        }
+        updateOrderStatus(oppositeOrder, currentTime);
+        updateOrderStatus(order, currentTime);
 
         // 發送匹配成功的訂單和交易到 Kafka
         matchedOrderProducer.sendMatchedOrder(order);
         matchedOrderProducer.sendMatchedOrder(oppositeOrder);
+    }
+
+    private void updateOrderStatus(Order order, LocalDateTime currentTime) {
+        Order.OrderStatus oldStatus = order.getStatus();
+        if (order.getFilledQuantity().compareTo(order.getQuantity()) >= 0) {
+            order.setStatus(Order.OrderStatus.COMPLETED);
+            order.setUpdatedAt(currentTime);
+            redisTemplate.delete("order:" + order.getId());
+            sendWebSocketNotification(order.getUserId(), "ORDER_DELETED", order);
+        } else if (order.getFilledQuantity().compareTo(BigDecimal.ZERO) > 0) {
+            order.setStatus(Order.OrderStatus.PARTIALLY_FILLED);
+            order.setUpdatedAt(currentTime);
+            sendWebSocketNotification(order.getUserId(), "ORDER_UPDATED", order);
+        }
     }
 
     // 更新訂單狀態到 Redis 和 ZSet
@@ -151,6 +156,7 @@ public class OrderMatchingService {
         redisTemplate.opsForHash().put(orderKey, "status", order.getStatus().toString());
         redisTemplate.opsForHash().put(orderKey, "createdAt", order.getCreatedAt().toString());
         redisTemplate.opsForHash().put(orderKey, "updatedAt", order.getUpdatedAt().toString());
+        sendWebSocketNotification(order.getUserId(), "ORDER_CREATED", order);
     }
 
     // 保存交易數據到 Kafka
@@ -202,5 +208,9 @@ public class OrderMatchingService {
         order.setCreatedAt(LocalDateTime.parse(createdAtStr));
         order.setUpdatedAt(LocalDateTime.parse(updatedAtStr));
         return order;
+    }
+
+    private void sendWebSocketNotification(String userId, String eventType, Object data) {
+        webSocketNotificationProducer.sendNotification(userId, eventType, data);
     }
 }

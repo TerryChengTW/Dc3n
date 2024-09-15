@@ -28,30 +28,43 @@ public class OrderController {
 
     @PostMapping("/submit")
     public ResponseEntity<?> submitOrder(@RequestBody OrderRequest orderRequest, HttpServletRequest request) {
-        // 從請求中獲取 userId
-        String userId = (String) request.getAttribute("userId");
-        System.out.println("User ID: " + userId);
+        try {
+            // 從請求中獲取 userId
+            String userId = (String) request.getAttribute("userId");
+            System.out.println("User ID: " + userId);
 
-        // 創建新訂單
-        Order order = new Order();
-        order.setId(String.valueOf(idGenerator.nextId()));
-        order.setUserId(userId);
-        order.setSymbol(orderRequest.getSymbol());
-        order.setPrice(orderRequest.getPrice());
-        order.setQuantity(orderRequest.getQuantity());
-        order.setSide(orderRequest.getSide());
-        order.setOrderType(orderRequest.getOrderType());
-        order.setStatus(Order.OrderStatus.PENDING);
-        order.setCreatedAt(LocalDateTime.now());
-        order.setUpdatedAt(LocalDateTime.now());
+            // 創建新訂單
+            Order order = new Order();
+            order.setId(String.valueOf(idGenerator.nextId()));
+            order.setUserId(userId);
+            order.setSymbol(orderRequest.getSymbol());
+            order.setPrice(orderRequest.getPrice());
+            order.setQuantity(orderRequest.getQuantity());
+            order.setSide(orderRequest.getSide());
+            order.setOrderType(orderRequest.getOrderType());
+            order.setStatus(Order.OrderStatus.PENDING);
+            order.setCreatedAt(LocalDateTime.now());
+            order.setUpdatedAt(LocalDateTime.now());
 
-        // 保存訂單並發送到 Kafka
-        orderService.saveOrder(order);
+            // 保存訂單並發送到 Kafka
+            orderService.saveOrder(order);
 
-        Map<String, String> response = new HashMap<>();
-        response.put("message", "訂單提交成功");
+            Map<String, String> response = new HashMap<>();
+            response.put("message", "訂單提交成功");
 
-        return ResponseEntity.ok(response);  // 返回 JSON
+            return ResponseEntity.ok(response);
+
+        } catch (IllegalArgumentException e) {
+            // 捕獲驗證失敗的異常並返回具體的錯誤訊息
+            Map<String, String> response = new HashMap<>();
+            response.put("error", e.getMessage());
+            return ResponseEntity.badRequest().body(response);  // 返回具體的錯誤訊息
+        } catch (Exception e) {
+            // 捕獲其他可能的異常
+            Map<String, String> response = new HashMap<>();
+            response.put("error", "訂單提交失敗，請稍後再試");
+            return ResponseEntity.status(500).body(response);  // 返回一般錯誤訊息
+        }
     }
 
     @PutMapping("/modify/{orderId}")

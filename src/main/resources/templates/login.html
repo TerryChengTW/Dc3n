@@ -1,11 +1,21 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>登入頁面</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+    </style>
 </head>
 <body>
+
+<div th:replace="~{topbar.html :: topbar}"></div>
+
 <h2>登入頁面</h2>
 <form id="loginForm">
     <label for="loginUsername">Username:</label><br>
@@ -35,7 +45,6 @@
         })
             .then(response => {
                 return response.json().then(data => {
-                    // 檢查 response.ok 判斷是否成功
                     if (response.ok) {
                         localStorage.setItem('jwtToken', data.token);  // 保存 token 到 localStorage
                         alert('登入成功');
@@ -49,7 +58,7 @@
                 alert('登入失敗: ' + error.message);
             });
     }
-
 </script>
+
 </body>
 </html>

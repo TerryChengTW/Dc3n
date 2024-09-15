@@ -1,14 +1,20 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>首頁</title>
-  <script src="/js/auth.js"></script> <!-- 引入 auth.js -->
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+  </style>
 </head>
 <body>
 
-<div id="userStatus" style="position: absolute; top: 10px; right: 10px;"></div> <!-- 用戶狀態區 -->
+<div th:replace="~{topbar.html :: topbar}"></div>
 
 <h1>首頁</h1>
 

@@ -4,70 +4,301 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>交易介面</title>
-    <script src="/js/auth.js"></script> <!-- 引入 auth.js -->
+    <style>
+
+
+        h2 {
+            color: #333;
+            margin: 0;
+        }
+
+        .trade-window {
+            width: 280px;
+            height: auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .trade-window label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .trade-window input {
+            height: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+
+        .form-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .form-group label {
+            flex: 1;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        .form-group input {
+            flex: 2;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+
+        /* 調整 .btn-group 以適應 form-group 佈局 */
+        .form-group .btn-group {
+            flex: 2;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .btn-group button {
+            width: 49%;
+            padding: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            border: 1px solid #ccc;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+        }
+
+        .btn-group button.active {
+            background-color: #007bff;
+            color: white;
+        }
+
+
+        .submit-btn {
+            width: 100%;
+            padding: 10px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .submit-btn:hover {
+            background-color: #218838;
+        }
+
+        /* 訂單列表區域 */
+        #orderTableContainer {
+            width: 90%;
+            height: 200px; /* 設定固定高度，防止超出頁面範圍 */
+            border: 1px solid black;
+            overflow-y: auto; /* 當內容過多時，表格內可以滾動 */
+            background-color: #f9f9f9;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f2f2f2;
+        }
+
+        #errorPopup {
+            display: none;
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: red;
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 1000;
+        }
+
+         * {
+             margin: 0;
+             padding: 0;
+             box-sizing: border-box;
+         }
+
+    </style>
+    <script src="/js/auth.js"></script>
 </head>
 <body>
 
-<div id="userStatus" style="position: absolute; top: 10px; right: 10px;"></div> <!-- 用戶狀態區 -->
+<div th:replace="~{topbar.html :: topbar}"></div>
+
+<div id="notifications" style="position: absolute; top: 40px; right: 10px;"></div>
 
 <h2>交易系統</h2>
-<form id="orderForm">
-    <label for="symbol">Symbol:</label><br>
-    <input type="text" id="symbol" name="symbol" value="BTCUSD"><br>
 
-    <label for="price">Price:</label><br>
-    <input type="number" id="price" name="price" step="0.01"><br>
+<!-- 交易視窗 -->
+<div class="trade-window">
+    <form id="orderForm">
+        <!-- 將每個表單項目放入 form-group 中 -->
+        <div class="form-group">
+            <label for="symbol">Symbol:</label>
+            <input type="text" id="symbol" name="symbol" value="BTCUSD">
+        </div>
 
-    <label for="quantity">Quantity:</label><br>
-    <input type="number" id="quantity" name="quantity" value="1"><br>
+        <div class="form-group">
+            <label for="price">Price:</label>
+            <input type="number" id="price" name="price" step="0.01">
+        </div>
 
-    <label for="side">Side:</label><br>
-    <select id="side" name="side">
-        <option value="BUY">BUY</option>
-        <option value="SELL">SELL</option>
-    </select><br>
+        <div class="form-group">
+            <label for="quantity">Quantity:</label>
+            <input type="number" id="quantity" name="quantity" value="1">
+        </div>
 
-    <label for="orderType">Order Type:</label><br>
-    <select id="orderType" name="orderType">
-        <option value="LIMIT">LIMIT</option>
-        <option value="MARKET">MARKET</option>
-    </select><br><br>
+        <!-- Side 選項 -->
+        <div class="form-group">
+            <label>Side:</label>
+            <div class="btn-group">
+                <button type="button" id="buyButton" onclick="selectSide('BUY')">BUY</button>
+                <button type="button" id="sellButton" onclick="selectSide('SELL')">SELL</button>
+            </div>
+        </div>
 
-    <button type="button" onclick="submitOrder()">下單</button>
-</form>
+        <!-- Order Type 選項 -->
+        <div class="form-group">
+            <label>Order Type:</label>
+            <div class="btn-group">
+                <button type="button" id="limitButton" onclick="selectOrderType('LIMIT')">LIMIT</button>
+                <button type="button" id="marketButton" onclick="selectOrderType('MARKET')">MARKET</button>
+            </div>
+        </div>
+
+        <button type="button" class="submit-btn" onclick="submitOrder()">下單</button>
+    </form>
+</div>
+
+<!-- 訂單錯誤訊息彈出框 -->
+<div id="errorPopup">
+    <span id="errorPopupMessage"></span>
+</div>
+
+<!-- 訂單列表區域 -->
+<div id="orderTableContainer">
+    <h3>訂單列表</h3>
+    <table id="orderTable">
+        <thead>
+        <tr>
+            <th>訂單ID</th>
+            <th>用戶ID</th>
+            <th>交易對</th>
+            <th>價格</th>
+            <th>數量</th>
+            <th>已成交數量</th>
+            <th>方向</th>
+            <th>訂單類型</th>
+            <th>狀態</th>
+        </tr>
+        </thead>
+        <tbody>
+        <!-- 訂單會動態顯示在這裡 -->
+        </tbody>
+    </table>
+</div>
 
 <script>
+    let selectedSide = '';
+    let selectedOrderType = '';
+
+    function selectSide(side) {
+        selectedSide = side;
+
+        // 更新按鈕狀態
+        document.getElementById('buyButton').classList.remove('active');
+        document.getElementById('sellButton').classList.remove('active');
+        if (side === 'BUY') {
+            document.getElementById('buyButton').classList.add('active');
+        } else {
+            document.getElementById('sellButton').classList.add('active');
+        }
+    }
+
+    function selectOrderType(orderType) {
+        selectedOrderType = orderType;
+
+        // 更新按鈕狀態
+        document.getElementById('limitButton').classList.remove('active');
+        document.getElementById('marketButton').classList.remove('active');
+        if (orderType === 'LIMIT') {
+            document.getElementById('limitButton').classList.add('active');
+        } else {
+            document.getElementById('marketButton').classList.add('active');
+        }
+    }
+
     function submitOrder() {
         const data = {
             symbol: document.getElementById("symbol").value,
             price: parseFloat(document.getElementById("price").value),
             quantity: parseFloat(document.getElementById("quantity").value),
-            side: document.getElementById("side").value,
-            orderType: document.getElementById("orderType").value
+            side: selectedSide,
+            orderType: selectedOrderType
         };
+
+        if (!data.side || !data.orderType) {
+            showErrorPopup("請選擇方向和訂單類型");
+            return;
+        }
 
         const token = localStorage.getItem('jwtToken');
         fetch('/orders/submit', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': 'Bearer ' + token  // 傳遞 JWT token
+                'Authorization': 'Bearer ' + token
             },
             body: JSON.stringify(data),
         })
-            .then(response => {
-                return response.json().then(data => {
-                    if (response.ok) {
-                        alert('下單成功: ' + data.message);
-                    } else {
-                        throw new Error(data.message || '下單失敗');
-                    }
-                });
-            })
+            .then(response => response.json().then(data => {
+                if (response.ok) {
+                    alert('下單成功: ' + data.message);
+                } else {
+                    throw new Error(data.error || '下單失敗');
+                }
+            }))
             .catch((error) => {
-                alert('下單失敗: ' + error.message);
+                showErrorPopup('下單失敗: ' + error.message);
             });
     }
+
+    function showErrorPopup(message) {
+        const errorPopup = document.getElementById('errorPopup');
+        const errorPopupMessage = document.getElementById('errorPopupMessage');
+
+        if (errorPopupMessage) {
+            errorPopupMessage.textContent = message;
+            errorPopup.style.display = 'block';
+
+            setTimeout(() => {
+                errorPopup.style.display = 'none';
+            }, 3000);
+        }
+    }
+
+    window.onload = function() {
+        connectWebSocket();
+    };
+
 </script>
 
 </body>

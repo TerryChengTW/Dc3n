@@ -15,30 +15,46 @@ public class OrderService {
     private OrderProducer orderProducer;
 
     @Autowired
-    private OrderMatchingService orderMatchingService;  // 注入 OrderMatchingService
+    private OrderMatchingService orderMatchingService;
 
     @Autowired
-    private OrderRepository orderRepository;  // 仍然可以用於查詢 MySQL
+    private OrderRepository orderRepository;
 
     // 保存新訂單，並將其發送到 Kafka
     public void saveOrder(Order order) {
+        // 檢查訂單類型和價格
+        validateOrder(order);
+
+        // 發送訂單到 Kafka
         orderProducer.sendOrder(order);
     }
 
     // 更新訂單，並將其發送到 Kafka
     public void updateOrder(Order order) {
+        // 檢查訂單類型和價格
+        validateOrder(order);
+
+        // 發送訂單到 Kafka
         orderProducer.sendOrder(order);
     }
 
-    // 根據訂單 ID 查詢訂單，優先查詢 Redis，若 Redis 中沒有，則查詢 MySQL
+    // 根據訂單 ID 查詢訂單
     public Optional<Order> getOrderById(String id) {
-        // 先從 Redis 中查詢訂單
         Order orderFromRedis = orderMatchingService.getOrderFromRedis(id);
         if (orderFromRedis != null) {
             return Optional.of(orderFromRedis);
         }
-
-        // 如果 Redis 中沒有，則從 MySQL 查詢
         return orderRepository.findById(id);
+    }
+
+    // 驗證訂單的價格是否符合類型要求
+    private void validateOrder(Order order) {
+        if (order.getOrderType() == Order.OrderType.MARKET && order.getPrice() != null) {
+            throw new IllegalArgumentException("市價單不應該有價格");
+        }
+
+        if (order.getOrderType() == Order.OrderType.LIMIT && order.getPrice() == null) {
+            throw new IllegalArgumentException("限價單需要指定價格");
+        }
     }
 }
