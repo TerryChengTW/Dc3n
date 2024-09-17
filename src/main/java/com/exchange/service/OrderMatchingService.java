@@ -50,8 +50,12 @@ public class OrderMatchingService {
     }
 
     private void matchLimitOrder(Order order) {
-        saveOrderToRedis(order);
         matchOrder(order, false);
+        // 檢查是否有未匹配的數量，如果還有剩餘的數量，則將訂單放入 Redis
+        if (order.getQuantity().subtract(order.getFilledQuantity()).compareTo(BigDecimal.ZERO) > 0) {
+            saveOrderToRedis(order);
+            addOrderToOrderbook(order, "orderbook:" + order.getSymbol() + ":" + order.getSide());
+        }
     }
 
     private void matchOrder(Order order, boolean isMarketOrder) {
@@ -140,6 +144,7 @@ public class OrderMatchingService {
         }
         sendOrderbookUpdate(order.getSymbol());
     }
+
     private void addOrderToOrderbook(Order order, String orderbookKey) {
         redisTemplate.opsForZSet().add(orderbookKey, order.getId(), order.getPrice().doubleValue());
         sendOrderbookUpdate(order.getSymbol());
@@ -163,7 +168,11 @@ public class OrderMatchingService {
         redisTemplate.opsForHash().put(orderKey, "status", order.getStatus().toString());
         redisTemplate.opsForHash().put(orderKey, "createdAt", order.getCreatedAt().toString());
         redisTemplate.opsForHash().put(orderKey, "updatedAt", order.getUpdatedAt().toString());
-        sendWebSocketNotification(order.getUserId(), "ORDER_CREATED", order);
+
+        // 只在訂單是PENDING時發送ORDER_CREATED事件
+        if (order.getStatus() == Order.OrderStatus.PENDING) {
+            sendWebSocketNotification(order.getUserId(), "ORDER_CREATED", order);
+        }
     }
 
     private void saveTrade(Order buyOrder, Order sellOrder, BigDecimal tradeQuantity, BigDecimal price) {
@@ -216,6 +225,7 @@ public class OrderMatchingService {
     }
 
     private void sendWebSocketNotification(String userId, String eventType, Object data) {
+        System.out.println("Send WebSocket notification to user: " + userId + ", event: " + eventType + ", data: " + data);
         webSocketNotificationProducer.sendNotification(userId, eventType, data);
     }
 }

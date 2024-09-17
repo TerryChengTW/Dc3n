@@ -17,7 +17,7 @@ public class WebSocketHandler extends TextWebSocketHandler {
     @Override
     public void afterConnectionEstablished(WebSocketSession session) {
         String userId = getUserIdFromSession(session);
-        System.out.println("WebSocket connection established for user: " + userId);
+        System.out.println("WebSocket connection established for user: " + userId + ", sessionId: " + session.getId());
         userSessions.put(userId, session);
     }
 

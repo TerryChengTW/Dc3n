@@ -13,6 +13,7 @@ public class OrderbookService {
     @Autowired
     private RedisTemplate<String, String> redisTemplate;
 
+    // 獲取訂單簿快照，返回bids、asks以及時間戳
     public Map<String, Object> getOrderbookSnapshot(String symbol) {
         String buyOrderbookKey = "orderbook:" + symbol + ":BUY";
         String sellOrderbookKey = "orderbook:" + symbol + ":SELL";
@@ -26,6 +27,7 @@ public class OrderbookService {
         return snapshot;
     }
 
+    // 根據訂單類型獲取訂單數據（買單或賣單）
     private List<List<String>> getOrderbookEntries(String orderbookKey, boolean isBuyOrder) {
         Set<ZSetOperations.TypedTuple<String>> entries;
         if (isBuyOrder) {
@@ -42,9 +44,9 @@ public class OrderbookService {
             for (ZSetOperations.TypedTuple<String> entry : entries) {
                 String orderId = entry.getValue();
                 Double price = entry.getScore();
-                String quantity = getOrderQuantity(orderId);
-                if (quantity != null) {
-                    result.add(Arrays.asList(price.toString(), quantity));
+                String remainingQuantity = getRemainingOrderQuantity(orderId);
+                if (remainingQuantity != null) {
+                    result.add(Arrays.asList(price.toString(), remainingQuantity));
                 }
             }
         }
@@ -52,8 +54,17 @@ public class OrderbookService {
         return result;
     }
 
-    private String getOrderQuantity(String orderId) {
+    // 獲取剩餘的訂單數量（總數量 - 已匹配數量）
+    private String getRemainingOrderQuantity(String orderId) {
         String orderKey = "order:" + orderId;
-        return (String) redisTemplate.opsForHash().get(orderKey, "quantity");
+        String quantity = (String) redisTemplate.opsForHash().get(orderKey, "quantity");
+        String filledQuantity = (String) redisTemplate.opsForHash().get(orderKey, "filledQuantity");
+
+        // 確保兩者都不為空並且是有效數字
+        if (quantity != null && filledQuantity != null) {
+            double remainingQuantity = Double.parseDouble(quantity) - Double.parseDouble(filledQuantity);
+            return String.valueOf(remainingQuantity);
+        }
+        return null;
     }
 }

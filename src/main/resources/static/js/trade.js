@@ -12,6 +12,7 @@ function connectWebSocket() {
 
     socket.onmessage = function(event) {
         const notification = JSON.parse(event.data);
+        console.log(notification);
         handleOrderNotification(notification);
     };
 
@@ -173,6 +174,7 @@ function connectOrderbookWebSocket(symbol) {
 
     orderbookSocket.onmessage = function(event) {
         const orderbookUpdate = JSON.parse(event.data);
+        console.log(orderbookUpdate);
         updateOrderbookDisplay(orderbookUpdate);
     };
 

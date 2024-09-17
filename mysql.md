@@ -1,72 +1,117 @@
-# Database Schema
+# Cryptocurrency Exchange Database Structure
 
-This document outlines the schema for the database used in our trading system. It includes definitions for users, orders, trades, user balances, and market data.
+## 1. market_data Table
 
-```mysql
-Table users {
-    id varchar(20) [pk]                // Unique user ID, generated using Snowflake algorithm
-    created_at datetime(6)             // User account creation time
-    email varchar(100) [unique]        // User email, unique
-    password_hash varchar(255)         // Hash of user password
-    status varchar(10)                 // User account status, e.g., 'active' or 'inactive'
-    updated_at datetime(6)             // Last update time of user account
-    username varchar(50) [unique]      // Username, unique
-}
+<pre><code>create table market_data
+(
+    symbol     varchar(10)    not null,
+    time_frame varchar(5)     not null,
+    timestamp  datetime(6)    not null,
+    close      decimal(18, 8) not null,
+    high       decimal(18, 8) not null,
+    low        decimal(18, 8) not null,
+    open       decimal(18, 8) not null,
+    volume     decimal(18, 8) not null,
+    primary key (symbol, time_frame, timestamp)
+);
+</code></pre>
 
-Table orders {
-    id varchar(20) [pk]                // Unique order ID, generated using Snowflake algorithm
-    user_id varchar(20)                // Foreign key, references users.id
-    symbol varchar(10)                 // Trading pair, e.g., 'BTC/USDT'
-    price decimal(18, 8)               // Order price
-    quantity decimal(18, 8)            // Order quantity
-    order_type enum('LIMIT', 'MARKET', 'TAKE_PROFIT', 'STOP_LOSS') // Order type
-    status enum('PENDING', 'COMPLETED', 'CANCELLED') // Order status
-    stop_price decimal(18, 8)          // Stop loss price (only used for STOP_LOSS type)
-    take_profit_price decimal(18, 8)   // Take profit price (only used for TAKE_PROFIT type)
-    created_at datetime(6)             // Order creation time
-    updated_at datetime(6)             // Last update time of order
+- **symbol**: The identifier for the trading pair (e.g., BTC/USDT).
+- **time_frame**: The time frame for the data (e.g., '1m', '5m', '1d').
+- **timestamp**: The timestamp for the data point.
+- **open, high, low, close, volume**: Opening, highest, lowest, closing prices, and trading volume.
 
-    // Indexes
-    Index idx_user_id(user_id)         // User ID index for querying orders of a specific user
-    Index idx_symbol(symbol)           // Trading pair index for querying orders of a specific trading pair
-}
+## 2. orders Table
 
-Table trades {
-    id varchar(20) [pk]                // Unique trade ID, generated using Snowflake algorithm
-    buy_order_id varchar(20)           // Foreign key, references orders.id, buying order
-    sell_order_id varchar(20)          // Foreign key, references orders.id, selling order
-    price decimal(18, 8)               // Trade price
-    quantity decimal(18, 8)            // Trade quantity
-    trade_time datetime(6)             // Trade time
+<pre><code>create table orders
+(
+    id                varchar(20)                                                    not null primary key,
+    created_at        datetime(6)                                                    not null,
+    filled_quantity   decimal(18, 8)                                                 not null,
+    order_type        enum ('LIMIT', 'MARKET', 'STOP_LOSS', 'TAKE_PROFIT')           not null,
+    price             decimal(18, 8)                                                 null,
+    quantity          decimal(18, 8)                                                 not null,
+    side              enum ('BUY', 'SELL')                                           not null,
+    status            enum ('CANCELLED', 'COMPLETED', 'PARTIALLY_FILLED', 'PENDING') not null,
+    stop_price        decimal(18, 8)                                                 null,
+    symbol            varchar(10)                                                    not null,
+    take_profit_price decimal(18, 8)                                                 null,
+    updated_at        datetime(6)                                                    not null,
+    user_id           varchar(20)                                                    not null
+);
+</code></pre>
 
-    // Indexes
-    Index idx_buy_order_id(buy_order_id)  // Buying order ID index
-    Index idx_sell_order_id(sell_order_id) // Selling order ID index
-    Index idx_trade_time(trade_time)      // Trade time index
-}
+- **id**: The unique identifier for the order.
+- **created_at, updated_at**: The timestamps for when the order was created and last updated.
+- **filled_quantity**: The quantity of the order that has been filled.
+- **order_type**: The type of order (e.g., limit order, market order).
+- **price, quantity**: The price and quantity for the order.
+- **side**: Indicates whether the order is a buy or sell.
+- **status**: The current status of the order (e.g., cancelled, completed).
+- **stop_price, take_profit_price**: The stop loss and take profit prices.
+- **symbol**: The trading pair for the order.
+- **user_id**: The unique identifier for the user placing the order.
 
-Table user_balances {
-    currency varchar(10)               // Currency type, e.g., 'BTC', 'USDT'
-    user_id varchar(20)                // Foreign key, references users.id
-    available_balance decimal(18, 8)  // Available balance
-    frozen_balance decimal(18, 8)     // Frozen balance
-    primary key (currency, user_id)   // Primary key, composed of currency type and user ID
-}
+## 3. trades Table
 
-Table market_data {
-    symbol varchar(10)                 // Trading pair, e.g., 'BTC/USDT'
-    time_frame varchar(5)              // Time frame, e.g., '1m', '5m', '1d'
-    timestamp datetime(6)              // Data timestamp
-    close decimal(18, 8)               // Closing price
-    high decimal(18, 8)                // Highest price
-    low decimal(18, 8)                 // Lowest price
-    open decimal(18, 8)                // Opening price
-    volume decimal(18, 8)              // Trading volume
-    primary key (symbol, time_frame, timestamp) // Primary key, composed of trading pair, time frame, and timestamp
-}
+<pre><code>create table trades
+(
+    id            varchar(20)    not null primary key,
+    price         decimal(18, 8) not null,
+    quantity      decimal(18, 8) not null,
+    trade_time    datetime(6)    not null,
+    buy_order_id  varchar(20)    not null,
+    sell_order_id varchar(20)    not null,
+    constraint FKha2ij91oxit1wewyag8ol2ut6 foreign key (sell_order_id) references orders (id),
+    constraint FKl71ijfuqfnp64ug4ehbwp0kqf foreign key (buy_order_id) references orders (id)
+);
+</code></pre>
 
-// Foreign key relationships
-Ref: orders.user_id > users.id         // Order's user ID references user ID
-Ref: trades.buy_order_id > orders.id   // Trade's buying order ID references order ID
-Ref: trades.sell_order_id > orders.id  // Trade's selling order ID references order ID
-Ref: user_balances.user_id > users.id  // User balance's user ID references user ID
+- **id**: The unique identifier for the trade.
+- **price, quantity**: The price and quantity for the trade.
+- **trade_time**: The timestamp when the trade occurred.
+- **buy_order_id, sell_order_id**: The IDs of the orders involved in the trade, with foreign key constraints.
+
+## 4. user_balances Table
+
+<pre><code>create table user_balances
+(
+    currency          varchar(10)    not null,
+    user_id           varchar(255)   not null,
+    available_balance decimal(18, 8) not null,
+    frozen_balance    decimal(18, 8) not null,
+    primary key (currency, user_id)
+);
+</code></pre>
+
+- **currency**: The type of currency (e.g., BTC, USDT).
+- **user_id**: The unique identifier for the user.
+- **available_balance**: The available balance for the user.
+- **frozen_balance**: The frozen balance that cannot be used.
+
+## 5. users Table
+
+<pre><code>create table users
+(
+    id            varchar(20)  not null primary key,
+    created_at    datetime(6)  not null,
+    email         varchar(100) not null,
+    password_hash varchar(255) not null,
+    status        varchar(10)  not null,
+    updated_at    datetime(6)  not null,
+    username      varchar(50)  not null,
+    constraint UK6dotkott2kjsp8vw4d0m25fb7 unique (email),
+    constraint UKr43af9ap4edm43mmtq01oddj6 unique (username)
+);
+</code></pre>
+
+- **id**: The unique identifier for the user.
+- **created_at, updated_at**: The timestamps for when the user was created and last updated.
+- **email**: The user's email address, which must be unique.
+- **password_hash**: The hashed password for the user.
+- **status**: The current status of the user (e.g., active, inactive).
+- **username**: The username for the user, which must be unique.
+
+---
+
+This document provides a detailed description of the database structure, helping to understand the purpose and relationships of each table and its fields.
