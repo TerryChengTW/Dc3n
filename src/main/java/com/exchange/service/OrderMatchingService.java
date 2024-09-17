@@ -4,6 +4,7 @@ import com.exchange.model.Order;
 import com.exchange.model.Trade;
 import com.exchange.producer.MatchedOrderProducer;
 import com.exchange.producer.WebSocketNotificationProducer;
+import com.exchange.utils.OrderProcessingTracker;
 import com.exchange.utils.SnowflakeIdGenerator;
 import com.exchange.websocket.OrderbookWebSocketHandler;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -104,6 +105,10 @@ public class OrderMatchingService {
             if (!isMarketOrder) {
                 updateOrderInRedis(order, orderbookKey);
             }
+        }
+        long duration = OrderProcessingTracker.endTracking(order.getId());
+        if (duration != -1) {
+            System.out.println("Order " + order.getId() + " total processing time: " + duration + " nanoseconds");
         }
     }
 
