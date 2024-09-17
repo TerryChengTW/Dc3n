@@ -150,7 +150,7 @@ public class OrderMatchingService {
         sendOrderbookUpdate(order.getSymbol());
     }
 
-    private void sendOrderbookUpdate(String symbol) {
+    void sendOrderbookUpdate(String symbol) {
         Map<String, Object> orderbookSnapshot = orderbookService.getOrderbookSnapshot(symbol);
         orderbookWebSocketHandler.broadcastOrderbookUpdate(symbol, orderbookSnapshot);
     }
@@ -227,7 +227,7 @@ public class OrderMatchingService {
         return order;
     }
 
-    private void sendWebSocketNotification(String userId, String eventType, Object data) {
+    void sendWebSocketNotification(String userId, String eventType, Object data) {
         System.out.println("Send WebSocket notification to user: " + userId + ", event: " + eventType + ", data: " + data);
         webSocketNotificationProducer.sendNotification(userId, eventType, data);
     }
