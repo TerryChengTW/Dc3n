@@ -20,15 +20,6 @@ body {
 }
 
 /* 訂單簿樣式 */
-#orderbookContainer {
-    background-color: #fff;
-    padding: 10px; /* 減少 padding 使表格更緊湊 */
-    border-radius: 8px;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); /* 調整陰影 */
-    width: 15%; /* 調整寬度以為K線圖騰出空間 */
-    max-height: 400px; /* 調整高度 */
-    overflow-y: auto;
-}
 
 table {
     width: 100%;
@@ -245,4 +236,103 @@ th {
     color: black;
     text-decoration: none;
     cursor: pointer;
+}
+
+/* 左側容器：Flexbox布局 */
+.left-container {
+    display: flex;
+    flex-direction: column;
+    width: 15%;
+}
+
+#orderbookContainer, #recentTradesContainer {
+    background-color: #fff;
+    padding: 10px;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    margin-bottom: 10px; /* 添加底部間距 */
+}
+
+#recentTradesContainer {
+    max-height: 200px; /* 調整高度 */
+    overflow-y: auto;
+}
+
+#recentTradesContainer table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+#recentTradesContainer th, #recentTradesContainer td {
+    border: 1px solid #ddd;
+    padding: 5px 8px;
+    text-align: right;
+}
+
+#recentTradesContainer th {
+    background-color: #f8f9fa;
+    font-weight: bold;
+}
+
+/* Confirm Box 的樣式 */
+.confirm-box {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 300px;
+    padding: 20px;
+    background-color: #fff;
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    text-align: center;
+    z-index: 1000;
+}
+
+/* 確認消息的樣式 */
+.confirm-message {
+    font-size: 16px;
+    margin-bottom: 20px;
+    color: #333;
+}
+
+/* 確認框按鈕容器 */
+.confirm-buttons {
+    display: flex;
+    justify-content: space-around;
+}
+
+/* 按鈕的基礎樣式 */
+.confirm-btn {
+    padding: 10px 20px;
+    font-size: 14px;
+    border-radius: 5px;
+    cursor: pointer;
+    border: none;
+}
+
+/* 確定按鈕的樣式 */
+.confirm-btn-yes {
+    background-color: #4CAF50;
+    color: white;
+    transition: background-color 0.3s ease;
+}
+
+/* 取消按鈕的樣式 */
+.confirm-btn-no {
+    background-color: #f44336;
+    color: white;
+    transition: background-color 0.3s ease;
+}
+
+/* 按鈕的 hover 效果 */
+.confirm-btn-yes:hover {
+    background-color: #45a049;
+}
+
+.confirm-btn-no:hover {
+    background-color: #e41e1e;
 }

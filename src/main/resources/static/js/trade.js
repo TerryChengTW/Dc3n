@@ -96,9 +96,28 @@ function editOrder(orderId) {
 }
 
 
-function deleteOrder(orderId) {
+function showConfirm(message) {
+    return new Promise((resolve) => {
+        const confirmBox = document.getElementById('confirmBox');
+        confirmBox.style.display = 'block';
+
+        document.getElementById('confirmYes').onclick = () => {
+            confirmBox.style.display = 'none';
+            resolve(true); // 使用者確認
+        };
+
+        document.getElementById('confirmNo').onclick = () => {
+            confirmBox.style.display = 'none';
+            resolve(false); // 使用者取消
+        };
+    });
+}
+
+async function deleteOrder(orderId) {
     const token = localStorage.getItem('jwtToken');
-    if (confirm("確定要刪除這筆訂單嗎？")) {
+    const confirmed = await showConfirm("確定要刪除這筆訂單嗎？");
+
+    if (confirmed) {
         fetch(`/orders/cancel/${orderId}`, {
             method: 'DELETE',
             headers: {
@@ -108,8 +127,6 @@ function deleteOrder(orderId) {
             .then(response => response.json().then(data => {
                 if (response.ok) {
                     showSuccessPopup('訂單已取消');
-
-                    // 從前端移除該訂單
                     removeOrderRow(orderId);
                 } else {
                     throw new Error(data.error || '訂單刪除失敗');
@@ -247,10 +264,75 @@ function connectOrderbookWebSocket(symbol) {
     };
 }
 
+let recentTradesSocket;
+
+function connectRecentTradesWebSocket(symbol) {
+    if (recentTradesSocket) {
+        recentTradesSocket.close();
+    }
+
+    const token = localStorage.getItem('jwtToken');
+    currentSymbol = symbol;
+    recentTradesSocket = new WebSocket(`ws://localhost:8081/ws/recent-trades/${symbol}?token=${token}`);
+
+    recentTradesSocket.onopen = function() {
+        console.log(`最新成交 WebSocket 連接已建立，交易對：${symbol}`);
+    };
+
+    let isFirstMessage = true; // 標誌變數
+
+    recentTradesSocket.onmessage = function(event) {
+        const trades = JSON.parse(event.data);
+        const tradesList = document.getElementById('recentTradesList');
+
+        if (isFirstMessage) {
+            // 清空默認的空白行
+            tradesList.innerHTML = '';
+            // 處理所有 5 筆
+            trades.forEach(trade => {
+                addRecentTrade(trade);
+            });
+            isFirstMessage = false; // 將標誌設置為 false，表示第一次訊息處理完畢
+        } else {
+            // 之後只處理最新的一筆
+            addRecentTrade(trades[0]);
+        }
+    };
+
+    recentTradesSocket.onclose = function() {
+        console.log(`最新成交 WebSocket 連接已關閉，交易對：${symbol}`);
+    };
+
+    recentTradesSocket.onerror = function(error) {
+        console.log(`最新成交 WebSocket 錯誤: ${error.message}`);
+    };
+}
+
+function addRecentTrade(trade) {
+    const tradesList = document.getElementById('recentTradesList');
+    const row = document.createElement('tr');
+
+    row.innerHTML = `
+        <td>${trade.price}</td>
+        <td>${trade.quantity}</td>
+        <td>${new Date(trade.tradeTime).toLocaleTimeString()}</td>
+    `;
+    tradesList.insertBefore(row, tradesList.firstChild);
+
+    // 限制顯示的成交數量，例如只顯示最新的 5 筆
+    if (tradesList.children.length > 3) {
+        tradesList.removeChild(tradesList.lastChild);
+    }
+}
+
+
+
 function updateSymbol() {
     const symbol = document.getElementById('symbol').value;
     if (symbol !== currentSymbol) {
         connectOrderbookWebSocket(symbol);
+        connectRecentTradesWebSocket(symbol);
+        currentSymbol = symbol;
     }
 }
 
@@ -295,6 +377,7 @@ window.onload = function() {
     connectWebSocket();
     const initialSymbol = document.getElementById('symbol').value;
     connectOrderbookWebSocket(initialSymbol);
+    connectRecentTradesWebSocket(initialSymbol);
 };
 
 // 當用戶點擊確認按鈕時提交修改訂單請求

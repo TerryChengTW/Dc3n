@@ -1,5 +1,6 @@
 package com.exchange.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -20,13 +21,18 @@ public class Trade {
     @Column(length = 20, nullable = false)
     private String id;  // 雪花ID
 
+    @JsonIgnore
     @ManyToOne
     @JoinColumn(name = "buy_order_id", referencedColumnName = "id", nullable = false)
     private Order buyOrder;
 
+    @JsonIgnore
     @ManyToOne
     @JoinColumn(name = "sell_order_id", referencedColumnName = "id", nullable = false)
     private Order sellOrder;
+
+    @Column(length = 20, nullable = false)
+    private String symbol;
 
     @Column(precision = 18, scale = 8, nullable = false)
     private BigDecimal price;

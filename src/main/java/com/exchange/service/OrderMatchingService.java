@@ -7,9 +7,12 @@ import com.exchange.producer.WebSocketNotificationProducer;
 import com.exchange.utils.OrderProcessingTracker;
 import com.exchange.utils.SnowflakeIdGenerator;
 import com.exchange.websocket.OrderbookWebSocketHandler;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -22,6 +25,12 @@ public class OrderMatchingService {
 
     @Autowired
     private RedisTemplate<String, String> redisTemplate;
+
+    @Autowired
+    private KafkaTemplate<String, String> kafkaTemplate;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @Autowired
     private MatchedOrderProducer matchedOrderProducer;
@@ -38,7 +47,7 @@ public class OrderMatchingService {
     @Autowired
     private OrderbookService orderbookService;
 
-    public void processOrder(Order order) {
+    public void processOrder(Order order) throws JsonProcessingException {
         if (order.getOrderType() == Order.OrderType.MARKET) {
             matchMarketOrder(order);
         } else if (order.getOrderType() == Order.OrderType.LIMIT) {
@@ -46,11 +55,11 @@ public class OrderMatchingService {
         }
     }
 
-    private void matchMarketOrder(Order order) {
+    private void matchMarketOrder(Order order) throws JsonProcessingException {
         matchOrder(order, true);
     }
 
-    private void matchLimitOrder(Order order) {
+    private void matchLimitOrder(Order order) throws JsonProcessingException {
         matchOrder(order, false);
         // 檢查是否有未匹配的數量，如果還有剩餘的數量，則將訂單放入 Redis
         if (order.getQuantity().subtract(order.getFilledQuantity()).compareTo(BigDecimal.ZERO) > 0) {
@@ -59,7 +68,7 @@ public class OrderMatchingService {
         }
     }
 
-    private void matchOrder(Order order, boolean isMarketOrder) {
+    private void matchOrder(Order order, boolean isMarketOrder) throws JsonProcessingException {
         String orderbookKey = "orderbook:" + order.getSymbol() + ":" + order.getSide();
         String oppositeOrderbookKey = "orderbook:" + order.getSymbol() + ":" +
                 (order.getSide() == Order.Side.BUY ? "SELL" : "BUY");
@@ -181,16 +190,20 @@ public class OrderMatchingService {
         }
     }
 
-    private void saveTrade(Order buyOrder, Order sellOrder, BigDecimal tradeQuantity, BigDecimal price) {
+    private void saveTrade(Order buyOrder, Order sellOrder, BigDecimal tradeQuantity, BigDecimal price) throws JsonProcessingException {
         Trade trade = new Trade();
         trade.setId(generateTradeId());
         trade.setBuyOrder(buyOrder.getSide() == Order.Side.BUY ? buyOrder : sellOrder);
         trade.setSellOrder(buyOrder.getSide() == Order.Side.SELL ? buyOrder : sellOrder);
+        trade.setSymbol(buyOrder.getSymbol());
         trade.setQuantity(tradeQuantity);
         trade.setPrice(price);
         trade.setTradeTime(LocalDateTime.now());
 
         matchedOrderProducer.sendMatchedTrade(trade);
+
+        kafkaTemplate.send("recent-trades", trade.getBuyOrder().getSymbol(), objectMapper.writeValueAsString(trade));
+
     }
 
     private String generateTradeId() {

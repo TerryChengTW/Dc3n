@@ -17,25 +17,57 @@
 
 <!-- 主內容容器，包含訂單簿和下單表單 -->
 <div class="main-container">
-
+    <div class="left-container">
     <!-- 訂單簿 -->
-    <div id="orderbookContainer">
-        <h3>訂單簿</h3>
-        <table>
-            <thead>
-            <tr>
-                <th>價格</th>
-                <th>數量</th>
-            </tr>
-            </thead>
-            <tbody id="asksList">
-            <!-- 賣單將在這裡動態插入 -->
-            </tbody>
-            <tbody id="bidsList">
-            <!-- 買單將在這裡動態插入 -->
-            </tbody>
-        </table>
+        <div id="orderbookContainer">
+            <h3>訂單簿</h3>
+            <table>
+                <thead>
+                <tr>
+                    <th>價格</th>
+                    <th>數量</th>
+                </tr>
+                </thead>
+                <tbody id="asksList">
+                <!-- 賣單將在這裡動態插入 -->
+                </tbody>
+                <tbody id="bidsList">
+                <!-- 買單將在這裡動態插入 -->
+                </tbody>
+            </table>
+        </div>
+        <!-- 最新成交 -->
+        <div id="recentTradesContainer">
+            <h3>最新成交</h3>
+            <table>
+                <thead>
+                <tr>
+                    <th>價格</th>
+                    <th>數量</th>
+                    <th>時間</th>
+                </tr>
+                </thead>
+                <tbody id="recentTradesList">
+                <!-- 最新成交將在這裡動態插入 -->
+                <tr>
+                    <td>-</td>
+                    <td>-</td>
+                    <td>-</td>
+                </tr>
+                <tr>
+                    <td>-</td>
+                    <td>-</td>
+                    <td>-</td>
+                </tr>
+                <tr>
+                    <td>-</td>
+                    <td>-</td>
+                    <td>-</td>
+                </tr>
+            </table>
+        </div>
     </div>
+
 
     <!-- 下單視窗 -->
     <div class="trade-window">
@@ -121,6 +153,15 @@
 
 <div id="successPopup" style="display: none; position: fixed; top: 50px; left: 50%; transform: translateX(-50%); background-color: green; color: white; padding: 10px; border-radius: 5px; z-index: 1000;">
     <span id="successPopupMessage"></span>
+</div>
+
+<div id="confirmBox" class="confirm-box">
+    <p class="confirm-message">確定要刪除這筆訂單嗎？</p>
+    <div class="confirm-buttons">
+        <button id="confirmYes" class="confirm-btn confirm-btn-yes">確定</button>
+        <button id="confirmNo" class="confirm-btn confirm-btn-no">取消</button>
+    </div>
+</div>
 
 <script src="/js/trade.js"></script>
 
