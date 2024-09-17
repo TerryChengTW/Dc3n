@@ -1,5 +1,6 @@
 package com.exchange.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -66,9 +67,11 @@ public class Order {
     private LocalDateTime modifiedAt = LocalDateTime.now();
 
     @OneToMany(mappedBy = "buyOrder")
+    @JsonIgnore
     private List<Trade> buyTrades;
 
     @OneToMany(mappedBy = "sellOrder")
+    @JsonIgnore
     private List<Trade> sellTrades;
 
     public enum OrderType {

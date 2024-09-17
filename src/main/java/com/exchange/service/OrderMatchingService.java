@@ -1,5 +1,6 @@
 package com.exchange.service;
 
+import com.exchange.dto.TradeDTO;
 import com.exchange.model.Order;
 import com.exchange.model.Trade;
 import com.exchange.producer.MatchedOrderProducer;
@@ -202,9 +203,11 @@ public class OrderMatchingService {
 
         matchedOrderProducer.sendMatchedTrade(trade);
 
-        kafkaTemplate.send("recent-trades", trade.getBuyOrder().getSymbol(), objectMapper.writeValueAsString(trade));
+        TradeDTO tradeDTO = new TradeDTO(trade.getSymbol(), trade.getTradeTime(), trade.getPrice(), trade.getQuantity());
 
+        kafkaTemplate.send("recent-trades", trade.getSymbol(), objectMapper.writeValueAsString(tradeDTO));
     }
+
 
     private String generateTradeId() {
         return String.valueOf(snowflakeIdGenerator.nextId());

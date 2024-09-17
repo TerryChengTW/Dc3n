@@ -21,7 +21,7 @@ public class RecentTradesKafkaConsumer {
     public void consume(String message) {
         try {
             Trade trade = objectMapper.readValue(message, Trade.class);
-            recentTradesWebSocketHandler.broadcastRecentTrade(trade.getBuyOrder().getSymbol(), trade);
+            recentTradesWebSocketHandler.broadcastRecentTrade(trade.getSymbol(), trade);
         } catch (Exception e) {
             // 處理異常
             e.printStackTrace();

@@ -21,12 +21,10 @@ public class Trade {
     @Column(length = 20, nullable = false)
     private String id;  // 雪花ID
 
-    @JsonIgnore
     @ManyToOne
     @JoinColumn(name = "buy_order_id", referencedColumnName = "id", nullable = false)
     private Order buyOrder;
 
-    @JsonIgnore
     @ManyToOne
     @JoinColumn(name = "sell_order_id", referencedColumnName = "id", nullable = false)
     private Order sellOrder;

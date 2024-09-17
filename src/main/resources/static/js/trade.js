@@ -282,20 +282,32 @@ function connectRecentTradesWebSocket(symbol) {
     let isFirstMessage = true; // 標誌變數
 
     recentTradesSocket.onmessage = function(event) {
-        const trades = JSON.parse(event.data);
         const tradesList = document.getElementById('recentTradesList');
+        const tradesData = JSON.parse(event.data);
 
         if (isFirstMessage) {
             // 清空默認的空白行
             tradesList.innerHTML = '';
-            // 處理所有 5 筆
-            trades.forEach(trade => {
-                addRecentTrade(trade);
-            });
-            isFirstMessage = false; // 將標誌設置為 false，表示第一次訊息處理完畢
+
+            // 確認資料是否為陣列（多筆交易資料）
+            if (Array.isArray(tradesData)) {
+                // 處理所有的交易資料
+                tradesData.forEach(trade => {
+                    addRecentTrade(trade);
+                });
+            }
+            isFirstMessage = false; // 第一次處理完畢
         } else {
-            // 之後只處理最新的一筆
-            addRecentTrade(trades[0]);
+            // 後續收到的是單筆交易資料
+            if (Array.isArray(tradesData)) {
+                // 如果錯誤發送了陣列，處理所有交易
+                tradesData.forEach(trade => {
+                    addRecentTrade(trade);
+                });
+            } else {
+                // 處理單筆交易資料
+                addRecentTrade(tradesData);
+            }
         }
     };
 

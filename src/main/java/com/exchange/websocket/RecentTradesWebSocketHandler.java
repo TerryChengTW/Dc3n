@@ -63,6 +63,7 @@ public class RecentTradesWebSocketHandler extends TextWebSocketHandler {
     }
 
     public void broadcastRecentTrade(String symbol, Object tradeData) {
+        System.out.println("RecentTradesWebSocketHandler: " + tradeData);
         String tradeJson;
         try {
             tradeJson = objectMapper.writeValueAsString(tradeData);
