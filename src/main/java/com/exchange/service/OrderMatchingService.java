@@ -168,6 +168,7 @@ public class OrderMatchingService {
         redisTemplate.opsForHash().put(orderKey, "status", order.getStatus().toString());
         redisTemplate.opsForHash().put(orderKey, "createdAt", order.getCreatedAt().toString());
         redisTemplate.opsForHash().put(orderKey, "updatedAt", order.getUpdatedAt().toString());
+        redisTemplate.opsForHash().put(orderKey, "modifiedAt", order.getModifiedAt().toString());
 
         // 只在訂單是PENDING時發送ORDER_CREATED事件
         if (order.getStatus() == Order.OrderStatus.PENDING) {
@@ -203,6 +204,7 @@ public class OrderMatchingService {
         String statusStr = (String) redisTemplate.opsForHash().get(orderKey, "status");
         String createdAtStr = (String) redisTemplate.opsForHash().get(orderKey, "createdAt");
         String updatedAtStr = (String) redisTemplate.opsForHash().get(orderKey, "updatedAt");
+        String modifiedAtStr = (String) redisTemplate.opsForHash().get(orderKey, "modifiedAt");
 
         if (priceStr == null || quantityStr == null || orderTypeStr == null || sideStr == null ||
                 symbolStr == null || userIdStr == null || statusStr == null || createdAtStr == null || updatedAtStr == null) {
@@ -221,6 +223,7 @@ public class OrderMatchingService {
         order.setStatus(Order.OrderStatus.valueOf(statusStr));
         order.setCreatedAt(LocalDateTime.parse(createdAtStr));
         order.setUpdatedAt(LocalDateTime.parse(updatedAtStr));
+        order.setModifiedAt(LocalDateTime.parse(modifiedAtStr));
         return order;
     }
 

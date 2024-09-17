@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 
 @Entity
@@ -60,6 +61,9 @@ public class Order {
 
     @Column(nullable = false)
     private LocalDateTime updatedAt = LocalDateTime.now();
+
+    @Column(nullable = false)
+    private LocalDateTime modifiedAt = LocalDateTime.now();
 
     @OneToMany(mappedBy = "buyOrder")
     private List<Trade> buyTrades;
