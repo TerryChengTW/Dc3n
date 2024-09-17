@@ -37,7 +37,7 @@ function handleOrderNotification(notification) {
         case 'ORDER_UPDATED':
             addOrUpdateOrderRow(order);
             break;
-        case 'ORDER_DELETED':
+        case 'ORDER_COMPLETED':
             removeOrderRow(order.id);
             break;
     }
@@ -49,7 +49,6 @@ function addOrUpdateOrderRow(order) {
     if (!orderRow) {
         orderRow = document.createElement('tr');
         orderRow.id = `order-${order.id}`;
-        // 根據訂單的side動態添加買單或賣單的類別
         if (order.side === 'BUY') {
             orderRow.classList.add('bid-row');
         } else if (order.side === 'SELL') {
@@ -68,10 +67,57 @@ function addOrUpdateOrderRow(order) {
         <td>${order.side}</td>
         <td>${order.orderType}</td>
         <td>${order.status}</td>
+        <td>
+            <button onclick="editOrder('${order.id}')">編輯</button>
+            <button onclick="deleteOrder('${order.id}')">刪除</button>
+        </td>
     `;
 
     if (order.status === 'COMPLETED') {
         setTimeout(() => removeOrderRow(order.id), 5000);
+    }
+}
+
+let editingOrderId = null;
+
+function editOrder(orderId) {
+    editingOrderId = orderId;
+    const orderRow = document.getElementById(`order-${orderId}`);
+    const price = orderRow.children[3].textContent;
+    const quantity = orderRow.children[4].textContent;
+
+    // 顯示彈出視窗
+    const modal = document.getElementById("editOrderModal");
+    modal.style.display = "block";
+
+    // 預填訂單的價格和數量
+    document.getElementById("editPrice").value = price;
+    document.getElementById("editQuantity").value = quantity;
+}
+
+
+function deleteOrder(orderId) {
+    const token = localStorage.getItem('jwtToken');
+    if (confirm("確定要刪除這筆訂單嗎？")) {
+        fetch(`/orders/cancel/${orderId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': 'Bearer ' + token
+            }
+        })
+            .then(response => response.json().then(data => {
+                if (response.ok) {
+                    showSuccessPopup('訂單已取消');
+
+                    // 從前端移除該訂單
+                    removeOrderRow(orderId);
+                } else {
+                    throw new Error(data.error || '訂單刪除失敗');
+                }
+            }))
+            .catch((error) => {
+                showErrorPopup('刪除失敗: ' + error.message);
+            });
     }
 }
 
@@ -131,7 +177,7 @@ function submitOrder() {
     })
         .then(response => response.json().then(data => {
             if (response.ok) {
-                alert('下單成功: ' + data.message);
+                showSuccessPopup('下單成功: ' + data.message);
             } else {
                 throw new Error(data.error || '下單失敗');
             }
@@ -139,6 +185,20 @@ function submitOrder() {
         .catch((error) => {
             showErrorPopup('下單失敗: ' + error.message);
         });
+}
+
+function showSuccessPopup(message) {
+    const successPopup = document.getElementById('successPopup');
+    const successPopupMessage = document.getElementById('successPopupMessage');
+
+    if (successPopupMessage) {
+        successPopupMessage.textContent = message;
+        successPopup.style.display = 'block';
+
+        setTimeout(() => {
+            successPopup.style.display = 'none';
+        }, 3000);
+    }
 }
 
 function showErrorPopup(message) {
@@ -236,6 +296,60 @@ window.onload = function() {
     const initialSymbol = document.getElementById('symbol').value;
     connectOrderbookWebSocket(initialSymbol);
 };
+
+// 當用戶點擊確認按鈕時提交修改訂單請求
+document.getElementById("confirmEditButton").addEventListener("click", function () {
+    const newPrice = document.getElementById("editPrice").value;
+    const newQuantity = document.getElementById("editQuantity").value;
+
+    if (newPrice && newQuantity && editingOrderId) {
+        const token = localStorage.getItem('jwtToken');
+        fetch(`/orders/modify/${editingOrderId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+            },
+            body: JSON.stringify({
+                price: parseFloat(newPrice),
+                quantity: parseFloat(newQuantity)
+            }),
+        })
+            .then(response => response.json().then(data => {
+                if (response.ok) {
+                    showSuccessPopup('訂單修改成功');
+                    // 更新前端表格
+                    addOrUpdateOrderRow(data.data);
+                    // 隱藏彈出視窗
+                    document.getElementById("editOrderModal").style.display = "none";
+                } else {
+                    throw new Error(data.error || '訂單修改失敗');
+                }
+            }))
+            .catch((error) => {
+                showErrorPopup('修改失敗: ' + error.message);
+            });
+    }
+});
+
+// 當用戶點擊取消按鈕時關閉彈出視窗
+document.getElementById("cancelEditButton").addEventListener("click", function () {
+    document.getElementById("editOrderModal").style.display = "none";
+});
+
+// 點擊彈窗外部區域時隱藏彈窗
+window.onclick = function(event) {
+    const modal = document.getElementById("editOrderModal");
+    if (event.target === modal) {
+        modal.style.display = "none";
+    }
+};
+
+// 點擊關閉按鈕隱藏彈窗
+document.querySelector(".close").addEventListener("click", function() {
+    document.getElementById("editOrderModal").style.display = "none";
+});
+
 
 // 當交易對變更時重新連接訂單簿 WebSocket
 document.getElementById('symbol').addEventListener('change', updateSymbol);

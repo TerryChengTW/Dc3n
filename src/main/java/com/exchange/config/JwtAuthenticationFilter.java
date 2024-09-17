@@ -2,7 +2,9 @@ package com.exchange.config;
 
 import com.exchange.utils.JwtUtil;
 import io.jsonwebtoken.Claims;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
@@ -17,6 +19,8 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+
+import static java.rmi.server.RMISocketFactory.getFailureHandler;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter implements ApplicationContextAware {
@@ -33,6 +37,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter implements App
         this.applicationContext = applicationContext;  // 保存Spring上下文
     }
 
+
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
@@ -41,30 +46,41 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter implements App
         String username = null;
         String jwt = null;
 
-        // 確保 Authorization Header 存在並以 Bearer 開頭
-        if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
-            jwt = authorizationHeader.substring(7);
-            username = jwtUtil.extractUsername(jwt);  // 從 token 中提取用戶名
-        }
-
-        // 驗證 JWT 並設置安全上下文
-        if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            Claims claims = jwtUtil.extractAllClaims(jwt);
-            String userId = jwtUtil.extractUserId(jwt);  // 從 token 中提取 userId
-
-            if (jwtUtil.validateToken(jwt, username)) {
-                // 動態獲取 UserDetailsService
-                UserDetailsService userDetailsService = applicationContext.getBean(UserDetailsService.class);
-
-                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                        username, null, null
-                );
-                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authToken);
-
-                // 將 userId 設置到 request 以便在控制器中使用
-                request.setAttribute("userId", userId);
+        try {
+            // 確保 Authorization Header 存在並以 Bearer 開頭
+            if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
+                jwt = authorizationHeader.substring(7);
+                username = jwtUtil.extractUsername(jwt);  // 從 token 中提取用戶名
             }
+
+            // 驗證 JWT 並設置安全上下文
+            if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                Claims claims = jwtUtil.extractAllClaims(jwt);
+                String userId = jwtUtil.extractUserId(jwt);  // 從 token 中提取 userId
+
+                if (jwtUtil.validateToken(jwt, username)) {
+                    // 動態獲取 UserDetailsService
+                    UserDetailsService userDetailsService = applicationContext.getBean(UserDetailsService.class);
+
+                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                            username, null, null
+                    );
+                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
+
+                    // 將 userId 設置到 request 以便在控制器中使用
+                    request.setAttribute("userId", userId);
+                } else {
+                    throw new RuntimeException("JWT 驗證失敗");
+                }
+            }
+        } catch (Exception e) {
+            // 如果 JWT 驗證失敗，拋出認證異常
+            SecurityContextHolder.clearContext();
+            response.setContentType("application/json");
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            response.getWriter().write("{\"error\": \"JWT 驗證失敗: " + e.getMessage() + "\"}");
+            return;
         }
 
         filterChain.doFilter(request, response);

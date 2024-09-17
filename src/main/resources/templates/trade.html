@@ -102,9 +102,25 @@
     </table>
 </div>
 
+<div id="editOrderModal" class="modal">
+    <div class="modal-content">
+        <span class="close">&times;</span>
+        <h2>編輯訂單</h2>
+        <label for="editPrice">價格:</label>
+        <input type="number" id="editPrice" step="0.01" />
+        <label for="editQuantity">數量:</label>
+        <input type="number" id="editQuantity" step="0.01" />
+        <button id="confirmEditButton">確定</button>
+        <button id="cancelEditButton">取消</button>
+    </div>
+</div>
+
 <div id="errorPopup" style="display: none; position: fixed; top: 50px; left: 50%; transform: translateX(-50%); background-color: red; color: white; padding: 10px; border-radius: 5px; z-index: 1000;">
     <span id="errorPopupMessage"></span>
 </div>
+
+<div id="successPopup" style="display: none; position: fixed; top: 50px; left: 50%; transform: translateX(-50%); background-color: green; color: white; padding: 10px; border-radius: 5px; z-index: 1000;">
+    <span id="successPopupMessage"></span>
 
 <script src="/js/trade.js"></script>
 

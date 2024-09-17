@@ -126,7 +126,7 @@ public class OrderMatchingService {
             order.setStatus(Order.OrderStatus.COMPLETED);
             order.setUpdatedAt(currentTime);
             redisTemplate.delete("order:" + order.getId());
-            sendWebSocketNotification(order.getUserId(), "ORDER_DELETED", order);
+            sendWebSocketNotification(order.getUserId(), "ORDER_COMPLETED", order);
         } else if (order.getFilledQuantity().compareTo(BigDecimal.ZERO) > 0) {
             order.setStatus(Order.OrderStatus.PARTIALLY_FILLED);
             order.setUpdatedAt(currentTime);
@@ -208,7 +208,7 @@ public class OrderMatchingService {
 
         if (priceStr == null || quantityStr == null || orderTypeStr == null || sideStr == null ||
                 symbolStr == null || userIdStr == null || statusStr == null || createdAtStr == null || updatedAtStr == null) {
-            throw new IllegalStateException("Redis 中的訂單數據缺失: " + orderId);
+            return null;
         }
 
         Order order = new Order();
@@ -224,11 +224,12 @@ public class OrderMatchingService {
         order.setCreatedAt(LocalDateTime.parse(createdAtStr));
         order.setUpdatedAt(LocalDateTime.parse(updatedAtStr));
         order.setModifiedAt(LocalDateTime.parse(modifiedAtStr));
+
         return order;
     }
 
     void sendWebSocketNotification(String userId, String eventType, Object data) {
-        System.out.println("Send WebSocket notification to user: " + userId + ", event: " + eventType + ", data: " + data);
+//        System.out.println("Send WebSocket notification to user: " + userId + ", event: " + eventType + ", data: " + data);
         webSocketNotificationProducer.sendNotification(userId, eventType, data);
     }
 }

@@ -24,6 +24,11 @@ public class OrderUpdateService {
         redisTemplate.opsForHash().put(orderKey, "quantity", order.getQuantity().toString());
         redisTemplate.opsForHash().put(orderKey, "updatedAt", order.getUpdatedAt().toString());
         redisTemplate.opsForHash().put(orderKey, "modifiedAt", order.getModifiedAt().toString());
+
+        String orderBookKey = "orderbook:" + order.getSymbol() + ":" + order.getSide();
+        redisTemplate.opsForZSet().remove(orderBookKey, order.getId());
+        redisTemplate.opsForZSet().add(orderBookKey, order.getId(), order.getPrice().doubleValue());
+
         orderMatchingService.sendWebSocketNotification(order.getUserId(), "ORDER_UPDATED", order);
         orderMatchingService.sendOrderbookUpdate(order.getSymbol());
     }
@@ -32,9 +37,14 @@ public class OrderUpdateService {
     public void cancelOrder(Order order) {
         String orderKey = "order:" + order.getId();
         redisTemplate.delete(orderKey);  // 從 Redis 中刪除
+
+        String orderBookKey = "orderbook:" + order.getSymbol() + ":" + order.getSide();  // 假設 Side 是 "BUY" 或 "SELL"
+        redisTemplate.opsForZSet().remove(orderBookKey, order.getId());
+
+        order.setModifiedAt(java.time.LocalDateTime.now());  // 更新時間戳
         order.setStatus(Order.OrderStatus.CANCELLED);  // 設置訂單狀態
         orderRepository.save(order);  // 更新 MySQL 中的狀態
-        orderMatchingService.sendWebSocketNotification(order.getUserId(), "ORDER_DELETED", order);
+        orderMatchingService.sendWebSocketNotification(order.getUserId(), "ORDER_COMPLETED", order);
         orderMatchingService.sendOrderbookUpdate(order.getSymbol());
     }
 }

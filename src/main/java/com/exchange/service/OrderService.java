@@ -68,8 +68,16 @@ public class OrderService {
             return Optional.of(orderFromRedis);
         }
 
-        // 如果 Redis 中沒有找到，從 MySQL 查詢（可根據需求考慮是否仍然查 MySQL）
-        return orderRepository.findById(id);
+        // 如果 Redis 中沒有找到，從 MySQL 查詢
+        Optional<Order> orderFromDB = orderRepository.findById(id);
+        if (orderFromDB.isPresent()) {
+            // 記錄日誌，確認是從 MySQL 查到的訂單
+            System.out.println("訂單從 MySQL 中查詢到: " + orderFromDB.get().getId());
+        } else {
+            // 記錄日誌，確認沒有找到訂單
+            System.out.println("訂單未找到: " + id);
+        }
+        return orderFromDB;
     }
 
     // 驗證訂單的有效性

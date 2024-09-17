@@ -47,7 +47,8 @@ public class JwtUtil {
                     .parseClaimsJws(token)  // 解析 JWT
                     .getBody();
         } catch (JwtException | IllegalArgumentException e) {
-            // 異常處理，這裡可以加上日誌或拋出自定義異常
+            // 記錄具體的異常信息，並返回具體的錯誤
+            System.out.println("JWT Token 驗證失敗: " + e.getMessage());
             return null;
         }
     }
