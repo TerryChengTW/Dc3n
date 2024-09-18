@@ -204,8 +204,10 @@ public class OrderMatchingService {
         matchedOrderProducer.sendMatchedTrade(trade);
 
         TradeDTO tradeDTO = new TradeDTO(trade.getSymbol(), trade.getTradeTime(), trade.getPrice(), trade.getQuantity());
+        String simpleMessage = "{\"symbol\": \"" + trade.getSymbol() + "\", \"price\": " + trade.getPrice() + "}";
 
         kafkaTemplate.send("recent-trades", trade.getSymbol(), objectMapper.writeValueAsString(tradeDTO));
+        kafkaTemplate.send("kline-updates", trade.getSymbol(), simpleMessage);
     }
 
 

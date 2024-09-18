@@ -1,10 +1,8 @@
 package com.exchange.config;
 
-import com.exchange.websocket.JwtWebSocketHandlerDecorator;
-import com.exchange.websocket.RecentTradesWebSocketHandler;
-import com.exchange.websocket.WebSocketHandler;
-import com.exchange.websocket.OrderbookWebSocketHandler;
+import com.exchange.websocket.*;
 import com.exchange.utils.JwtUtil;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.socket.config.annotation.EnableWebSocket;
 import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
@@ -18,12 +16,18 @@ public class WebSocketConfig implements WebSocketConfigurer {
     private final OrderbookWebSocketHandler orderbookWebSocketHandler;
     private final JwtUtil jwtUtil;
     private final RecentTradesWebSocketHandler recentTradesWebSocketHandler;
+    private final KlineWebSocketHandler klineWebSocketHandler;
 
-    public WebSocketConfig(WebSocketHandler webSocketHandler, OrderbookWebSocketHandler orderbookWebSocketHandler, JwtUtil jwtUtil, RecentTradesWebSocketHandler recentTradesWebSocketHandler) {
+    public WebSocketConfig(WebSocketHandler webSocketHandler,
+                           OrderbookWebSocketHandler orderbookWebSocketHandler,
+                           JwtUtil jwtUtil,
+                           RecentTradesWebSocketHandler recentTradesWebSocketHandler,
+                           KlineWebSocketHandler klineWebSocketHandler) {
         this.webSocketHandler = webSocketHandler;
         this.orderbookWebSocketHandler = orderbookWebSocketHandler;
         this.jwtUtil = jwtUtil;
         this.recentTradesWebSocketHandler = recentTradesWebSocketHandler;
+        this.klineWebSocketHandler = klineWebSocketHandler;
     }
 
     @Override
@@ -34,5 +38,6 @@ public class WebSocketConfig implements WebSocketConfigurer {
                 .setAllowedOrigins("*");
         registry.addHandler(new JwtWebSocketHandlerDecorator(recentTradesWebSocketHandler, jwtUtil), "/ws/recent-trades/{symbol}")
                 .setAllowedOrigins("*");
+        registry.addHandler(klineWebSocketHandler, "/ws/kline").setAllowedOrigins("*");
     }
 }
