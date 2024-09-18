@@ -10,11 +10,17 @@ import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CopyOnWriteArraySet;
 
 @Component
@@ -39,36 +45,48 @@ public class KlineWebSocketHandler extends TextWebSocketHandler {
         String historicalMessage = createHistoricalDataMessage(historicalData);
         session.sendMessage(new TextMessage(historicalMessage));
 
-        // 查詢當前未結束的K線數據（假設1分鐘K線）
-        List<Trade> currentTrades = tradeRepository.findBySymbolAndTradeTimeBetween("BTCUSDT", getStartOfMinute(), getEndOfMinute());
-
-        BigDecimal highPrice = currentTrades.stream().map(Trade::getPrice).max(BigDecimal::compareTo).orElse(BigDecimal.ZERO);
-        BigDecimal lowPrice = currentTrades.stream().map(Trade::getPrice).min(BigDecimal::compareTo).orElse(BigDecimal.ZERO);
-        BigDecimal currentPrice = currentTrades.isEmpty() ? BigDecimal.ZERO : currentTrades.get(currentTrades.size() - 1).getPrice();
-
-        // 構建當前K線數據的消息並發送
-        String currentKlineMessage = "{\"symbol\": \"BTCUSDT\", \"high\": " + highPrice + ", \"low\": " + lowPrice + ", \"current\": " + currentPrice + "}";
-        session.sendMessage(new TextMessage(currentKlineMessage));
+//        // 查詢當前未結束的K線數據（假設1分鐘K線）
+//        List<Trade> currentTrades = tradeRepository.findBySymbolAndTradeTimeBetween("BTCUSDT", getStartOfMinute(), getEndOfMinute());
+//
+//        BigDecimal highPrice = currentTrades.stream().map(Trade::getPrice).max(BigDecimal::compareTo).orElse(BigDecimal.ZERO);
+//        BigDecimal lowPrice = currentTrades.stream().map(Trade::getPrice).min(BigDecimal::compareTo).orElse(BigDecimal.ZERO);
+//        BigDecimal currentPrice = currentTrades.isEmpty() ? BigDecimal.ZERO : currentTrades.get(currentTrades.size() - 1).getPrice();
+//
+//        // 使用當前時間戳作為未結束K線的時間
+//        long currentTime = System.currentTimeMillis() / 1000;
+//
+//        // 構建當前K線數據的消息並發送
+//        String currentKlineMessage = "{\"symbol\": \"BTCUSDT\", \"high\": " + highPrice + ", \"low\": " + lowPrice + ", \"close\": " + currentPrice + ", \"time\": " + currentTime + "}";
+//        session.sendMessage(new TextMessage(currentKlineMessage));
     }
 
     private String createHistoricalDataMessage(List<MarketData> historicalData) {
-        StringBuilder messageBuilder = new StringBuilder("[");
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.registerModule(new JavaTimeModule());
+
+        // 手動轉換時間為 Unix 時間戳
+        List<Map<String, Object>> historicalDataWithTimestamps = new ArrayList<>();
         for (MarketData data : historicalData) {
-            messageBuilder.append("{\"symbol\":\"").append(data.getSymbol()).append("\",")
-                    .append("\"open\":").append(data.getOpen()).append(",")
-                    .append("\"high\":").append(data.getHigh()).append(",")
-                    .append("\"low\":").append(data.getLow()).append(",")
-                    .append("\"close\":").append(data.getClose()).append(",")
-                    // 使用 ZoneOffset.UTC 或其他你需要的時區來獲取秒級時間戳
-                    .append("\"time\":").append(data.getTimestamp().toEpochSecond(ZoneOffset.ofHours(8))).append("},");
+            Map<String, Object> dataMap = new HashMap<>();
+            dataMap.put("symbol", data.getSymbol());
+            dataMap.put("open", data.getOpen());
+            dataMap.put("high", data.getHigh());
+            dataMap.put("low", data.getLow());
+            dataMap.put("close", data.getClose());
+            // 將 LocalDateTime 轉換為 Unix 時間戳
+            dataMap.put("time", data.getTimestamp().toEpochSecond(ZoneOffset.UTC));
+            historicalDataWithTimestamps.add(dataMap);
         }
-        // 移除最後一個逗號並關閉JSON數組
-        if (messageBuilder.length() > 1) {
-            messageBuilder.setLength(messageBuilder.length() - 1);
+
+        try {
+            // 將轉換後的數據轉換為 JSON
+            return objectMapper.writeValueAsString(historicalDataWithTimestamps);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "[]"; // 如果轉換失敗，返回空數組
         }
-        messageBuilder.append("]");
-        return messageBuilder.toString();
     }
+
 
     // Helper methods to get start and end of the current minute
     private LocalDateTime getStartOfMinute() {

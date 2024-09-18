@@ -55,31 +55,36 @@
     // 監聽WebSocket消息
     socket.onmessage = function(event) {
         const message = JSON.parse(event.data);
+        console.log(message);
 
         // 檢查是否是歷史數據
         if (Array.isArray(message)) {
             // 如果是歷史數據，更新圖表
             originalData = message.map(d => ({
-                time: d.time, // 假設時間已經是秒級時間戳
+                time: d.time, // 確保時間是秒級Unix時間戳
                 open: d.open,
                 high: d.high,
                 low: d.low,
                 close: d.close
             }));
+            console.log(originalData);
             candleSeries.setData(originalData); // 設置歷史數據到圖表
-        } else if (message.symbol === 'BTCUSDT') {
-            // 如果是實時的當前K線數據，更新最後一根K線
-            const lastCandle = originalData[originalData.length - 1];
-
-            // 假設當前消息包含最新的價格、最高價和最低價，更新K線
-            lastCandle.close = message.current;
-            lastCandle.high = Math.max(lastCandle.high, message.high);
-            lastCandle.low = Math.min(lastCandle.low, message.low);
-
-            // 更新圖表
-            candleSeries.update(lastCandle);
         }
+        // } else if (message.symbol === 'BTCUSDT') {
+        //     // 如果是實時的當前K線數據，更新最後一根K線
+        //     const lastCandle = { ...originalData[originalData.length - 1] };
+        //
+        //     // 假設當前消息包含最新的價格、最高價和最低價，更新K線
+        //     lastCandle.high = Math.max(lastCandle.high, message.high);
+        //     lastCandle.low = Math.min(lastCandle.low, message.low);
+        //     lastCandle.close = message.close; // 更新 close 價格為最新成交價
+        //
+        //     // 更新圖表
+        //     candleSeries.update(lastCandle);
+        // }
     };
+
+
 
     // 錯誤處理
     socket.onerror = function(error) {
