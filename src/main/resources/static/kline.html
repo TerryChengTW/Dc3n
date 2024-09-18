@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>BTC/USDT K線圖</title>
+    <style>
+        #chart {
+            width: 100%;
+            height: 500px;
+        }
+    </style>
+    <!-- 引入 TradingView Lightweight Charts 庫 -->
+    <script src="https://unpkg.com/lightweight-charts@3.8.0/dist/lightweight-charts.standalone.production.js"></script>
+</head>
+<body>
+<h1>BTC/USDT K線圖</h1>
+<div id="chart"></div>
+
+<script>
+    // 創建圖表
+    const chart = LightweightCharts.createChart(document.getElementById('chart'), {
+        width: document.body.clientWidth,
+        height: 500,
+        layout: {
+            backgroundColor: '#FFFFFF',
+            textColor: '#000',
+        },
+        grid: {
+            vertLines: {
+                color: '#e1e1e1',
+            },
+            horzLines: {
+                color: '#e1e1e1',
+            },
+        },
+        crosshair: {
+            mode: LightweightCharts.CrosshairMode.Normal,
+        },
+        rightPriceScale: {
+            borderColor: '#AAA',
+        },
+        timeScale: {
+            borderColor: '#AAA',
+            timeVisible: true,
+            secondsVisible: false,
+        },
+    });
+
+    // 創建燭台系列
+    const candleSeries = chart.addCandlestickSeries();
+
+    // 可見的K線數量
+    let visibleCandles = 50; // 初始顯示50根K線
+    const minCandles = 10;   // 最少顯示10根
+    const maxCandles = 300;  // 最多顯示300根
+
+    let originalData = []; // 原始數據
+
+    // 獲取數據並繪製圖表
+    fetch('/api/kline/BTCUSDT')
+        .then(response => response.json())
+        .then(data => {
+            // 處理數據
+            originalData = data.map(d => ({
+                time: Math.floor(new Date(d.timestamp).getTime() / 1000), // 轉換為秒級時間戳
+                open: d.open,
+                high: d.high,
+                low: d.low,
+                close: d.close
+            })).sort((a, b) => a.time - b.time);
+
+            // 設置初始數據
+            updateChart();
+
+            // 使圖表適應容器大小
+            window.addEventListener('resize', () => {
+                chart.applyOptions({ width: document.body.clientWidth });
+            });
+        })
+        .catch(error => console.error('獲取市場數據時出錯:', error));
+
+    // 更新圖表數據
+    function updateChart() {
+        const dataToShow = originalData.slice(-visibleCandles);
+        candleSeries.setData(dataToShow);
+        // 調整時間範圍以適應數據
+        chart.timeScale().fitContent();
+    }
+
+    // 監聽滑鼠滾輪事件以縮放K線數量
+    document.getElementById('chart').addEventListener('wheel', function(event) {
+        event.preventDefault(); // 防止頁面滾動
+
+        if (event.deltaY < 0) {
+            // 滾輪向上 (放大)
+            visibleCandles = Math.max(visibleCandles - 10, minCandles);
+        } else {
+            // 滾輪向下 (縮小)
+            visibleCandles = Math.min(visibleCandles + 10, maxCandles);
+        }
+        updateChart();
+    });
+</script>
+</body>
+</html>
