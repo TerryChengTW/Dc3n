@@ -6,8 +6,8 @@ import time
 # 配置參數
 BASE_URL = 'http://localhost:8081'
 SYMBOLS = {
-    'ETHUSDT': {'initial_price': 2000, 'price_range': 20},
-    'BTCUSDT': {'initial_price': 50000, 'price_range': 20}
+    'ETHUSDT': {'initial_price': 2000, 'price_range': 10},
+    'BTCUSDT': {'initial_price': 50000, 'price_range': 10}
 }
 ORDER_QUANTITY_RANGE = (0.1, 1.0)  # 訂單數量範圍
 MARKET_ORDER_PROBABILITY = 0.05  # 市價單的概率
@@ -15,8 +15,8 @@ CONCURRENCY = 100  # 同時提交訂單的數量（併發數）
 
 # JWT 令牌
 JWT_TOKENS = [
-    'eyJhbGciOiJIUzI1NiJ9.eyJ1c2VybmFtZSI6IjEiLCJ1c2VySWQiOiIxODM0NjY2NjE1NTQ4MDIyNzg0IiwiaWF0IjoxNzI2NTg2NDg1LCJleHAiOjE3NjI1ODY0ODV9.wZfuSfV3scEecxAnjh4y7Fd0SUYVfEQPv4NjdcSfcLA',
-    'eyJhbGciOiJIUzI1NiJ9.eyJ1c2VybmFtZSI6IjIiLCJ1c2VySWQiOiIxODM0NjY2NTI5ODc1MTY5MjgwIiwiaWF0IjoxNzI2NTg2NTAwLCJleHAiOjE3NjI1ODY1MDB9.opp5lWV_54bZ1Dbfy68H7EYeQZ4MFLyh0d5Xwb812tY'
+    'eyJhbGciOiJIUzI1NiJ9.eyJ1c2VybmFtZSI6IjEiLCJ1c2VySWQiOiIxODM0NjY2NjE1NTQ4MDIyNzg0IiwiaWF0IjoxNzI2NjIyMTk5LCJleHAiOjE3NjI2MjIxOTl9.Bsn-OfJVXNIQyPI_oY6lrIQgLWANTXjoOf0fnTX9sVs',
+    'eyJhbGciOiJIUzI1NiJ9.eyJ1c2VybmFtZSI6IjIiLCJ1c2VySWQiOiIxODM0NjY2NTI5ODc1MTY5MjgwIiwiaWF0IjoxNzI2NjIyMjM5LCJleHAiOjE3NjI2MjIyMzl9.zR8dW2dUWWBTERwdJDD0yGwzFyUWliXwWTRGvBuStd0'
     ]
 
 async def submit_order(session, side, symbol, initial_price, price_range):

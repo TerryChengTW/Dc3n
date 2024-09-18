@@ -286,21 +286,19 @@ function connectRecentTradesWebSocket(symbol) {
         const tradesData = JSON.parse(event.data);
 
         if (isFirstMessage) {
-            // 清空默認的空白行
-            tradesList.innerHTML = '';
+            // 確認資料是否為陣列且不為空
+            if (Array.isArray(tradesData) && tradesData.length > 0) {
+                // 清空默認的空白行
+                tradesList.innerHTML = '';
 
-            // 確認資料是否為陣列（多筆交易資料）
-            if (Array.isArray(tradesData)) {
                 // 處理所有的交易資料
                 tradesData.forEach(trade => {
                     addRecentTrade(trade);
                 });
-            }
-            isFirstMessage = false; // 第一次處理完畢
+            } isFirstMessage = false;
         } else {
             // 後續收到的是單筆交易資料
             if (Array.isArray(tradesData)) {
-                // 如果錯誤發送了陣列，處理所有交易
                 tradesData.forEach(trade => {
                     addRecentTrade(trade);
                 });

@@ -34,7 +34,6 @@ public class RecentTradesWebSocketHandler extends TextWebSocketHandler {
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
         String symbol = extractSymbolFromUri(session.getUri().toString());
         session.getAttributes().put("symbol", symbol); // 設置到 session
-        System.out.println("RecentTradesWebSocketHandler: " + symbol);
 
         symbolSessions.computeIfAbsent(symbol, k -> ConcurrentHashMap.newKeySet()).add(session);
 
@@ -63,7 +62,6 @@ public class RecentTradesWebSocketHandler extends TextWebSocketHandler {
     }
 
     public void broadcastRecentTrade(String symbol, Object tradeData) {
-        System.out.println("RecentTradesWebSocketHandler: " + tradeData);
         String tradeJson;
         try {
             tradeJson = objectMapper.writeValueAsString(tradeData);
@@ -88,7 +86,6 @@ public class RecentTradesWebSocketHandler extends TextWebSocketHandler {
 
     public void sendRecentTrades(WebSocketSession session, List<Trade> recentTrades) {
         try {
-            System.out.println("RecentTradesWebSocketHandler: " + objectMapper.writeValueAsString(recentTrades));
             session.sendMessage(new TextMessage(objectMapper.writeValueAsString(recentTrades)));
         } catch (IOException e) {
             e.printStackTrace();
