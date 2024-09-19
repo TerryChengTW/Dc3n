@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="zh" th:fragment="kline">
 <head>
     <meta charset="UTF-8">
     <title>BTC/USDT K線圖</title>
@@ -11,6 +11,7 @@
     </style>
     <!-- 引入 TradingView Lightweight Charts 庫 -->
     <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+
 </head>
 <body>
 <h1>BTC/USDT K線圖</h1>
@@ -19,7 +20,7 @@
 <script>
     // 創建圖表
     const chart = LightweightCharts.createChart(document.getElementById('chart'), {
-        width: document.body.clientWidth,
+        width: document.body.clientWidth/2,
         height: 500,
         layout: {
             backgroundColor: '#FFFFFF',
@@ -54,10 +55,10 @@
     let lastCandle = null; // 用來儲存當前的未結束K棒（例如50分的K棒）
 
     // 設置 WebSocket 連接
-    const socket = new WebSocket('ws://localhost:8081/ws/kline'); // 替換為你的WebSocket地址
+    const socket1 = new WebSocket('ws://localhost:8081/ws/kline'); // 替換為你的WebSocket地址
 
     // 監聽WebSocket消息
-    socket.onmessage = function(event) {
+    socket1.onmessage = function(event) {
         const message = JSON.parse(event.data);
         console.log("Got message: ", message);
 
@@ -142,12 +143,12 @@
 
 
     // 錯誤處理
-    socket.onerror = function(error) {
+    socket1.onerror = function(error) {
         console.error('WebSocket 出現錯誤: ', error);
     };
 
     // WebSocket關閉處理
-    socket.onclose = function() {
+    socket1.onclose = function() {
         console.log('WebSocket 連接已關閉');
     };
 
@@ -257,27 +258,6 @@
         const dataToShow = originalData.slice(-visibleCandles);  // 顯示最近的 visibleCandles 根K棒
         candleSeries.setData(dataToShow);
     }
-
-    // 初始載入數據邏輯
-    socket.onmessage = function(event) {
-        const message = JSON.parse(event.data);
-
-        // 處理歷史K棒數據
-        if (Array.isArray(message) && message.length > 0 && message[0].type === 'historical') {
-            originalData = message.map(d => ({
-                time: d.time,
-                open: d.open,
-                high: d.high,
-                low: d.low,
-                close: d.close
-            })).sort((a, b) => a.time - b.time);
-
-            console.log("接收的歷史數據：", originalData);
-
-            // 初始化圖表時僅顯示指定數量的K棒數據
-            updateChart();
-        }
-    };
 
 </script>
 </body>

@@ -15,10 +15,13 @@
 
 <h2>交易系統</h2>
 
-<!-- 主內容容器，包含訂單簿和下單表單 -->
-<div class="main-container">
-    <div class="left-container">
-    <!-- 訂單簿 -->
+<!-- Flex 容器，包含 K 線圖、訂單簿和最新成交、以及用戶下單 -->
+<div class="main-content">
+    <!-- 左側：K線圖 -->
+    <div class="chart-container" th:replace="~{kline.html :: kline}"></div>
+
+    <!-- 中間：訂單簿 + 最新成交 -->
+    <div class="middle-section">
         <div id="orderbookContainer">
             <h3>訂單簿</h3>
             <table>
@@ -29,14 +32,11 @@
                 </tr>
                 </thead>
                 <tbody id="asksList">
-                <!-- 賣單將在這裡動態插入 -->
                 </tbody>
                 <tbody id="bidsList">
-                <!-- 買單將在這裡動態插入 -->
                 </tbody>
             </table>
         </div>
-        <!-- 最新成交 -->
         <div id="recentTradesContainer">
             <h3>最新成交</h3>
             <table>
@@ -48,28 +48,12 @@
                 </tr>
                 </thead>
                 <tbody id="recentTradesList">
-                <!-- 最新成交將在這裡動態插入 -->
-                <tr>
-                    <td>-</td>
-                    <td>-</td>
-                    <td>-</td>
-                </tr>
-                <tr>
-                    <td>-</td>
-                    <td>-</td>
-                    <td>-</td>
-                </tr>
-                <tr>
-                    <td>-</td>
-                    <td>-</td>
-                    <td>-</td>
-                </tr>
+                </tbody>
             </table>
         </div>
     </div>
 
-
-    <!-- 下單視窗 -->
+    <!-- 右側：用戶下單區 -->
     <div class="trade-window">
         <form id="orderForm">
             <div class="form-group">
@@ -77,20 +61,16 @@
                 <select id="symbol" name="symbol" onchange="updateSymbol()">
                     <option value="BTCUSDT">BTCUSDT</option>
                     <option value="ETHUSDT">ETHUSDT</option>
-                    <!-- 添加更多交易對 -->
                 </select>
             </div>
-
             <div class="form-group">
                 <label for="price">Price:</label>
                 <input type="number" id="price" name="price" step="0.01">
             </div>
-
             <div class="form-group">
                 <label for="quantity">Quantity:</label>
                 <input type="number" id="quantity" name="quantity" value="1">
             </div>
-
             <div class="form-group">
                 <label>Side:</label>
                 <div class="btn-group">
@@ -98,7 +78,6 @@
                     <button type="button" id="sellButton" onclick="selectSide('SELL')">SELL</button>
                 </div>
             </div>
-
             <div class="form-group">
                 <label>Order Type:</label>
                 <div class="btn-group">
@@ -106,7 +85,6 @@
                     <button type="button" id="marketButton" onclick="selectOrderType('MARKET')">MARKET</button>
                 </div>
             </div>
-
             <button type="button" class="submit-btn" onclick="submitOrder()">下單</button>
         </form>
     </div>
