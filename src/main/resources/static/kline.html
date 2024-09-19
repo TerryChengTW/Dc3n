@@ -47,7 +47,7 @@
     });
 
     const candleSeries = chart.addCandlestickSeries();
-    let visibleCandles = 50; // 初始顯示50根K線
+    let visibleCandles = 20; // 初始顯示50根K線
     const minCandles = 10;   // 最少顯示10根
     const maxCandles = 10000;  // 最多顯示300根
     let originalData = []; // 用來儲存K線數據
@@ -73,6 +73,7 @@
 
             console.log("歷史數據：", originalData);
             candleSeries.setData(originalData); // 初始化時直接設定K線數據
+            updateChart();
         }
 
         // 處理查詢當下的那根K棒的既有數據
@@ -158,6 +159,7 @@
         chart.timeScale().fitContent();
     }
 
+
     // 監聽滑鼠滾輪事件以縮放K線數量
     document.getElementById('chart').addEventListener('wheel', function(event) {
         event.preventDefault(); // 防止頁面滾動
@@ -171,6 +173,72 @@
         }
         updateChart();
     });
+
+    let isInitialLoad = true;  // 初始載入標誌
+    let isLoading = false;  // 用來控制加載狀態
+
+    // 監聽圖表的時間範圍變化來加載更多的歷史數據
+    chart.timeScale().subscribeVisibleTimeRangeChange(function() {
+        // 初始載入完成後才監聽用戶的操作
+        if (isInitialLoad) {
+            isInitialLoad = false;
+            console.log('初始載入完成');
+            return;
+        }
+
+        // 檢查圖表的可見範圍
+        const visibleLogicalRange = chart.timeScale().getVisibleLogicalRange();
+        const barsInfo = candleSeries.barsInLogicalRange(visibleLogicalRange);
+
+        // 當顯示的數據到達圖表左邊界並且無更多數據可顯示時，才加載更多數據
+        console.log('barsInfo:', barsInfo);
+        if (!isLoading && barsInfo.barsBefore<0 && visibleCandles < originalData.length) {
+            console.log('準備加載更多數據...');
+            isLoading = true;  // 標記正在加載
+            loadMoreExistingData();  // 加載數據
+        }
+    });
+
+    // 從已有數據中加載更多的歷史數據
+    function loadMoreExistingData() {
+        console.log('加載更多本地的歷史數據...');
+        visibleCandles = Math.min(visibleCandles + 10, originalData.length);  // 每次增加10筆
+        // updateChart();
+        // isLoading = false;  // 加載完成後重置加載標誌
+        setTimeout(() => {
+            loadChart();
+            isLoading = false;  // 加載完成後重置加載標誌
+            console.log('加載完成');
+        }, 500);  // 假設加載耗時500毫秒
+    }
+
+    // 更新圖表數據
+    function loadChart() {
+        const dataToShow = originalData.slice(-visibleCandles);  // 顯示最近的 visibleCandles 根K棒
+        candleSeries.setData(dataToShow);
+    }
+
+    // 初始載入數據邏輯
+    socket.onmessage = function(event) {
+        const message = JSON.parse(event.data);
+
+        // 處理歷史K棒數據
+        if (Array.isArray(message) && message.length > 0 && message[0].type === 'historical') {
+            originalData = message.map(d => ({
+                time: d.time,
+                open: d.open,
+                high: d.high,
+                low: d.low,
+                close: d.close
+            })).sort((a, b) => a.time - b.time);
+
+            console.log("接收的歷史數據：", originalData);
+
+            // 初始化圖表時僅顯示指定數量的K棒數據
+            updateChart();
+        }
+    };
+
 </script>
 </body>
 </html>
