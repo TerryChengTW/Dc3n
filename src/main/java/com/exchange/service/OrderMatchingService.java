@@ -199,15 +199,17 @@ public class OrderMatchingService {
         trade.setSymbol(buyOrder.getSymbol());
         trade.setQuantity(tradeQuantity);
         trade.setPrice(price);
-        trade.setTradeTime(Instant.now());
+        trade.setTradeTime(Instant.now()); // 獲取當前的時間戳
 
         matchedOrderProducer.sendMatchedTrade(trade);
 
         TradeDTO tradeDTO = new TradeDTO(trade.getSymbol(), trade.getTradeTime(), trade.getPrice(), trade.getQuantity());
-        String simpleMessage = "{\"symbol\": \"" + trade.getSymbol() + "\", \"price\": " + trade.getPrice() + "}";
+
+        // 構建Kafka消息，包含時間戳
+        String simpleMessage = "{\"symbol\": \"" + trade.getSymbol() + "\", \"price\": " + trade.getPrice() + ", \"tradeTime\": " + trade.getTradeTime().getEpochSecond() + "}";
 
         kafkaTemplate.send("recent-trades", trade.getSymbol(), objectMapper.writeValueAsString(tradeDTO));
-        kafkaTemplate.send("kline-updates", trade.getSymbol(), simpleMessage);
+        kafkaTemplate.send("kline-updates", trade.getSymbol(), simpleMessage); // 將tradeTime包含進去
     }
 
 

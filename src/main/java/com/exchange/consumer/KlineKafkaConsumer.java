@@ -8,6 +8,7 @@ import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 
 @Component
 public class KlineKafkaConsumer {
@@ -25,9 +26,12 @@ public class KlineKafkaConsumer {
             var jsonNode = objectMapper.readTree(message);
             String symbol = jsonNode.get("symbol").asText();
             BigDecimal price = new BigDecimal(jsonNode.get("price").asText());
+            long tradeTime = jsonNode.get("tradeTime").asLong(); // 獲取tradeTime
 
-            // 直接使用 symbol 和 price 進行推送
-            klineWebSocketHandler.broadcastKlineUpdate(symbol, price);
+            Instant tradeInstant = Instant.ofEpochSecond(tradeTime);
+
+            // 使用 symbol, price 和 tradeTime 推送到 WebSocket
+            klineWebSocketHandler.broadcastKlineUpdate(symbol, price, tradeInstant);
         } catch (Exception e) {
             // 處理異常
             e.printStackTrace();

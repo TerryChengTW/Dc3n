@@ -121,15 +121,16 @@ public class KlineWebSocketHandler extends TextWebSocketHandler {
         sessions.remove(session);
     }
 
-    public void broadcastKlineUpdate(String symbol, BigDecimal price) {
+    public void broadcastKlineUpdate(String symbol, BigDecimal price, Instant tradeTime) {
         sessions.forEach(session -> {
             try {
-                // 構建實時成交數據的消息
-                String message = "{\"type\": \"trade\", \"symbol\": \"" + symbol + "\", \"price\": " + price + "}";
+                // 構建實時成交數據的消息，包含時間戳
+                String message = "{\"type\": \"trade\", \"symbol\": \"" + symbol + "\", \"price\": " + price + ", \"time\": " + tradeTime.getEpochSecond() + "}";
                 session.sendMessage(new TextMessage(message));
             } catch (Exception e) {
                 e.printStackTrace();
             }
         });
     }
+
 }
