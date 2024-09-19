@@ -11,7 +11,8 @@ import jakarta.annotation.PostConstruct;
 import java.math.BigDecimal;
 import java.sql.PreparedStatement;
 import java.sql.Timestamp;
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
@@ -34,9 +35,9 @@ public class MarketDataInitializationService {
     @PostConstruct
     public void initializeMarketData() {
         String symbol = "BTCUSDT";
-        LocalDateTime endTime = LocalDateTime.now().truncatedTo(ChronoUnit.MINUTES);
-        LocalDateTime lastDataTime = getLastDataTime(symbol);
-        LocalDateTime startTime = lastDataTime != null ? lastDataTime.plusMinutes(1) : endTime.minusHours(300);
+        Instant endTime = Instant.now().truncatedTo(ChronoUnit.MINUTES);
+        Instant lastDataTime = getLastDataTime(symbol);
+        Instant startTime = lastDataTime != null ? lastDataTime.plus(1, ChronoUnit.MINUTES) : endTime.minus(300, ChronoUnit.HOURS);
 
         if (startTime.isAfter(endTime)) {
             System.out.println("數據已經是最新的，無需初始化。");
@@ -51,9 +52,9 @@ public class MarketDataInitializationService {
         List<CompletableFuture<Void>> futures = new ArrayList<>();
 
         for (int i = 0; i < THREADS; i++) {
-            LocalDateTime threadStartTime = startTime.plusMinutes(minutesPerThread * i);
-            LocalDateTime threadEndTime = i == THREADS - 1 ? endTime : threadStartTime.plusMinutes(minutesPerThread);
-            BigDecimal threadInitialPrice = i == 0 ? lastPrice : getLastPrice(symbol, threadStartTime.minusMinutes(1));
+            Instant threadStartTime = startTime.plus(minutesPerThread * i, ChronoUnit.MINUTES);
+            Instant threadEndTime = i == THREADS - 1 ? endTime : threadStartTime.plus(minutesPerThread, ChronoUnit.MINUTES);
+            BigDecimal threadInitialPrice = i == 0 ? lastPrice : getLastPrice(symbol, threadStartTime.minus(1, ChronoUnit.MINUTES));
 
             futures.add(CompletableFuture.runAsync(() -> generateAndInsertData(symbol, threadStartTime, threadEndTime, threadInitialPrice), executorService));
         }
@@ -63,12 +64,12 @@ public class MarketDataInitializationService {
         System.out.println("市場數據初始化完成，從 " + startTime + " 到 " + endTime);
     }
 
-    public void generateAndInsertData(String symbol, LocalDateTime startTime, LocalDateTime endTime, BigDecimal initialPrice) {
+    public void generateAndInsertData(String symbol, Instant startTime, Instant endTime, BigDecimal initialPrice) {
         String sql = "INSERT INTO market_data (symbol, time_frame, timestamp, open, high, low, close, volume) VALUES (?,?,?,?,?,?,?,?)";
         List<MarketData> batch = new ArrayList<>();
         BigDecimal lastPrice = initialPrice;
 
-        for (LocalDateTime time = startTime; time.isBefore(endTime); time = time.plusMinutes(1)) {
+        for (Instant time = startTime; time.isBefore(endTime); time = time.plus(1, ChronoUnit.MINUTES)) {
             MarketData data = generateMarketData(symbol, time, lastPrice);
             batch.add(data);
             lastPrice = data.getClose();
@@ -88,7 +89,7 @@ public class MarketDataInitializationService {
         jdbcTemplate.batchUpdate(sql, batch, DEFAULT_BATCH_SIZE, (PreparedStatement ps, MarketData data) -> {
             ps.setString(1, data.getSymbol());
             ps.setString(2, data.getTimeFrame());
-            ps.setTimestamp(3, Timestamp.valueOf(data.getTimestamp()));
+            ps.setTimestamp(3, Timestamp.from(data.getTimestamp().atOffset(ZoneOffset.UTC).toInstant()));
             ps.setBigDecimal(4, data.getOpen());
             ps.setBigDecimal(5, data.getHigh());
             ps.setBigDecimal(6, data.getLow());
@@ -97,16 +98,19 @@ public class MarketDataInitializationService {
         });
     }
 
-    private LocalDateTime getLastDataTime(String symbol) {
+    private Instant getLastDataTime(String symbol) {
         try {
             String sql = "SELECT MAX(timestamp) FROM market_data WHERE symbol = ?";
-            return jdbcTemplate.queryForObject(sql, (rs, rowNum) -> rs.getObject(1, LocalDateTime.class), symbol);
+            return jdbcTemplate.queryForObject(sql, (rs, rowNum) -> {
+                Timestamp timestamp = rs.getTimestamp(1);
+                return timestamp != null ? timestamp.toInstant() : null; // 確認 timestamp 不為 null 才調用 toInstant()
+            }, symbol);
         } catch (EmptyResultDataAccessException e) {
             return null;
         }
     }
 
-    private BigDecimal getLastPrice(String symbol, LocalDateTime time) {
+    private BigDecimal getLastPrice(String symbol, Instant time) {
         String sql = "SELECT close FROM market_data WHERE symbol = ? AND timestamp = ?";
         try {
             return jdbcTemplate.queryForObject(sql, (rs, rowNum) -> rs.getBigDecimal(1), symbol, time);
@@ -115,7 +119,7 @@ public class MarketDataInitializationService {
         }
     }
 
-    private MarketData generateMarketData(String symbol, LocalDateTime time, BigDecimal lastPrice) {
+    private MarketData generateMarketData(String symbol, Instant time, BigDecimal lastPrice) {
         BigDecimal maxChange = lastPrice.multiply(BigDecimal.valueOf(0.005));
         BigDecimal change = maxChange.multiply(BigDecimal.valueOf(random.nextDouble() * 2 - 1));
 

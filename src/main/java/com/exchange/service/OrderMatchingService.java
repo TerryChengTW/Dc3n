@@ -17,7 +17,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Map;
 import java.util.Set;
 
@@ -126,7 +126,7 @@ public class OrderMatchingService {
         order.setFilledQuantity(order.getFilledQuantity().add(tradeQuantity));
         oppositeOrder.setFilledQuantity(oppositeOrder.getFilledQuantity().add(tradeQuantity));
 
-        LocalDateTime currentTime = LocalDateTime.now();
+        Instant currentTime = Instant.now();
 
         updateOrderStatus(oppositeOrder, currentTime);
         updateOrderStatus(order, currentTime);
@@ -135,7 +135,7 @@ public class OrderMatchingService {
         matchedOrderProducer.sendMatchedOrder(oppositeOrder);
     }
 
-    private void updateOrderStatus(Order order, LocalDateTime currentTime) {
+    private void updateOrderStatus(Order order, Instant currentTime) {
         Order.OrderStatus oldStatus = order.getStatus();
         if (order.getFilledQuantity().compareTo(order.getQuantity()) >= 0) {
             order.setStatus(Order.OrderStatus.COMPLETED);
@@ -199,7 +199,7 @@ public class OrderMatchingService {
         trade.setSymbol(buyOrder.getSymbol());
         trade.setQuantity(tradeQuantity);
         trade.setPrice(price);
-        trade.setTradeTime(LocalDateTime.now());
+        trade.setTradeTime(Instant.now());
 
         matchedOrderProducer.sendMatchedTrade(trade);
 
@@ -244,9 +244,9 @@ public class OrderMatchingService {
         order.setSide(Order.Side.valueOf(sideStr));
         order.setSymbol(symbolStr);
         order.setStatus(Order.OrderStatus.valueOf(statusStr));
-        order.setCreatedAt(LocalDateTime.parse(createdAtStr));
-        order.setUpdatedAt(LocalDateTime.parse(updatedAtStr));
-        order.setModifiedAt(LocalDateTime.parse(modifiedAtStr));
+        order.setCreatedAt(Instant.parse(createdAtStr));
+        order.setUpdatedAt(Instant.parse(updatedAtStr));
+        order.setModifiedAt(Instant.parse(modifiedAtStr));
 
         return order;
     }

@@ -6,8 +6,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
+import java.time.Instant;
 import java.util.List;
 
 @Entity
@@ -58,13 +57,13 @@ public class Order {
     private BigDecimal takeProfitPrice;  // 止盈價格
 
     @Column(nullable = false)
-    private LocalDateTime createdAt = LocalDateTime.now();
+    private Instant createdAt = Instant.now();
 
     @Column(nullable = false)
-    private LocalDateTime updatedAt = LocalDateTime.now();
+    private Instant updatedAt = Instant.now();
 
     @Column(nullable = false)
-    private LocalDateTime modifiedAt = LocalDateTime.now();
+    private Instant modifiedAt = Instant.now();
 
     @OneToMany(mappedBy = "buyOrder")
     @JsonIgnore

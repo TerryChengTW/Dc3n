@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.Optional;
 
 @Service
@@ -54,7 +55,7 @@ public class OrderService {
     // 取消訂單，並將其發送到 Kafka
     public void cancelOrder(Order order) {
         order.setStatus(Order.OrderStatus.CANCELLED);  // 設置訂單狀態為取消
-        order.setUpdatedAt(java.time.LocalDateTime.now());  // 更新時間戳
+        order.setUpdatedAt(Instant.now());  // 更新時間戳
 
         // 發送取消訂單到 Kafka
         orderProducer.sendCancelOrder(order);

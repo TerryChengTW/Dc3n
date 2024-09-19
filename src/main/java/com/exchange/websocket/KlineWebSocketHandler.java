@@ -15,8 +15,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
+import java.time.*;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -48,22 +48,47 @@ public class KlineWebSocketHandler extends TextWebSocketHandler {
         session.sendMessage(new TextMessage(historicalMessage));
 
         // 查詢當前未結束的K線數據（假設1分鐘K線）
-        List<Trade> currentTrades = tradeRepository.findBySymbolAndTradeTimeBetween("BTCUSDT", getStartOfMinute(), getEndOfMinute());
+        Instant now = Instant.now();
+        Instant startOfCurrentMinute = now.truncatedTo(ChronoUnit.MINUTES); // 當前分鐘的開始
+        Instant endOfCurrentMinute = startOfCurrentMinute.plus(1, ChronoUnit.MINUTES); // 當前分鐘的結束
 
-        BigDecimal highPrice = currentTrades.stream().map(Trade::getPrice).max(BigDecimal::compareTo).orElse(BigDecimal.ZERO);
-        BigDecimal lowPrice = currentTrades.stream().map(Trade::getPrice).min(BigDecimal::compareTo).orElse(BigDecimal.ZERO);
-        BigDecimal currentPrice = currentTrades.isEmpty() ? BigDecimal.ZERO : currentTrades.get(currentTrades.size() - 1).getPrice();
+        List<Trade> currentTrades = tradeRepository.findBySymbolAndTradeTimeBetween("BTCUSDT", startOfCurrentMinute, endOfCurrentMinute);
 
-        // 使用當前時間戳作為未結束K線的時間
-        long currentTime = System.currentTimeMillis() / 1000;
+        BigDecimal highPrice = BigDecimal.ZERO;
+        BigDecimal lowPrice = BigDecimal.ZERO;
+        BigDecimal currentPrice = BigDecimal.ZERO;
+        BigDecimal openPrice = BigDecimal.ZERO;
+
+        // 查詢上一分鐘的MarketData數據
+        MarketData previousMarketData = marketDataRepository.findTopBySymbolAndTimeFrameOrderByTimestampDesc("BTCUSDT", "1m");
+
+        if (previousMarketData != null) {
+            // 使用上一分鐘的收盤價作為開盤價
+            openPrice = previousMarketData.getClose();
+        }
+
+        if (currentTrades.isEmpty()) {
+            // 沒有當前交易數據，使用上一分鐘的收盤價設置高、低、收盤價
+            if (previousMarketData != null) {
+                highPrice = previousMarketData.getClose();
+                lowPrice = previousMarketData.getClose();
+                currentPrice = previousMarketData.getClose();
+            }
+        } else {
+            // 有當前交易數據，根據當前數據設置高、低、收盤價
+            highPrice = currentTrades.stream().map(Trade::getPrice).max(BigDecimal::compareTo).orElse(BigDecimal.ZERO);
+            lowPrice = currentTrades.stream().map(Trade::getPrice).min(BigDecimal::compareTo).orElse(BigDecimal.ZERO);
+            currentPrice = currentTrades.get(currentTrades.size() - 1).getPrice();
+        }
+
+        long currentTime = now.getEpochSecond();
 
         // 構建當前K線數據的消息並發送
-        String currentKlineMessage = "{\"type\": \"current_kline\", \"symbol\": \"BTCUSDT\", \"high\": "
-                + highPrice + ", \"low\": " + lowPrice + ", \"close\": " + currentPrice + ", \"time\": " + currentTime + "}";
+        String currentKlineMessage = "{\"type\": \"current_kline\", \"symbol\": \"BTCUSDT\", \"open\": "
+                + openPrice + ", \"high\": " + highPrice + ", \"low\": " + lowPrice + ", \"close\": " + currentPrice + ", \"time\": " + currentTime + "}";
         System.out.println("currentKlineMessage: ");
         System.out.println(currentKlineMessage);
         session.sendMessage(new TextMessage(currentKlineMessage));
-
     }
 
     private String createHistoricalDataMessage(List<MarketData> historicalData) {
@@ -79,7 +104,7 @@ public class KlineWebSocketHandler extends TextWebSocketHandler {
             dataMap.put("high", data.getHigh());
             dataMap.put("low", data.getLow());
             dataMap.put("close", data.getClose());
-            dataMap.put("time", data.getTimestamp().toEpochSecond(ZoneOffset.UTC));  // Unix 時間戳
+            dataMap.put("time", data.getTimestamp().getEpochSecond());  // Unix 時間戳
             historicalDataWithTimestamps.add(dataMap);
         }
 
@@ -90,17 +115,6 @@ public class KlineWebSocketHandler extends TextWebSocketHandler {
             return "[]"; // 如果轉換失敗，返回空數組
         }
     }
-
-
-    // Helper methods to get start and end of the current minute
-    private LocalDateTime getStartOfMinute() {
-        return LocalDateTime.now().withSecond(0).withNano(0);
-    }
-
-    private LocalDateTime getEndOfMinute() {
-        return LocalDateTime.now().withSecond(59).withNano(999999999);
-    }
-
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {

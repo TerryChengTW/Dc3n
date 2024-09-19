@@ -13,7 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @RestController
 @RequestMapping("/orders")
@@ -50,9 +50,9 @@ public class OrderController {
             order.setSide(orderRequest.getSide());
             order.setOrderType(orderRequest.getOrderType());
             order.setStatus(Order.OrderStatus.PENDING);
-            order.setCreatedAt(LocalDateTime.now());
-            order.setUpdatedAt(LocalDateTime.now());
-            order.setModifiedAt(LocalDateTime.now());
+            order.setCreatedAt(Instant.now());
+            order.setUpdatedAt(Instant.now());
+            order.setModifiedAt(Instant.now());
 
             // 保存訂單並發送到 Kafka
             orderService.saveOrder(order);
@@ -91,8 +91,8 @@ public class OrderController {
             BigDecimal newQuantity = orderRequest.getQuantity();
             order.setPrice(orderRequest.getPrice());
             order.setQuantity(newQuantity);
-            order.setUpdatedAt(LocalDateTime.now());
-            order.setModifiedAt(LocalDateTime.now());
+            order.setUpdatedAt(Instant.now());
+            order.setModifiedAt(Instant.now());
 
             // 更新訂單
             orderService.updateOrder(order, newQuantity);

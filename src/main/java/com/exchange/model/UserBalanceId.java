@@ -8,6 +8,4 @@ import java.io.Serializable;
 public class UserBalanceId implements Serializable {
     private String userId;
     private String currency;
-
-    // equals() 和 hashCode() 需要覆蓋
 }

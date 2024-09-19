@@ -6,6 +6,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
+
 @Service
 public class OrderUpdateService {
 
@@ -41,7 +43,7 @@ public class OrderUpdateService {
         String orderBookKey = "orderbook:" + order.getSymbol() + ":" + order.getSide();  // 假設 Side 是 "BUY" 或 "SELL"
         redisTemplate.opsForZSet().remove(orderBookKey, order.getId());
 
-        order.setModifiedAt(java.time.LocalDateTime.now());  // 更新時間戳
+        order.setModifiedAt(Instant.now());  // 更新時間戳
         order.setStatus(Order.OrderStatus.CANCELLED);  // 設置訂單狀態
         orderRepository.save(order);  // 更新 MySQL 中的狀態
         orderMatchingService.sendWebSocketNotification(order.getUserId(), "ORDER_COMPLETED", order);

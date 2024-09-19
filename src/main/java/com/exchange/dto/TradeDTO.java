@@ -5,14 +5,14 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Setter
 @Getter
 @AllArgsConstructor
 public class TradeDTO {
     private String symbol;
-    private LocalDateTime tradeTime;
+    private Instant tradeTime;
     private BigDecimal price;
     private BigDecimal quantity;
 

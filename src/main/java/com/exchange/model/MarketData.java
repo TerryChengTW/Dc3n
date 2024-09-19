@@ -8,7 +8,7 @@ import jakarta.persistence.Id;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Entity
 @Table(name = "market_data")
@@ -26,7 +26,7 @@ public class MarketData {
     private String timeFrame; // 如 '1m', '5m', '1d'
 
     @Id
-    private LocalDateTime timestamp;
+    private Instant timestamp;
 
     @Column(precision = 18, scale = 8, nullable = false)
     private BigDecimal open;

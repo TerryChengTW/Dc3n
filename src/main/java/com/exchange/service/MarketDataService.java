@@ -9,7 +9,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 
@@ -24,9 +24,10 @@ public class MarketDataService {
 
     @Scheduled(cron = "0 * * * * *") // 每分鐘的第0秒執行
     public void aggregateAndSaveMarketData() {
-        LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.MINUTES);
-        LocalDateTime startTime = now.minusMinutes(1);
-        LocalDateTime endTime = now;
+        Instant now = Instant.now().truncatedTo(ChronoUnit.MINUTES);
+        Instant startTime = now.minus(1, ChronoUnit.MINUTES);
+        Instant endTime = now;
+
 
         List<String> symbols = List.of("BTCUSDT", "ETHUSDT", "BNBUSDT"); // 根據需要擴展
 
@@ -38,7 +39,7 @@ public class MarketDataService {
         }
     }
 
-    private MarketData aggregateOneMinuteData(String symbol, LocalDateTime startTime, LocalDateTime endTime) {
+    private MarketData aggregateOneMinuteData(String symbol, Instant startTime, Instant endTime) {
         List<Trade> trades = tradeRepository.findBySymbolAndTradeTimeBetween(symbol, startTime, endTime);
 
         if (trades.isEmpty()) {
@@ -64,7 +65,7 @@ public class MarketDataService {
         return marketData;
     }
 
-    private MarketData handleNoDataSituation(String symbol, LocalDateTime startTime) {
+    private MarketData handleNoDataSituation(String symbol, Instant startTime) {
         MarketData previousData = marketDataRepository.findLatestBeforeTime(symbol, startTime);
         if (previousData == null) {
             return null;

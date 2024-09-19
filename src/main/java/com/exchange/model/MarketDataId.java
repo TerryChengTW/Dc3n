@@ -3,13 +3,11 @@ package com.exchange.model;
 import lombok.EqualsAndHashCode;
 
 import java.io.Serializable;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @EqualsAndHashCode
 public class MarketDataId implements Serializable {
     private String symbol;
     private String timeFrame;
-    private LocalDateTime timestamp;
-
-    // equals() 和 hashCode() 需要覆蓋
+    private Instant timestamp;
 }
