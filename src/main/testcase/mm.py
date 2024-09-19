@@ -7,7 +7,7 @@ import time
 BASE_URL = 'http://localhost:8081'
 SYMBOLS = {
     'ETHUSDT': {'initial_price': 2000, 'price_range': 10},
-    'BTCUSDT': {'initial_price': 50000, 'price_range': 10}
+    'BTCUSDT': {'initial_price': 50000, 'price_range': 2000}
 }
 ORDER_QUANTITY_RANGE = (0.1, 1.0)  # 訂單數量範圍
 MARKET_ORDER_PROBABILITY = 0.05  # 市價單的概率

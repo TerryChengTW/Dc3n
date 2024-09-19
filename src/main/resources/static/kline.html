@@ -72,7 +72,6 @@
             })).sort((a, b) => a.time - b.time);
 
             console.log("歷史數據：", originalData);
-            updateChart();
         }
 
         // 處理當前未結束K線數據 (如50分的K棒)
@@ -97,6 +96,7 @@
             }
 
             // 更新圖表
+            updateChart();
             candleSeries.update(lastCandle);
         }
 

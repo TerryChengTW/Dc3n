@@ -39,7 +39,7 @@ public class KlineWebSocketHandler extends TextWebSocketHandler {
         sessions.add(session);
 
         // 查詢歷史K線數據
-        List<MarketData> historicalData = marketDataRepository.findTop2BySymbolOrderByTimestampDesc("BTCUSDT");
+        List<MarketData> historicalData = marketDataRepository.findTop500BySymbolOrderByTimestampDesc("BTCUSDT");
 
         // 將歷史數據轉換為簡單的JSON結構並發送
         String historicalMessage = createHistoricalDataMessage(historicalData);

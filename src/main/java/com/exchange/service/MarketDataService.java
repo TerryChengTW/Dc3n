@@ -42,15 +42,25 @@ public class MarketDataService {
     private MarketData aggregateOneMinuteData(String symbol, Instant startTime, Instant endTime) {
         List<Trade> trades = tradeRepository.findBySymbolAndTradeTimeBetween(symbol, startTime, endTime);
 
-        if (trades.isEmpty()) {
-            return handleNoDataSituation(symbol, startTime);
+        BigDecimal open, close, high, low, volume;
+
+        // 查找上一分鐘的收盤價來作為當前開盤價
+        MarketData previousData = marketDataRepository.findLatestBeforeTime(symbol, startTime);
+        if (previousData != null) {
+            open = previousData.getClose();
+        } else {
+            open = BigDecimal.ZERO; // 若無前一分鐘的數據，則設為0或其他適當值
         }
 
-        BigDecimal open = trades.get(0).getPrice();
-        BigDecimal close = trades.get(trades.size() - 1).getPrice();
-        BigDecimal high = trades.stream().map(Trade::getPrice).max(BigDecimal::compareTo).orElse(BigDecimal.ZERO);
-        BigDecimal low = trades.stream().map(Trade::getPrice).min(BigDecimal::compareTo).orElse(BigDecimal.ZERO);
-        BigDecimal volume = trades.stream().map(Trade::getQuantity).reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (trades.isEmpty()) {
+            // 如果沒有交易，依然使用處理無數據的方式
+            return handleNoDataSituation(symbol, startTime);
+        } else {
+            close = trades.get(trades.size() - 1).getPrice();
+            high = trades.stream().map(Trade::getPrice).max(BigDecimal::compareTo).orElse(open);
+            low = trades.stream().map(Trade::getPrice).min(BigDecimal::compareTo).orElse(open);
+            volume = trades.stream().map(Trade::getQuantity).reduce(BigDecimal.ZERO, BigDecimal::add);
+        }
 
         MarketData marketData = new MarketData();
         marketData.setSymbol(symbol);
@@ -64,6 +74,7 @@ public class MarketDataService {
 
         return marketData;
     }
+
 
     private MarketData handleNoDataSituation(String symbol, Instant startTime) {
         MarketData previousData = marketDataRepository.findLatestBeforeTime(symbol, startTime);
