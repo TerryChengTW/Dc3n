@@ -171,7 +171,7 @@
             // 滾輪向下 (縮小)
             visibleCandles = Math.min(visibleCandles + 10, maxCandles);
         }
-        updateChart();
+        loadChart();
     });
 
     let isInitialLoad = true;  // 初始載入標誌
@@ -191,8 +191,8 @@
         const barsInfo = candleSeries.barsInLogicalRange(visibleLogicalRange);
 
         // 當顯示的數據到達圖表左邊界並且無更多數據可顯示時，才加載更多數據
-        console.log('barsInfo:', barsInfo);
-        if (!isLoading && barsInfo.barsBefore<0 && visibleCandles < originalData.length) {
+        // console.log('barsInfo:', barsInfo);
+        if (!isLoading && barsInfo.barsBefore<0) {
             console.log('準備加載更多數據...');
             isLoading = true;  // 標記正在加載
             loadMoreExistingData();  // 加載數據
@@ -202,15 +202,55 @@
     // 從已有數據中加載更多的歷史數據
     function loadMoreExistingData() {
         console.log('加載更多本地的歷史數據...');
-        visibleCandles = Math.min(visibleCandles + 10, originalData.length);  // 每次增加10筆
-        // updateChart();
-        // isLoading = false;  // 加載完成後重置加載標誌
-        setTimeout(() => {
-            loadChart();
-            isLoading = false;  // 加載完成後重置加載標誌
-            console.log('加載完成');
-        }, 500);  // 假設加載耗時500毫秒
+
+        // 計算還能顯示的數據量，這裡每次顯示30筆
+        visibleCandles = Math.min(visibleCandles + 30, originalData.length);
+
+        // 加載本地數據到圖表中
+        loadChart();
+
+        // 檢查本地數據是否已經全部加載完畢
+        if (visibleCandles >= originalData.length) {
+            const earliestTimestamp = originalData[0]?.time || 0;
+            console.log('最早的時間戳:', earliestTimestamp);
+            console.log('本地數據已經顯示完，開始加載更多數據...');
+            // 如果本地數據加載完，向後端請求更多數據
+            fetch(`/api/kline/BTCUSDT/${earliestTimestamp}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(newData => {
+                    console.log('接收到後端數據:', newData);
+
+                    if (newData.length > 0) {
+                        // 合併新數據與現有的 originalData
+                        originalData = newData.concat(originalData);
+                        console.log('合併後的 originalData:', originalData);
+                        originalData.sort((a, b) => a.time - b.time);
+                        visibleCandles = Math.min(visibleCandles + 30, originalData.length);
+                        loadChart();  // 更新圖表
+                        console.log('圖表已更新，當前 visibleCandles:', visibleCandles);
+                    } else {
+                        console.log('後端沒有返回新的數據');
+                    }
+                    isLoading = false;  // 加載完成後重置加載標誌
+                })
+                .catch(error => {
+                    console.error("加載數據失敗", error);
+                    isLoading = false;
+                });
+        } else {
+            // 如果還有本地數據可以顯示
+            setTimeout(() => {
+                isLoading = false;  // 加載完成後重置加載標誌
+                console.log('本地數據加載完成');
+            }, 500);  // 模擬耗時
+        }
     }
+
 
     // 更新圖表數據
     function loadChart() {

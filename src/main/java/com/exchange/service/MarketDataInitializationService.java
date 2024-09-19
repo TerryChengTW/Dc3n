@@ -28,7 +28,7 @@ public class MarketDataInitializationService {
     private JdbcTemplate jdbcTemplate;
 
     private final Random random = new Random();
-    private static final int DEFAULT_BATCH_SIZE = 5000; // 調整為 5000 進行測試
+    private static final int DEFAULT_BATCH_SIZE = 1000; // 調整為 5000 進行測試
     private static final int THREADS = 32; // 線程數，根據 CPU 進行測試和調整
     private static final ExecutorService executorService = Executors.newFixedThreadPool(THREADS);
 
