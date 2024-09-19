@@ -2,12 +2,13 @@ import asyncio
 import aiohttp
 import random
 import time
+import numpy as np
 
 # 配置參數
 BASE_URL = 'http://localhost:8081'
 SYMBOLS = {
-    'ETHUSDT': {'initial_price': 2000, 'price_range': 10},
-    'BTCUSDT': {'initial_price': 50000, 'price_range': 2000}
+    'ETHUSDT': {'initial_price': 3000, 'price_range': (1000, 5000), 'stddev': 50, 'volatility': 0.01},
+    'BTCUSDT': {'initial_price': 50000, 'price_range': (30000, 70000), 'stddev': 500, 'volatility': 0.02}
 }
 ORDER_QUANTITY_RANGE = (0.1, 1.0)  # 訂單數量範圍
 MARKET_ORDER_PROBABILITY = 0.05  # 市價單的概率
@@ -17,9 +18,18 @@ CONCURRENCY = 100  # 同時提交訂單的數量（併發數）
 JWT_TOKENS = [
     'eyJhbGciOiJIUzI1NiJ9.eyJ1c2VybmFtZSI6IjEiLCJ1c2VySWQiOiIxODM0NjY2NjE1NTQ4MDIyNzg0IiwiaWF0IjoxNzI2NjIyMTk5LCJleHAiOjE3NjI2MjIxOTl9.Bsn-OfJVXNIQyPI_oY6lrIQgLWANTXjoOf0fnTX9sVs',
     'eyJhbGciOiJIUzI1NiJ9.eyJ1c2VybmFtZSI6IjIiLCJ1c2VySWQiOiIxODM0NjY2NTI5ODc1MTY5MjgwIiwiaWF0IjoxNzI2NjIyMjM5LCJleHAiOjE3NjI2MjIyMzl9.zR8dW2dUWWBTERwdJDD0yGwzFyUWliXwWTRGvBuStd0'
-    ]
+]
 
-async def submit_order(session, side, symbol, initial_price, price_range):
+# 使用正弦波模型控制價格在一個方向內逐漸波動
+def generate_price(current_price, price_range, time_step, max_percent_change):
+    # 每個時間點的價格變化是根據正弦波變化，來模擬緩慢波動
+    change_percent = max_percent_change * np.sin(time_step)
+    new_price = current_price * (1 + change_percent)
+    
+    # 確保價格在設定的範圍內
+    return max(price_range[0], min(price_range[1], new_price))
+
+async def submit_order(session, side, symbol, current_price, price_range, time_step, max_percent_change):
     quantity = round(random.uniform(*ORDER_QUANTITY_RANGE), 2)
     is_market_order = random.random() < MARKET_ORDER_PROBABILITY
 
@@ -31,7 +41,7 @@ async def submit_order(session, side, symbol, initial_price, price_range):
     }
 
     if not is_market_order:
-        price = initial_price + random.uniform(-price_range, price_range)
+        price = generate_price(current_price, price_range, time_step, max_percent_change)
         payload['price'] = round(price, 2)
 
     headers = {
@@ -49,8 +59,11 @@ async def submit_order(session, side, symbol, initial_price, price_range):
 async def market_maker(orders_per_second, run_duration, mixed_test=False):
     async with aiohttp.ClientSession() as session:
         tasks = []
-        interval = 1 / orders_per_second  # 計算每次訂單之間的間隔時間
-        end_time = time.time() + run_duration  # 計算結束時間
+        interval = 1 / orders_per_second
+        end_time = time.time() + run_duration
+        prices = {symbol: config['initial_price'] for symbol, config in SYMBOLS.items()}
+        time_step = 0  # 用來控制價格波動的時間步長
+        
         while time.time() < end_time:
             if mixed_test:
                 symbols = list(SYMBOLS.keys())
@@ -58,17 +71,26 @@ async def market_maker(orders_per_second, run_duration, mixed_test=False):
                 symbols = ['BTCUSDT']
             
             for symbol in symbols:
-                initial_price = SYMBOLS[symbol]['initial_price']
-                price_range = SYMBOLS[symbol]['price_range']
+                config = SYMBOLS[symbol]
+                current_price = prices[symbol]
                 side = random.choice(['BUY', 'SELL'])
-                task = asyncio.ensure_future(submit_order(session, side, symbol, initial_price, price_range))
+                task = asyncio.ensure_future(
+                    submit_order(session, side, symbol, current_price, config['price_range'], time_step, config['volatility'])
+                )
+                # 更新價格使用逐步的時間步長控制
+                time_step += 0.1  # 每次遞增時間步長
+                prices[symbol] = generate_price(current_price, config['price_range'], time_step, config['volatility'])
                 tasks.append(task)
+                
                 if len(tasks) >= CONCURRENCY:
                     await asyncio.gather(*tasks)
                     tasks = []
+                
                 await asyncio.sleep(interval)  # 控制訂單提交的速率
+        
         if tasks:
             await asyncio.gather(*tasks)
+
 
 if __name__ == '__main__':
     mixed_test = input("是否進行混合測試（y/n）: ").strip().lower() == 'y'
