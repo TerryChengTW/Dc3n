@@ -39,47 +39,51 @@ public class KlineWebSocketHandler extends TextWebSocketHandler {
         sessions.add(session);
 
         // 查詢歷史K線數據
-        List<MarketData> historicalData = marketDataRepository.findTop500BySymbolOrderByTimestampDesc("BTCUSDT");
+        List<MarketData> historicalData = marketDataRepository.findTop2BySymbolOrderByTimestampDesc("BTCUSDT");
 
         // 將歷史數據轉換為簡單的JSON結構並發送
         String historicalMessage = createHistoricalDataMessage(historicalData);
+        System.out.println(historicalMessage);
+
         session.sendMessage(new TextMessage(historicalMessage));
 
-//        // 查詢當前未結束的K線數據（假設1分鐘K線）
-//        List<Trade> currentTrades = tradeRepository.findBySymbolAndTradeTimeBetween("BTCUSDT", getStartOfMinute(), getEndOfMinute());
-//
-//        BigDecimal highPrice = currentTrades.stream().map(Trade::getPrice).max(BigDecimal::compareTo).orElse(BigDecimal.ZERO);
-//        BigDecimal lowPrice = currentTrades.stream().map(Trade::getPrice).min(BigDecimal::compareTo).orElse(BigDecimal.ZERO);
-//        BigDecimal currentPrice = currentTrades.isEmpty() ? BigDecimal.ZERO : currentTrades.get(currentTrades.size() - 1).getPrice();
-//
-//        // 使用當前時間戳作為未結束K線的時間
-//        long currentTime = System.currentTimeMillis() / 1000;
-//
-//        // 構建當前K線數據的消息並發送
-//        String currentKlineMessage = "{\"symbol\": \"BTCUSDT\", \"high\": " + highPrice + ", \"low\": " + lowPrice + ", \"close\": " + currentPrice + ", \"time\": " + currentTime + "}";
-//        session.sendMessage(new TextMessage(currentKlineMessage));
+        // 查詢當前未結束的K線數據（假設1分鐘K線）
+        List<Trade> currentTrades = tradeRepository.findBySymbolAndTradeTimeBetween("BTCUSDT", getStartOfMinute(), getEndOfMinute());
+
+        BigDecimal highPrice = currentTrades.stream().map(Trade::getPrice).max(BigDecimal::compareTo).orElse(BigDecimal.ZERO);
+        BigDecimal lowPrice = currentTrades.stream().map(Trade::getPrice).min(BigDecimal::compareTo).orElse(BigDecimal.ZERO);
+        BigDecimal currentPrice = currentTrades.isEmpty() ? BigDecimal.ZERO : currentTrades.get(currentTrades.size() - 1).getPrice();
+
+        // 使用當前時間戳作為未結束K線的時間
+        long currentTime = System.currentTimeMillis() / 1000;
+
+        // 構建當前K線數據的消息並發送
+        String currentKlineMessage = "{\"type\": \"current_kline\", \"symbol\": \"BTCUSDT\", \"high\": "
+                + highPrice + ", \"low\": " + lowPrice + ", \"close\": " + currentPrice + ", \"time\": " + currentTime + "}";
+        System.out.println("currentKlineMessage: ");
+        System.out.println(currentKlineMessage);
+        session.sendMessage(new TextMessage(currentKlineMessage));
+
     }
 
     private String createHistoricalDataMessage(List<MarketData> historicalData) {
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
 
-        // 手動轉換時間為 Unix 時間戳
         List<Map<String, Object>> historicalDataWithTimestamps = new ArrayList<>();
         for (MarketData data : historicalData) {
             Map<String, Object> dataMap = new HashMap<>();
+            dataMap.put("type", "historical");  // 添加 type 標識
             dataMap.put("symbol", data.getSymbol());
             dataMap.put("open", data.getOpen());
             dataMap.put("high", data.getHigh());
             dataMap.put("low", data.getLow());
             dataMap.put("close", data.getClose());
-            // 將 LocalDateTime 轉換為 Unix 時間戳
-            dataMap.put("time", data.getTimestamp().toEpochSecond(ZoneOffset.UTC));
+            dataMap.put("time", data.getTimestamp().toEpochSecond(ZoneOffset.UTC));  // Unix 時間戳
             historicalDataWithTimestamps.add(dataMap);
         }
 
         try {
-            // 將轉換後的數據轉換為 JSON
             return objectMapper.writeValueAsString(historicalDataWithTimestamps);
         } catch (Exception e) {
             e.printStackTrace();
@@ -106,8 +110,8 @@ public class KlineWebSocketHandler extends TextWebSocketHandler {
     public void broadcastKlineUpdate(String symbol, BigDecimal price) {
         sessions.forEach(session -> {
             try {
-                // 構建簡單的消息結構
-                String message = "{\"symbol\": \"" + symbol + "\", \"price\": " + price + "}";
+                // 構建實時成交數據的消息
+                String message = "{\"type\": \"trade\", \"symbol\": \"" + symbol + "\", \"price\": " + price + "}";
                 session.sendMessage(new TextMessage(message));
             } catch (Exception e) {
                 e.printStackTrace();

@@ -15,4 +15,6 @@ public interface MarketDataRepository extends JpaRepository<MarketData, String> 
     MarketData findLatestBeforeTime(String symbol, LocalDateTime time);
 
     List<MarketData> findTop500BySymbolOrderByTimestampDesc(String symbol);
+
+    List<MarketData> findTop2BySymbolOrderByTimestampDesc(String symbol);
 }

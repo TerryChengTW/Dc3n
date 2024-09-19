@@ -47,7 +47,11 @@
     });
 
     const candleSeries = chart.addCandlestickSeries();
+    let visibleCandles = 50; // 初始顯示50根K線
+    const minCandles = 10;   // 最少顯示10根
+    const maxCandles = 10000;  // 最多顯示300根
     let originalData = []; // 用來儲存K線數據
+    let lastCandle = null; // 用來儲存當前的未結束K棒（例如50分的K棒）
 
     // 設置 WebSocket 連接
     const socket = new WebSocket('ws://localhost:8081/ws/kline'); // 替換為你的WebSocket地址
@@ -55,36 +59,59 @@
     // 監聽WebSocket消息
     socket.onmessage = function(event) {
         const message = JSON.parse(event.data);
-        console.log(message);
+        console.log("Got message: ", message);
 
-        // 檢查是否是歷史數據
-        if (Array.isArray(message)) {
-            // 如果是歷史數據，更新圖表
+        // 處理歷史K線數據 (假設歷史K線以數組形式傳送)
+        if (Array.isArray(message) && message.length > 0 && message[0].type === 'historical') {
             originalData = message.map(d => ({
-                time: d.time, // 確保時間是秒級Unix時間戳
+                time: d.time, // 假設傳來的是秒級時間戳
                 open: d.open,
                 high: d.high,
                 low: d.low,
                 close: d.close
-            }));
-            console.log(originalData);
-            candleSeries.setData(originalData); // 設置歷史數據到圖表
+            })).sort((a, b) => a.time - b.time);
+
+            console.log("歷史數據：", originalData);
+            updateChart();
         }
-        // } else if (message.symbol === 'BTCUSDT') {
-        //     // 如果是實時的當前K線數據，更新最後一根K線
-        //     const lastCandle = { ...originalData[originalData.length - 1] };
-        //
-        //     // 假設當前消息包含最新的價格、最高價和最低價，更新K線
-        //     lastCandle.high = Math.max(lastCandle.high, message.high);
-        //     lastCandle.low = Math.min(lastCandle.low, message.low);
-        //     lastCandle.close = message.close; // 更新 close 價格為最新成交價
-        //
-        //     // 更新圖表
-        //     candleSeries.update(lastCandle);
-        // }
+
+        // 處理當前未結束K線數據 (如50分的K棒)
+        else if (message.type === 'current_kline' && message.symbol === 'BTCUSDT') {
+            const currentTimestamp = message.time;
+
+            // 如果沒有當前未結束的K棒，創建一根新的K棒
+            if (!lastCandle || lastCandle.time !== currentTimestamp) {
+                lastCandle = {
+                    time: currentTimestamp, // 設定當前時間
+                    open: message.open,
+                    high: message.high,
+                    low: message.low,
+                    close: message.close
+                };
+                originalData.push(lastCandle); // 將新的K棒推到數據中
+            } else {
+                // 如果已有當前未結束的K棒，更新其數據
+                lastCandle.high = Math.max(lastCandle.high, message.high);
+                lastCandle.low = Math.min(lastCandle.low, message.low);
+                lastCandle.close = message.close;
+            }
+
+            // 更新圖表
+            candleSeries.update(lastCandle);
+        }
+
+        // 處理實時成交數據，更新當前K棒的收盤價和最高/最低價
+        else if (message.type === 'trade' && message.symbol === 'BTCUSDT') {
+            if (lastCandle) {
+                lastCandle.close = message.price;
+                lastCandle.high = Math.max(lastCandle.high, message.price);
+                lastCandle.low = Math.min(lastCandle.low, message.price);
+
+                // 更新圖表
+                candleSeries.update(lastCandle);
+            }
+        }
     };
-
-
 
     // 錯誤處理
     socket.onerror = function(error) {
@@ -96,9 +123,26 @@
         console.log('WebSocket 連接已關閉');
     };
 
-    // 監聽頁面縮放，適應圖表大小
-    window.addEventListener('resize', () => {
-        chart.applyOptions({ width: document.body.clientWidth });
+    // 更新圖表數據
+    function updateChart() {
+        const dataToShow = originalData.slice(-visibleCandles);
+        candleSeries.setData(dataToShow);
+        // 調整時間範圍以適應數據
+        chart.timeScale().fitContent();
+    }
+
+    // 監聽滑鼠滾輪事件以縮放K線數量
+    document.getElementById('chart').addEventListener('wheel', function(event) {
+        event.preventDefault(); // 防止頁面滾動
+
+        if (event.deltaY < 0) {
+            // 滾輪向上 (放大)
+            visibleCandles = Math.max(visibleCandles - 10, minCandles);
+        } else {
+            // 滾輪向下 (縮小)
+            visibleCandles = Math.min(visibleCandles + 10, maxCandles);
+        }
+        updateChart();
     });
 </script>
 </body>
