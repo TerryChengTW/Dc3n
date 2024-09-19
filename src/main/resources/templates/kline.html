@@ -124,7 +124,7 @@
             } else if (lastCandle) {
                 // 如果 trade 已經進入下一分鐘，將當前K棒收盤並開始新K棒
                 originalData.push(lastCandle); // 將舊K棒存入數據
-                updateChart(); // 更新圖表以反映舊K棒的結束
+                loadChart(); // 更新圖表以反映舊K棒的結束
 
                 // 創建新K棒，開盤價為上一根K棒的收盤價
                 lastCandle = {
