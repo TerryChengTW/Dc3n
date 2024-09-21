@@ -82,12 +82,32 @@
     let selectedSymbol = 'BTCUSDT'; // 默認幣種
     let selectedTimeFrame = '1m'; // 默認時間框架
 
+    function calculateCurrentIntervalTime(time, timeFrame) {
+        let intervalInSeconds;
+        switch (timeFrame) {
+            case '1m':
+                intervalInSeconds = 60;
+                break;
+            case '5m':
+                intervalInSeconds = 300; // 5分鐘
+                break;
+            case '1h':
+                intervalInSeconds = 3600; // 1小時
+                break;
+            default:
+                intervalInSeconds = 60; // 默認為1分鐘
+                break;
+        }
+        return Math.floor(time / intervalInSeconds) * intervalInSeconds;
+    }
+
     // 創建 WebSocket 連接
     function loadKlineData(symbol, timeFrame) {
         // 如果已有 WebSocket 連接，先關閉它
         if (kLineSocket) {
             kLineSocket.close();
             console.log('WebSocket 已斷開');
+            lastCandle = null;
         }
 
         // 建立新的 WebSocket 連接，帶上選擇的幣種和時間框架
@@ -98,7 +118,7 @@
             const message = JSON.parse(event.data);
             console.log("收到消息: ", message);
 
-            // 處理歷史K線數據 (假設歷史K線以數組形式傳送)
+            // 處理歷史K線數據
             if (Array.isArray(message) && message.length > 0 && message[0].type === 'historical') {
                 originalData = message.map(d => ({
                     time: d.time, // 假設傳來的是秒級時間戳
@@ -113,28 +133,27 @@
                 updateChart();
             }
 
-            // 處理查詢當下的那根K棒的既有數據
-            else if (message.type === 'current_kline' && message.symbol === 'BTCUSDT') {
-                const currentMinute = Math.floor(message.time / 60); // 將秒級時間戳轉換為分鐘級
+            // 處理當前K棒的既有數據
+            else if (message.type === 'current_kline' && message.symbol === symbol) {
+                const currentInterval = calculateCurrentIntervalTime(message.time, timeFrame);
 
-                // 如果沒有當前未結束的K棒，或者時間不同，創建一根新的K棒
-                if (!lastCandle || Math.floor(lastCandle.time / 60) !== currentMinute) {
+                if (!lastCandle || lastCandle.time !== currentInterval) {
                     if (lastCandle) {
-                        // 如果有上一根K棒，則認為它已經完成，加入到數據中
+                        // 將上根K棒視為完成並加入數據
                         originalData.push(lastCandle);
-                        updateChart(); // 確保圖表更新
+                        updateChart();
                     }
 
-                    // 創建新K棒，將上一根K棒的收盤價作為新K棒的開盤價
+                    // 創建新K棒
                     lastCandle = {
-                        time: message.time, // 設定當前時間
-                        open: lastCandle ? lastCandle.close : message.open, // 使用上一根K棒的收盤價
+                        time: currentInterval,
+                        open: message.open,
                         high: message.high,
                         low: message.low,
                         close: message.close
                     };
                 } else {
-                    // 如果已有當前未結束的K棒，更新其數據
+                    // 更新當前K棒的數據
                     lastCandle.high = Math.max(lastCandle.high, message.high);
                     lastCandle.low = Math.min(lastCandle.low, message.low);
                     lastCandle.close = message.close;
@@ -144,13 +163,12 @@
                 candleSeries.update(lastCandle);
             }
 
-            // 處理實時成交數據，更新當前K棒的收盤價和最高/最低價
-            else if (message.type === 'trade' && message.symbol === 'BTCUSDT') {
-                const tradeMinute = Math.floor(message.time / 60); // 將trade時間轉換為分鐘級
+            // 處理實時成交數據
+            else if (message.type === 'trade' && message.symbol === symbol) {
+                const tradeInterval = calculateCurrentIntervalTime(message.time, timeFrame);
 
-                // 檢查 trade 是否屬於當前K線
-                if (lastCandle && Math.floor(lastCandle.time / 60) === tradeMinute) {
-                    // 更新當前K棒的收盤價、最高價和最低價
+                if (lastCandle && lastCandle.time === tradeInterval) {
+                    // 更新當前K棒
                     lastCandle.close = message.price;
                     lastCandle.high = Math.max(lastCandle.high, message.price);
                     lastCandle.low = Math.min(lastCandle.low, message.price);
@@ -158,14 +176,14 @@
                     // 更新圖表
                     candleSeries.update(lastCandle);
                 } else if (lastCandle) {
-                    // 如果 trade 已經進入下一分鐘，將當前K棒收盤並開始新K棒
-                    originalData.push(lastCandle); // 將舊K棒存入數據
-                    loadChart(); // 更新圖表以反映舊K棒的結束
+                    // 新時間段，將當前K棒視為完成
+                    originalData.push(lastCandle);
+                    loadChart();
 
-                    // 創建新K棒，開盤價為上一根K棒的收盤價
+                    // 創建新K棒
                     lastCandle = {
-                        time: message.time,
-                        open: lastCandle.close, // 使用上一根K棒的收盤價作為新K棒的開盤價
+                        time: tradeInterval,
+                        open: message.price,
                         high: message.price,
                         low: message.price,
                         close: message.price
