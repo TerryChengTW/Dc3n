@@ -22,10 +22,21 @@ public interface MarketDataRepository extends JpaRepository<MarketData, String> 
 
     MarketData findTopBySymbolAndTimeFrameOrderByTimestampDesc(String symbol, String timeFrame);
 
-    @Query(value = "SELECT md FROM MarketData md WHERE md.symbol = :symbol AND md.timestamp < :timestamp ORDER BY md.timestamp DESC LIMIT 5")
+    @Query(value = "SELECT md FROM MarketData md WHERE md.symbol = :symbol AND md.timestamp < :timestamp ORDER BY md.timestamp DESC LIMIT 500")
     List<MarketData> findTop500BySymbolAndTimestampBeforeOrderByTimestampDesc(String symbol, Instant timestamp);
 
     // 查詢特定時間範圍內的1分鐘K線數據
     List<MarketData> findBySymbolAndTimeFrameAndTimestampBetween(String symbol, String timeFrame, Instant startTime, Instant endTime);
 
+    // 查詢1分鐘K線數據
+    @Query("SELECT md FROM MarketData md WHERE md.symbol = :symbol AND md.timeFrame = '1m' AND md.timestamp < :timestamp ORDER BY md.timestamp DESC LIMIT 500")
+    List<MarketData> findTop500BySymbolAnd1mTimeFrameBeforeOrderByTimestampDesc(String symbol, Instant timestamp);
+
+    // 查詢5分鐘K線數據
+    @Query("SELECT md FROM MarketData md WHERE md.symbol = :symbol AND md.timeFrame = '5m' AND md.timestamp < :timestamp ORDER BY md.timestamp DESC LIMIT 500")
+    List<MarketData> findTop500BySymbolAnd5mTimeFrameBeforeOrderByTimestampDesc(String symbol, Instant timestamp);
+
+    // 查詢1小時K線數據
+    @Query("SELECT md FROM MarketData md WHERE md.symbol = :symbol AND md.timeFrame = '1h' AND md.timestamp < :timestamp ORDER BY md.timestamp DESC LIMIT 500")
+    List<MarketData> findTop500BySymbolAnd1hTimeFrameBeforeOrderByTimestampDesc(String symbol, Instant timestamp);
 }

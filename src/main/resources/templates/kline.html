@@ -263,7 +263,7 @@
             console.log('最早的時間戳:', earliestTimestamp);
             console.log('本地數據已經顯示完，開始加載更多數據...');
             // 如果本地數據加載完，向後端請求更多數據
-            fetch(`/api/kline/BTCUSDT/${earliestTimestamp}`)
+            fetch(`/api/kline/${selectedSymbol}/${earliestTimestamp}?timeframe=${selectedTimeFrame}`)
                 .then(response => {
                     if (!response.ok) {
                         throw new Error('Network response was not ok');
