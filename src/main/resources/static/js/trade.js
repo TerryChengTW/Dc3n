@@ -269,6 +269,8 @@ let recentTradesSocket;
 function connectRecentTradesWebSocket(symbol) {
     if (recentTradesSocket) {
         recentTradesSocket.close();
+        const tradesList = document.getElementById('recentTradesList');
+        tradesList.innerHTML = '';
     }
 
     const token = localStorage.getItem('jwtToken');
