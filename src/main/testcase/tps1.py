@@ -6,9 +6,9 @@ import time
 BASE_URL = 'http://localhost:8081'
 SYMBOL = 'BTCUSDT'
 BUY_INITIAL_PRICE = 50000
-BUY_MAX_PRICE = 50500
-SELL_INITIAL_PRICE = 50500
-SELL_MIN_PRICE = 50500
+BUY_MAX_PRICE = 51000
+SELL_INITIAL_PRICE = 51000
+SELL_MIN_PRICE = 50000
 ORDER_QUANTITY = 1.0  # 每次下單數量固定為 1 BTC
 JWT_TOKENS = [
     'eyJhbGciOiJIUzI1NiJ9.eyJ1c2VybmFtZSI6IjEiLCJ1c2VySWQiOiIxODM0NjY2NjE1NTQ4MDIyNzg0IiwiaWF0IjoxNzI2NjIyMTk5LCJleHAiOjE3NjI2MjIxOTl9.Bsn-OfJVXNIQyPI_oY6lrIQgLWANTXjoOf0fnTX9sVs',
@@ -18,11 +18,11 @@ JWT_TOKENS = [
 # 記錄訂單計數
 order_count = 0
 
-async def submit_order(session, side, price):
+async def submit_order(session, side, price, quantity=ORDER_QUANTITY):
     global order_count
     payload = {
         'symbol': SYMBOL,
-        'quantity': ORDER_QUANTITY,
+        'quantity': quantity,  # 設置可變數量
         'side': side,
         'orderType': 'LIMIT',
         'price': price
@@ -36,7 +36,7 @@ async def submit_order(session, side, price):
     async with session.post(f'{BASE_URL}/orders/submit', json=payload, headers=headers) as response:
         if response.status == 200:
             order_count += 1
-            print(f"Order submitted: {side} {ORDER_QUANTITY} {SYMBOL} LIMIT @ {price}")
+            print(f"Order submitted: {side} {quantity} {SYMBOL} LIMIT @ {price}")
         else:
             print(f"Failed to submit order: {await response.text()}")
 
@@ -46,15 +46,19 @@ async def sequential_order_placement():
         price = BUY_INITIAL_PRICE
         while price <= BUY_MAX_PRICE:
             await submit_order(session, 'BUY', price)
-            await asyncio.sleep(0.1)  # 可以調整間隔以控制下單速度
+            await asyncio.sleep(0.05)  # 可以調整間隔以控制下單速度
             price += 1  # 每次價格增加 1
 
         # 再下賣單
         price = SELL_INITIAL_PRICE
         while price >= SELL_MIN_PRICE:
-            await submit_order(session, 'SELL', price)
-            await asyncio.sleep(0.1)  # 可以調整間隔以控制下單速度
+            if price <= 50500:
+                await submit_order(session, 'SELL', price, quantity=2.0)  # 當價格 <= 50500，賣 2 顆
+            else:
+                await submit_order(session, 'SELL', price)  # 否則賣 1 顆
+            await asyncio.sleep(0.05)  # 可以調整間隔以控制下單速度
             price -= 1  # 每次價格減少 1
+
 
 if __name__ == '__main__':
     start_time = time.time()

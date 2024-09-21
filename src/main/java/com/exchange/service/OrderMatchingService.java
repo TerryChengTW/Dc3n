@@ -5,6 +5,7 @@ import com.exchange.model.Order;
 import com.exchange.model.Trade;
 import com.exchange.producer.MatchedOrderProducer;
 import com.exchange.producer.WebSocketNotificationProducer;
+import com.exchange.utils.OrderProcessingData;
 import com.exchange.utils.OrderProcessingTracker;
 import com.exchange.utils.SnowflakeIdGenerator;
 import com.exchange.websocket.OrderbookWebSocketHandler;
@@ -71,56 +72,126 @@ public class OrderMatchingService {
 
     private void matchOrder(Order order, boolean isMarketOrder) throws JsonProcessingException {
         String orderbookKey = "orderbook:" + order.getSymbol() + ":" + order.getSide();
-        String oppositeOrderbookKey = "orderbook:" + order.getSymbol() + ":" +
-                (order.getSide() == Order.Side.BUY ? "SELL" : "BUY");
+        String oppositeOrderbookKey = "orderbook:" + order.getSymbol() + ":" + (order.getSide() == Order.Side.BUY ? "SELL" : "BUY");
+
+        OrderProcessingData processingData = new OrderProcessingData();
+        processingData.setOrderId(order.getId());
+
+        long totalRedisFetchTime = 0;
+        long totalTradeUpdateTime = 0;
+        long totalRedisUpdateTime = 0;
+        long totalGetOrderFromRedisTime = 0;
+        long totalAddOrderToOrderbookTime = 0;
+        long totalBigDecimalOperationTime = 0;
+        long totalObjectCreationTime = 0;
+
+        long methodStartTime = System.nanoTime();
+
+        // 記錄對象創建的時間
+        long objectCreationStartTime = System.nanoTime();
+        ZSetOperations.TypedTuple<String> oppositeOrderTuple = null;
+        Set<ZSetOperations.TypedTuple<String>> oppositeOrders = null;
+        totalObjectCreationTime += (System.nanoTime() - objectCreationStartTime);
 
         while (order.getQuantity().subtract(order.getFilledQuantity()).compareTo(BigDecimal.ZERO) > 0) {
-            Set<ZSetOperations.TypedTuple<String>> oppositeOrders;
+            // 記錄 Redis 抓取對手單的時間
+            long redisFetchStartTime = System.nanoTime();
             if (order.getSide() == Order.Side.BUY) {
-                // 買單應該匹配最低的賣價
                 oppositeOrders = redisTemplate.opsForZSet().rangeWithScores(oppositeOrderbookKey, 0, 0);
             } else {
-                // 賣單應該匹配最高的買價
                 oppositeOrders = redisTemplate.opsForZSet().reverseRangeWithScores(oppositeOrderbookKey, 0, 0);
             }
+            totalRedisFetchTime += (System.nanoTime() - redisFetchStartTime);
 
             if (oppositeOrders == null || oppositeOrders.isEmpty()) {
                 if (!isMarketOrder) {
+                    long addOrderToOrderbookStartTime = System.nanoTime();
                     addOrderToOrderbook(order, orderbookKey);
+                    totalAddOrderToOrderbookTime += (System.nanoTime() - addOrderToOrderbookStartTime);
                 }
                 break;
             }
 
-            ZSetOperations.TypedTuple<String> oppositeOrderTuple = oppositeOrders.iterator().next();
+            // 記錄對象創建的時間
+            objectCreationStartTime = System.nanoTime();
+            oppositeOrderTuple = oppositeOrders.iterator().next();
             String oppositeOrderId = oppositeOrderTuple.getValue();
+            totalObjectCreationTime += (System.nanoTime() - objectCreationStartTime);
+
+            // 記錄 getOrderFromRedis 的時間
+            long getOrderFromRedisStartTime = System.nanoTime();
             Order oppositeOrder = getOrderFromRedis(oppositeOrderId);
+            totalGetOrderFromRedisTime += (System.nanoTime() - getOrderFromRedisStartTime);
+
+            // 記錄 BigDecimal 運算時間
+            long bigDecimalOperationStartTime = System.nanoTime();
             BigDecimal oppositeOrderPrice = BigDecimal.valueOf(oppositeOrderTuple.getScore());
+            totalBigDecimalOperationTime += (System.nanoTime() - bigDecimalOperationStartTime);
 
             if (!isMarketOrder) {
                 if ((order.getSide() == Order.Side.BUY && order.getPrice().compareTo(oppositeOrderPrice) < 0) ||
                         (order.getSide() == Order.Side.SELL && order.getPrice().compareTo(oppositeOrderPrice) > 0)) {
+                    long addOrderToOrderbookStartTime = System.nanoTime();
                     addOrderToOrderbook(order, orderbookKey);
+                    totalAddOrderToOrderbookTime += (System.nanoTime() - addOrderToOrderbookStartTime);
                     break;
                 }
             }
 
+            // 記錄 BigDecimal 運算時間
+            bigDecimalOperationStartTime = System.nanoTime();
             BigDecimal availableQuantity = order.getQuantity().subtract(order.getFilledQuantity());
             BigDecimal oppositeAvailableQuantity = oppositeOrder.getQuantity().subtract(oppositeOrder.getFilledQuantity());
             BigDecimal tradeQuantity = availableQuantity.min(oppositeAvailableQuantity);
+            totalBigDecimalOperationTime += (System.nanoTime() - bigDecimalOperationStartTime);
 
+            // 記錄交易更新的時間
+            long tradeUpdateStartTime = System.nanoTime();
             updateTrade(order, oppositeOrder, tradeQuantity);
             saveTrade(order, oppositeOrder, tradeQuantity, oppositeOrderPrice);
+            totalTradeUpdateTime += (System.nanoTime() - tradeUpdateStartTime);
 
+            // 記錄 Redis 更新的時間
+            long redisUpdateStartTime = System.nanoTime();
             updateOrderInRedis(oppositeOrder, oppositeOrderbookKey);
             if (!isMarketOrder) {
                 updateOrderInRedis(order, orderbookKey);
             }
+            totalRedisUpdateTime += (System.nanoTime() - redisUpdateStartTime);
         }
-        long duration = OrderProcessingTracker.endTracking(order.getId());
-        if (duration != -1) {
-            System.out.println("Order " + order.getId() + " total processing time: " + duration + " nanoseconds");
-        }
+
+        long methodEndTime = System.nanoTime();
+        long totalProcessingTime = methodEndTime - methodStartTime;
+
+        // 記錄未追蹤的時間 (Untracked Time)
+        long trackedTime = totalRedisFetchTime + totalTradeUpdateTime + totalRedisUpdateTime + totalGetOrderFromRedisTime +
+                totalAddOrderToOrderbookTime + totalBigDecimalOperationTime + totalObjectCreationTime;
+        long untrackedTime = totalProcessingTime - trackedTime;
+
+        // 設置處理時間
+        processingData.setRedisFetchTime(totalRedisFetchTime);
+        processingData.setTradeUpdateTime(totalTradeUpdateTime);
+        processingData.setRedisUpdateTime(totalRedisUpdateTime);
+        processingData.setBigDecimalOperationTime(totalBigDecimalOperationTime);
+        processingData.setObjectCreationTime(totalObjectCreationTime);
+        processingData.setTotalProcessingTime(totalProcessingTime);
+        processingData.setUntrackedTime(untrackedTime);
+        System.out.println("Order processing time: " + totalProcessingTime + " ns"
+                + ", Redis fetch time: " + totalRedisFetchTime + " ns"
+                + ", Trade update time: " + totalTradeUpdateTime + " ns"
+                + ", Redis update time: " + totalRedisUpdateTime + " ns"
+                + ", Get order from Redis time: " + totalGetOrderFromRedisTime + " ns"
+                + ", Add order to orderbook time: " + totalAddOrderToOrderbookTime + " ns"
+                + ", BigDecimal operation time: " + totalBigDecimalOperationTime + " ns"
+                + ", Object creation time: " + totalObjectCreationTime + " ns"
+                + ", Untracked time: " + untrackedTime + " ns");
+
+        // 結束追蹤並記錄
+        OrderProcessingTracker.endTracking(order.getId(), processingData);
     }
+
+
+
 
     private void updateTrade(Order order, Order oppositeOrder, BigDecimal tradeQuantity) {
         order.setFilledQuantity(order.getFilledQuantity().add(tradeQuantity));
