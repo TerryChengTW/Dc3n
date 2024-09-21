@@ -243,7 +243,7 @@ function connectOrderbookWebSocket(symbol) {
 
     const token = localStorage.getItem('jwtToken');
     currentSymbol = symbol;
-    orderbookSocket = new WebSocket(`ws://localhost:8081/ws/orderbook?token=${token}&symbol=${symbol}`);
+    orderbookSocket = new WebSocket(`ws://localhost:8081/ws/orderbook?&symbol=${symbol}`);
 
     orderbookSocket.onopen = function() {
         console.log(`訂單簿 WebSocket 連接已建立，交易對：${symbol}`);

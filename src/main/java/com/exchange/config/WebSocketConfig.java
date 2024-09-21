@@ -34,9 +34,9 @@ public class WebSocketConfig implements WebSocketConfigurer {
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
         registry.addHandler(new JwtWebSocketHandlerDecorator(webSocketHandler, jwtUtil), "/ws")
                 .setAllowedOrigins("*");
-        registry.addHandler(new JwtWebSocketHandlerDecorator(orderbookWebSocketHandler, jwtUtil), "/ws/orderbook")
+        registry.addHandler(orderbookWebSocketHandler, "/ws/orderbook")
                 .setAllowedOrigins("*");
-        registry.addHandler(new JwtWebSocketHandlerDecorator(recentTradesWebSocketHandler, jwtUtil), "/ws/recent-trades/{symbol}")
+        registry.addHandler(recentTradesWebSocketHandler, "/ws/recent-trades/{symbol}")
                 .setAllowedOrigins("*");
         registry.addHandler(klineWebSocketHandler, "/ws/kline").setAllowedOrigins("*");
     }

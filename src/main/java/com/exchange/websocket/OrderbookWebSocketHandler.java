@@ -27,11 +27,29 @@ public class OrderbookWebSocketHandler extends TextWebSocketHandler {
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
-        String symbol = getSymbolFromSession(session);
+        String symbol = extractSymbolFromUrl(session);
         if (symbol != null) {
+            System.out.println("WebSocket connection established for symbol: " + symbol + ", sessionId: " + session.getId());
+            session.getAttributes().put("symbol", symbol); // 將 symbol 設置到 session 屬性中
             symbolSessions.computeIfAbsent(symbol, k -> ConcurrentHashMap.newKeySet()).add(session);
-            sendOrderbookSnapshot(session, symbol);
+            sendOrderbookSnapshot(session, symbol); // 發送訂單簿快照
+        } else {
+            session.close(CloseStatus.POLICY_VIOLATION); // 如果沒有 symbol，則關閉連接
         }
+    }
+
+    private String extractSymbolFromUrl(WebSocketSession session) {
+        String query = session.getUri().getQuery();
+        if (query != null) {
+            String[] params = query.split("&");
+            for (String param : params) {
+                String[] keyValue = param.split("=");
+                if (keyValue.length == 2 && "symbol".equals(keyValue[0])) {
+                    return keyValue[1]; // 返回 symbol
+                }
+            }
+        }
+        return null; // 如果找不到 symbol，返回 null
     }
 
     @Override
