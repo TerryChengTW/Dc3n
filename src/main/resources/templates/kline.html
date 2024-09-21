@@ -195,11 +195,6 @@
         loadKlineData(selectedSymbol, selectedTimeFrame);
     }
 
-    function updateSymbolAndTimeFrame(symbol, timeFrame) {
-        selectedSymbol = symbol;
-        selectedTimeFrame = timeFrame;
-        loadKlineData(selectedSymbol, selectedTimeFrame);
-    }
     // 更新圖表數據
     function updateChart() {
         const dataToShow = originalData.slice(-visibleCandles);

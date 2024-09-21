@@ -18,13 +18,6 @@ public interface MarketDataRepository extends JpaRepository<MarketData, String> 
 
     List<MarketData> findTop2BySymbolOrderByTimestampDesc(String symbol);
 
-    List<MarketData> findTop50BySymbolOrderByTimestampDesc(String symbol);
-
-    MarketData findTopBySymbolAndTimeFrameOrderByTimestampDesc(String symbol, String timeFrame);
-
-    @Query(value = "SELECT md FROM MarketData md WHERE md.symbol = :symbol AND md.timestamp < :timestamp ORDER BY md.timestamp DESC LIMIT 500")
-    List<MarketData> findTop500BySymbolAndTimestampBeforeOrderByTimestampDesc(String symbol, Instant timestamp);
-
     // 查詢特定時間範圍內的1分鐘K線數據
     List<MarketData> findBySymbolAndTimeFrameAndTimestampBetween(String symbol, String timeFrame, Instant startTime, Instant endTime);
 

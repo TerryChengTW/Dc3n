@@ -51,20 +51,54 @@ public class KlineWebSocketHandler extends TextWebSocketHandler {
         String historicalMessage = createHistoricalDataMessage(historicalData);
         session.sendMessage(new TextMessage(historicalMessage));
 
-        // 查詢當前未結束的K線數據
+        // 根據 timeFrame 計算當前未結束的 K 棒時間範圍
         Instant now = Instant.now();
-        Instant startOfCurrentMinute = now.truncatedTo(ChronoUnit.MINUTES);
-        Instant endOfCurrentMinute = startOfCurrentMinute.plus(1, ChronoUnit.MINUTES);
+        Instant startOfCurrentKline;
+        Instant endOfCurrentKline;
 
-        List<Trade> currentTrades = tradeRepository.findBySymbolAndTradeTimeBetween(symbol, startOfCurrentMinute, endOfCurrentMinute);
+        switch (timeFrame) {
+            case "1m":
+                startOfCurrentKline = now.truncatedTo(ChronoUnit.MINUTES);
+                endOfCurrentKline = startOfCurrentKline.plus(1, ChronoUnit.MINUTES);
+                break;
+            case "5m":
+                startOfCurrentKline = now.truncatedTo(ChronoUnit.MINUTES).minus(now.getEpochSecond() % (5 * 60), ChronoUnit.SECONDS);
+                endOfCurrentKline = startOfCurrentKline.plus(5, ChronoUnit.MINUTES);
+                break;
+            case "1h":
+                startOfCurrentKline = now.truncatedTo(ChronoUnit.HOURS);
+                endOfCurrentKline = startOfCurrentKline.plus(1, ChronoUnit.HOURS);
+                break;
+            default:
+                startOfCurrentKline = now.truncatedTo(ChronoUnit.MINUTES);
+                endOfCurrentKline = startOfCurrentKline.plus(1, ChronoUnit.MINUTES);
+                break;
+        }
+
+        // 查詢當前未結束的 K 棒數據
+        List<Trade> currentTrades = tradeRepository.findBySymbolAndTradeTimeBetween(symbol, startOfCurrentKline, endOfCurrentKline);
 
         BigDecimal highPrice = BigDecimal.ZERO;
         BigDecimal lowPrice = BigDecimal.ZERO;
         BigDecimal currentPrice = BigDecimal.ZERO;
         BigDecimal openPrice = BigDecimal.ZERO;
 
-        // 查詢上一分鐘的MarketData數據
-        MarketData previousMarketData = marketDataRepository.findTopBySymbolAndTimeFrameOrderByTimestampDesc(symbol, timeFrame);
+        // 查詢上一個 K 棒的 MarketData
+        MarketData previousMarketData;
+        switch (timeFrame) {
+            case "1m":
+                previousMarketData = marketDataRepository.findLatestBeforeTime(symbol, startOfCurrentKline);
+                break;
+            case "5m":
+                previousMarketData = marketDataRepository.findTop500BySymbolAnd5mTimeFrameBeforeOrderByTimestampDesc(symbol, startOfCurrentKline).stream().findFirst().orElse(null);
+                break;
+            case "1h":
+                previousMarketData = marketDataRepository.findTop500BySymbolAnd1hTimeFrameBeforeOrderByTimestampDesc(symbol, startOfCurrentKline).stream().findFirst().orElse(null);
+                break;
+            default:
+                previousMarketData = marketDataRepository.findLatestBeforeTime(symbol, startOfCurrentKline);
+                break;
+        }
 
         if (previousMarketData != null) {
             openPrice = previousMarketData.getClose();
