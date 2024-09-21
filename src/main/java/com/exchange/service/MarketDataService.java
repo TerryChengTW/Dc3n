@@ -28,13 +28,23 @@ public class MarketDataService {
         Instant startTime = now.minus(1, ChronoUnit.MINUTES);
         Instant endTime = now;
 
-
         List<String> symbols = List.of("BTCUSDT", "ETHUSDT", "BNBUSDT"); // 根據需要擴展
 
         for (String symbol : symbols) {
-            MarketData marketData = aggregateOneMinuteData(symbol, startTime, endTime);
-            if (marketData != null) {
-                marketDataRepository.save(marketData);
+            // 1. 聚合1分鐘數據
+            MarketData oneMinuteData = aggregateOneMinuteData(symbol, startTime, endTime);
+            if (oneMinuteData != null) {
+                marketDataRepository.save(oneMinuteData);
+            }
+
+            // 2. 檢查並聚合5分鐘數據
+            if (now.getEpochSecond() % (5 * 60) == 0) {
+                aggregateAndSaveAggregatedData(symbol, "5m", 5);
+            }
+
+            // 3. 檢查並聚合1小時數據
+            if (now.getEpochSecond() % (60 * 60) == 0) {
+                aggregateAndSaveAggregatedData(symbol, "1h", 60);
             }
         }
     }
@@ -53,7 +63,6 @@ public class MarketDataService {
         }
 
         if (trades.isEmpty()) {
-            // 如果沒有交易，依然使用處理無數據的方式
             return handleNoDataSituation(symbol, startTime);
         } else {
             close = trades.get(trades.size() - 1).getPrice();
@@ -75,7 +84,6 @@ public class MarketDataService {
         return marketData;
     }
 
-
     private MarketData handleNoDataSituation(String symbol, Instant startTime) {
         MarketData previousData = marketDataRepository.findLatestBeforeTime(symbol, startTime);
         if (previousData == null) {
@@ -93,5 +101,35 @@ public class MarketDataService {
         newData.setVolume(BigDecimal.ZERO);
 
         return newData;
+    }
+
+    // 聚合多時間框架數據（5分鐘、1小時等）
+    private void aggregateAndSaveAggregatedData(String symbol, String timeFrame, int minutes) {
+        Instant endTime = Instant.now().truncatedTo(ChronoUnit.MINUTES);
+        Instant startTime = endTime.minus(minutes, ChronoUnit.MINUTES);
+
+        List<MarketData> oneMinuteData = marketDataRepository.findBySymbolAndTimeFrameAndTimestampBetween(symbol, "1m", startTime, endTime);
+
+        if (oneMinuteData.isEmpty()) {
+            return;
+        }
+
+        BigDecimal open = oneMinuteData.get(0).getOpen();
+        BigDecimal close = oneMinuteData.get(oneMinuteData.size() - 1).getClose();
+        BigDecimal high = oneMinuteData.stream().map(MarketData::getHigh).max(BigDecimal::compareTo).orElse(open);
+        BigDecimal low = oneMinuteData.stream().map(MarketData::getLow).min(BigDecimal::compareTo).orElse(open);
+        BigDecimal volume = oneMinuteData.stream().map(MarketData::getVolume).reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        MarketData aggregatedData = new MarketData();
+        aggregatedData.setSymbol(symbol);
+        aggregatedData.setTimeFrame(timeFrame);
+        aggregatedData.setTimestamp(startTime);
+        aggregatedData.setOpen(open);
+        aggregatedData.setHigh(high);
+        aggregatedData.setLow(low);
+        aggregatedData.setClose(close);
+        aggregatedData.setVolume(volume);
+
+        marketDataRepository.save(aggregatedData);
     }
 }

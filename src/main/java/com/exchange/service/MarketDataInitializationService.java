@@ -28,8 +28,8 @@ public class MarketDataInitializationService {
     private JdbcTemplate jdbcTemplate;
 
     private final Random random = new Random();
-    private static final int DEFAULT_BATCH_SIZE = 1000; // 調整為 5000 進行測試
-    private static final int THREADS = 32; // 線程數，根據 CPU 進行測試和調整
+    private static final int DEFAULT_BATCH_SIZE = 1000;
+    private static final int THREADS = 32;
     private static final ExecutorService executorService = Executors.newFixedThreadPool(THREADS);
 
     @PostConstruct
@@ -37,7 +37,7 @@ public class MarketDataInitializationService {
         String symbol = "BTCUSDT";
         Instant endTime = Instant.now().truncatedTo(ChronoUnit.MINUTES);
         Instant lastDataTime = getLastDataTime(symbol);
-        Instant startTime = lastDataTime != null ? lastDataTime.plus(1, ChronoUnit.MINUTES) : endTime.minus(300, ChronoUnit.HOURS);
+        Instant startTime = lastDataTime != null ? lastDataTime.plus(1, ChronoUnit.MINUTES) : endTime.minus(5, ChronoUnit.HOURS);
 
         if (startTime.isAfter(endTime)) {
             System.out.println("數據已經是最新的，無需初始化。");
@@ -62,6 +62,95 @@ public class MarketDataInitializationService {
         CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
 
         System.out.println("市場數據初始化完成，從 " + startTime + " 到 " + endTime);
+
+        // 在所有1分鐘數據生成後，手動觸發5分鐘和1小時聚合
+        aggregateData(symbol, startTime, endTime, "5m", 5);
+        aggregateData(symbol, startTime, endTime, "1h", 60);
+    }
+
+    private void aggregateData(String symbol, Instant startTime, Instant endTime, String timeFrame, int minutes) {
+        List<MarketData> batch = new ArrayList<>();
+        String sql = "INSERT INTO market_data (symbol, time_frame, timestamp, open, high, low, close, volume) VALUES (?,?,?,?,?,?,?,?)";
+
+        // 獲取當前時間，並確認正在進行中的時間範圍不應該生成
+        Instant now = Instant.now().truncatedTo(ChronoUnit.MINUTES);
+
+        // 對5分鐘K線或1小時K線做特別處理
+        if (timeFrame.equals("5m")) {
+            // 如果當前時間還沒到完整的5分鐘邊界（比如12:59時），則不應該生成12:55的5分鐘K線
+            if (now.getEpochSecond() % (5 * 60) != 0) {
+                endTime = now.minus(minutes, ChronoUnit.MINUTES); // 調整endTime，避免生成未完成的5分鐘數據
+            }
+        } else if (timeFrame.equals("1h")) {
+            // 如果當前時間還沒到整點（比如12:59時），則不應該生成12:00的1小時K線
+            if (now.getEpochSecond() % (60 * 60) != 0) {
+                endTime = now.minus(minutes, ChronoUnit.MINUTES); // 調整endTime，避免生成未完成的1小時數據
+            }
+        }
+
+        // 確保時間區間對齊到正確的過去區間
+        startTime = startTime.truncatedTo(ChronoUnit.MINUTES)
+                .minus(startTime.getEpochSecond() % (minutes * 60), ChronoUnit.SECONDS);
+
+        // 確保在正確時間範圍內進行聚合
+        for (Instant time = startTime; time.isBefore(endTime); time = time.plus(minutes, ChronoUnit.MINUTES)) {
+            Instant nextTime = time.plus(minutes, ChronoUnit.MINUTES);
+
+            // 查詢這個時間段內的1分鐘數據
+            List<MarketData> oneMinuteData = jdbcTemplate.query(
+                    "SELECT * FROM market_data WHERE symbol = ? AND time_frame = '1m' AND timestamp >= ? AND timestamp < ?",
+                    new Object[]{symbol, Timestamp.from(time), Timestamp.from(nextTime)},
+                    (rs, rowNum) -> {
+                        MarketData data = new MarketData();
+                        data.setSymbol(rs.getString("symbol"));
+                        data.setTimeFrame(rs.getString("time_frame"));
+                        data.setTimestamp(rs.getTimestamp("timestamp").toInstant());
+                        data.setOpen(rs.getBigDecimal("open"));
+                        data.setHigh(rs.getBigDecimal("high"));
+                        data.setLow(rs.getBigDecimal("low"));
+                        data.setClose(rs.getBigDecimal("close"));
+                        data.setVolume(rs.getBigDecimal("volume"));
+                        return data;
+                    }
+            );
+
+            // 檢查是否有足夠的 1 分鐘數據
+            if (oneMinuteData.isEmpty()) {
+                continue;
+            }
+
+            // 聚合數據
+            BigDecimal open = oneMinuteData.get(0).getOpen();
+            BigDecimal close = oneMinuteData.get(oneMinuteData.size() - 1).getClose();
+            BigDecimal high = oneMinuteData.stream().map(MarketData::getHigh).max(BigDecimal::compareTo).orElse(open);
+            BigDecimal low = oneMinuteData.stream().map(MarketData::getLow).min(BigDecimal::compareTo).orElse(open);
+            BigDecimal volume = oneMinuteData.stream().map(MarketData::getVolume).reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            // 創建聚合數據
+            MarketData aggregatedData = new MarketData();
+            aggregatedData.setSymbol(symbol);
+            aggregatedData.setTimeFrame(timeFrame);
+            aggregatedData.setTimestamp(time); // 這裡是對齊後的整數 5 分鐘或 1 小時時間
+            aggregatedData.setOpen(open);
+            aggregatedData.setHigh(high);
+            aggregatedData.setLow(low);
+            aggregatedData.setClose(close);
+            aggregatedData.setVolume(volume);
+
+            // 將聚合數據加入批量列表
+            batch.add(aggregatedData);
+
+            // 如果達到批量插入的閾值，則執行批量插入
+            if (batch.size() >= DEFAULT_BATCH_SIZE) {
+                batchInsert(sql, batch);
+                batch.clear();
+            }
+        }
+
+        // 插入剩餘未達到批量閾值的數據
+        if (!batch.isEmpty()) {
+            batchInsert(sql, batch);
+        }
     }
 
     public void generateAndInsertData(String symbol, Instant startTime, Instant endTime, BigDecimal initialPrice) {
