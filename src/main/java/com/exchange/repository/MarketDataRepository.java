@@ -14,7 +14,7 @@ public interface MarketDataRepository extends JpaRepository<MarketData, String> 
             "(SELECT MAX(m.timestamp) FROM MarketData m WHERE m.symbol = :symbol AND m.timestamp < :time)")
     MarketData findLatestBeforeTime(String symbol, Instant time);
 
-    List<MarketData> findTop500BySymbolOrderByTimestampDesc(String symbol);
+    List<MarketData> findTop500BySymbolAndTimeFrameOrderByTimestampDesc(String symbol, String timeFrame);
 
     List<MarketData> findTop2BySymbolOrderByTimestampDesc(String symbol);
 

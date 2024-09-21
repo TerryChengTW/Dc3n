@@ -14,7 +14,31 @@
 
 </head>
 <body>
-<div id="chart"></div>
+<div id="kline-container" style="width: 100%; display: flex; flex-direction: column; gap: 10px;">
+
+    <!-- K 線數據顯示橫欄 -->
+    <div id="kline-bar" style="width: 100%; height: 40px; background-color: #f1f1f1; display: flex; align-items: center; justify-content: space-between; padding: 0 10px; box-sizing: border-box;">
+        <div>
+            <span>時間: <span id="info-time">-</span></span>
+            <span style="margin-left: 20px;">開: <span id="info-open">-</span></span>
+            <span style="margin-left: 20px;">高: <span id="info-high">-</span></span>
+            <span style="margin-left: 20px;">低: <span id="info-low">-</span></span>
+            <span style="margin-left: 20px;">收: <span id="info-close">-</span></span>
+        </div>
+        <!-- 時間框架選擇按鈕 -->
+        <div>
+            <button onclick="updateTimeFrame('1m')">1分鐘</button>
+            <button onclick="updateTimeFrame('5m')">5分鐘</button>
+            <button onclick="updateTimeFrame('1h')">1小時</button>
+        </div>
+    </div>
+
+    <!-- K 線圖表 -->
+    <div id="chart" style="width: 100%; height: 500px;">
+        <!-- 圖表將會加載到這個容器 -->
+    </div>
+
+</div>
 
 <script>
     // 創建圖表
@@ -54,23 +78,23 @@
     let lastCandle = null; // 用來儲存最新的未結束K棒
 
     // 設置 WebSocket 連接
-    let socket1 = null;
+    let kLineSocket = null;
     let selectedSymbol = 'BTCUSDT'; // 默認幣種
     let selectedTimeFrame = '1m'; // 默認時間框架
 
     // 創建 WebSocket 連接
     function loadKlineData(symbol, timeFrame) {
         // 如果已有 WebSocket 連接，先關閉它
-        if (socket1) {
-            socket1.close();
+        if (kLineSocket) {
+            kLineSocket.close();
             console.log('WebSocket 已斷開');
         }
 
         // 建立新的 WebSocket 連接，帶上選擇的幣種和時間框架
         const wsUrl = `ws://localhost:8081/ws/kline?symbol=${symbol}&timeFrame=${timeFrame}`;
-        socket1 = new WebSocket(wsUrl);
+        kLineSocket = new WebSocket(wsUrl);
 
-        socket1.onmessage = function(event) {
+        kLineSocket.onmessage = function(event) {
             const message = JSON.parse(event.data);
             console.log("收到消息: ", message);
 
@@ -153,11 +177,11 @@
             }
         };
 
-        socket1.onerror = function(error) {
+        kLineSocket.onerror = function(error) {
             console.error('WebSocket 錯誤: ', error);
         };
 
-        socket1.onclose = function() {
+        kLineSocket.onclose = function() {
             console.log('WebSocket 已關閉');
         };
     }
@@ -166,12 +190,16 @@
     loadKlineData(selectedSymbol, selectedTimeFrame);
 
     // 用戶選擇不同幣種或時間框架時調用此函數
+    function updateTimeFrame(timeFrame) {
+        selectedTimeFrame = timeFrame;
+        loadKlineData(selectedSymbol, selectedTimeFrame);
+    }
+
     function updateSymbolAndTimeFrame(symbol, timeFrame) {
         selectedSymbol = symbol;
         selectedTimeFrame = timeFrame;
-        loadKlineData(selectedSymbol, selectedTimeFrame); // 重新載入 K 線數據
+        loadKlineData(selectedSymbol, selectedTimeFrame);
     }
-
     // 更新圖表數據
     function updateChart() {
         const dataToShow = originalData.slice(-visibleCandles);
@@ -277,6 +305,27 @@
         const dataToShow = originalData.slice(-visibleCandles);  // 顯示最近的 visibleCandles 根K棒
         candleSeries.setData(dataToShow);
     }
+
+    chart.subscribeCrosshairMove(function(param) {
+        if (!param || !param.time || !param.seriesData.get(candleSeries)) {
+            // 如果沒有滑鼠指向的 K 線數據，顯示為 '-'
+            document.getElementById('info-time').textContent = '-';
+            document.getElementById('info-open').textContent = '-';
+            document.getElementById('info-high').textContent = '-';
+            document.getElementById('info-low').textContent = '-';
+            document.getElementById('info-close').textContent = '-';
+            return;
+        }
+
+        const klineData = param.seriesData.get(candleSeries);
+
+        // 更新 K 線數據
+        document.getElementById('info-time').textContent = new Date(param.time * 1000).toLocaleString();  // 假設是 Unix 時間戳，轉換為本地時間
+        document.getElementById('info-open').textContent = klineData.open.toFixed(2);
+        document.getElementById('info-high').textContent = klineData.high.toFixed(2);
+        document.getElementById('info-low').textContent = klineData.low.toFixed(2);
+        document.getElementById('info-close').textContent = klineData.close.toFixed(2);
+    });
 
 </script>
 </body>

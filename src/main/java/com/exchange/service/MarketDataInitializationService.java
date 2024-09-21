@@ -37,7 +37,7 @@ public class MarketDataInitializationService {
         String symbol = "BTCUSDT";
         Instant endTime = Instant.now().truncatedTo(ChronoUnit.MINUTES);
         Instant lastDataTime = getLastDataTime(symbol);
-        Instant startTime = lastDataTime != null ? lastDataTime.plus(1, ChronoUnit.MINUTES) : endTime.minus(5, ChronoUnit.HOURS);
+        Instant startTime = lastDataTime != null ? lastDataTime.plus(1, ChronoUnit.MINUTES) : endTime.minus(300, ChronoUnit.HOURS);
 
         if (startTime.isAfter(endTime)) {
             System.out.println("數據已經是最新的，無需初始化。");

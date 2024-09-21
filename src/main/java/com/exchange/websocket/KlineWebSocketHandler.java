@@ -38,21 +38,25 @@ public class KlineWebSocketHandler extends TextWebSocketHandler {
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
         sessions.add(session);
 
-        // 查詢歷史K線數據
-        List<MarketData> historicalData = marketDataRepository.findTop500BySymbolOrderByTimestampDesc("BTCUSDT");
+        // 提取 WebSocket 連接中的 symbol 和 timeFrame 參數
+        String query = session.getUri().getQuery();
+        Map<String, String> params = getQueryParams(query);
+        String symbol = params.getOrDefault("symbol", "BTCUSDT");
+        String timeFrame = params.getOrDefault("timeFrame", "1m");
+
+        // 查詢對應的歷史K線數據
+        List<MarketData> historicalData = marketDataRepository.findTop500BySymbolAndTimeFrameOrderByTimestampDesc(symbol, timeFrame);
 
         // 將歷史數據轉換為簡單的JSON結構並發送
         String historicalMessage = createHistoricalDataMessage(historicalData);
-        System.out.println(historicalMessage);
-
         session.sendMessage(new TextMessage(historicalMessage));
 
-        // 查詢當前未結束的K線數據（假設1分鐘K線）
+        // 查詢當前未結束的K線數據
         Instant now = Instant.now();
-        Instant startOfCurrentMinute = now.truncatedTo(ChronoUnit.MINUTES); // 當前分鐘的開始
-        Instant endOfCurrentMinute = startOfCurrentMinute.plus(1, ChronoUnit.MINUTES); // 當前分鐘的結束
+        Instant startOfCurrentMinute = now.truncatedTo(ChronoUnit.MINUTES);
+        Instant endOfCurrentMinute = startOfCurrentMinute.plus(1, ChronoUnit.MINUTES);
 
-        List<Trade> currentTrades = tradeRepository.findBySymbolAndTradeTimeBetween("BTCUSDT", startOfCurrentMinute, endOfCurrentMinute);
+        List<Trade> currentTrades = tradeRepository.findBySymbolAndTradeTimeBetween(symbol, startOfCurrentMinute, endOfCurrentMinute);
 
         BigDecimal highPrice = BigDecimal.ZERO;
         BigDecimal lowPrice = BigDecimal.ZERO;
@@ -60,22 +64,19 @@ public class KlineWebSocketHandler extends TextWebSocketHandler {
         BigDecimal openPrice = BigDecimal.ZERO;
 
         // 查詢上一分鐘的MarketData數據
-        MarketData previousMarketData = marketDataRepository.findTopBySymbolAndTimeFrameOrderByTimestampDesc("BTCUSDT", "1m");
+        MarketData previousMarketData = marketDataRepository.findTopBySymbolAndTimeFrameOrderByTimestampDesc(symbol, timeFrame);
 
         if (previousMarketData != null) {
-            // 使用上一分鐘的收盤價作為開盤價
             openPrice = previousMarketData.getClose();
         }
 
         if (currentTrades.isEmpty()) {
-            // 沒有當前交易數據，使用上一分鐘的收盤價設置高、低、收盤價
             if (previousMarketData != null) {
                 highPrice = previousMarketData.getClose();
                 lowPrice = previousMarketData.getClose();
                 currentPrice = previousMarketData.getClose();
             }
         } else {
-            // 有當前交易數據，根據當前數據設置高、低、收盤價
             highPrice = currentTrades.stream().map(Trade::getPrice).max(BigDecimal::compareTo).orElse(BigDecimal.ZERO);
             lowPrice = currentTrades.stream().map(Trade::getPrice).min(BigDecimal::compareTo).orElse(BigDecimal.ZERO);
             currentPrice = currentTrades.get(currentTrades.size() - 1).getPrice();
@@ -83,13 +84,25 @@ public class KlineWebSocketHandler extends TextWebSocketHandler {
 
         long currentTime = now.getEpochSecond();
 
-        // 構建當前K線數據的消息並發送
-        String currentKlineMessage = "{\"type\": \"current_kline\", \"symbol\": \"BTCUSDT\", \"open\": "
+        // 發送當前K線數據
+        String currentKlineMessage = "{\"type\": \"current_kline\", \"symbol\": \"" + symbol + "\", \"open\": "
                 + openPrice + ", \"high\": " + highPrice + ", \"low\": " + lowPrice + ", \"close\": " + currentPrice + ", \"time\": " + currentTime + "}";
-        System.out.println("currentKlineMessage: ");
-        System.out.println(currentKlineMessage);
         session.sendMessage(new TextMessage(currentKlineMessage));
     }
+
+    private Map<String, String> getQueryParams(String query) {
+        Map<String, String> params = new HashMap<>();
+        if (query != null) {
+            for (String param : query.split("&")) {
+                String[] pair = param.split("=");
+                if (pair.length > 1) {
+                    params.put(pair[0], pair[1]);
+                }
+            }
+        }
+        return params;
+    }
+
 
     private String createHistoricalDataMessage(List<MarketData> historicalData) {
         ObjectMapper objectMapper = new ObjectMapper();

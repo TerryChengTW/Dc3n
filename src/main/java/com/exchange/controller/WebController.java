@@ -24,4 +24,9 @@ public class WebController {
     public String trade() {
         return "trade";
     }
+
+    @GetMapping("/kline")
+    public String kline() {
+        return "kline";
+    }
 }
