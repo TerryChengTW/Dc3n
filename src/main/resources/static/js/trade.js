@@ -4,7 +4,9 @@ let selectedOrderType = '';
 
 function connectWebSocket() {
     const token = localStorage.getItem('jwtToken');
-    socket = new WebSocket(`ws://localhost:8081/ws?token=${token}`);
+
+    // 直接使用相對路徑來建立 WebSocket 連接
+    socket = new WebSocket(`/ws?token=${token}`);
 
     socket.onopen = function() {
         console.log("WebSocket 連接已建立");
@@ -243,7 +245,7 @@ function connectOrderbookWebSocket(symbol) {
 
     const token = localStorage.getItem('jwtToken');
     currentSymbol = symbol;
-    orderbookSocket = new WebSocket(`ws://localhost:8081/ws/orderbook?&symbol=${symbol}`);
+    orderbookSocket = new WebSocket(`/ws/orderbook?&symbol=${symbol}`);
 
     orderbookSocket.onopen = function() {
         console.log(`訂單簿 WebSocket 連接已建立，交易對：${symbol}`);
@@ -275,7 +277,7 @@ function connectRecentTradesWebSocket(symbol) {
 
     const token = localStorage.getItem('jwtToken');
     currentSymbol = symbol;
-    recentTradesSocket = new WebSocket(`ws://localhost:8081/ws/recent-trades/${symbol}?token=${token}`);
+    recentTradesSocket = new WebSocket(`/ws/recent-trades/${symbol}?token=${token}`);
 
     recentTradesSocket.onopen = function() {
         console.log(`最新成交 WebSocket 連接已建立，交易對：${symbol}`);

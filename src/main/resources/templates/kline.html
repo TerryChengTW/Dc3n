@@ -111,7 +111,7 @@
         }
 
         // 建立新的 WebSocket 連接，帶上選擇的幣種和時間框架
-        const wsUrl = `ws://localhost:8081/ws/kline?symbol=${symbol}&timeFrame=${timeFrame}`;
+        const wsUrl = `/ws/kline?symbol=${symbol}&timeFrame=${timeFrame}`;
         kLineSocket = new WebSocket(wsUrl);
 
         kLineSocket.onmessage = function(event) {
