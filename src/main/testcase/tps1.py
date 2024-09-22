@@ -46,7 +46,7 @@ async def sequential_order_placement():
         price = BUY_INITIAL_PRICE
         while price <= BUY_MAX_PRICE:
             await submit_order(session, 'BUY', price)
-            await asyncio.sleep(0.05)  # 可以調整間隔以控制下單速度
+            await asyncio.sleep(0.01)  # 可以調整間隔以控制下單速度
             price += 1  # 每次價格增加 1
 
         # 再下賣單
@@ -56,7 +56,7 @@ async def sequential_order_placement():
                 await submit_order(session, 'SELL', price, quantity=2.0)  # 當價格 <= 50500，賣 2 顆
             else:
                 await submit_order(session, 'SELL', price)  # 否則賣 1 顆
-            await asyncio.sleep(0.05)  # 可以調整間隔以控制下單速度
+            await asyncio.sleep(0.01)  # 可以調整間隔以控制下單速度
             price -= 1  # 每次價格減少 1
 
 

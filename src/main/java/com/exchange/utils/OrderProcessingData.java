@@ -14,6 +14,8 @@ public class OrderProcessingData {
     private long bigDecimalOperationTime;
     private long objectCreationTime;
     private long untrackedTime;
+    private long getOrderFromRedisTime;
+    private long addOrderToOrderbookTime;
 
     // Getters and Setters
 

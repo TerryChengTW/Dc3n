@@ -172,10 +172,13 @@ public class OrderMatchingService {
         processingData.setRedisFetchTime(totalRedisFetchTime);
         processingData.setTradeUpdateTime(totalTradeUpdateTime);
         processingData.setRedisUpdateTime(totalRedisUpdateTime);
+        processingData.setGetOrderFromRedisTime(totalGetOrderFromRedisTime);
+        processingData.setAddOrderToOrderbookTime(totalAddOrderToOrderbookTime);
         processingData.setBigDecimalOperationTime(totalBigDecimalOperationTime);
         processingData.setObjectCreationTime(totalObjectCreationTime);
         processingData.setTotalProcessingTime(totalProcessingTime);
         processingData.setUntrackedTime(untrackedTime);
+
         System.out.println("Order processing time: " + totalProcessingTime + " ns"
                 + ", Redis fetch time: " + totalRedisFetchTime + " ns"
                 + ", Trade update time: " + totalTradeUpdateTime + " ns"
