@@ -154,11 +154,19 @@ public class OrderMatchingService {
 
             // 記錄 Redis 更新的時間
             long redisUpdateStartTime = System.nanoTime();
+            System.out.println("Redis update start time1: " + redisUpdateStartTime);
             updateOrderInRedis(oppositeOrder, oppositeOrderbookKey);
+            long RedisUpdateTime1 = (System.nanoTime() - redisUpdateStartTime);
+            System.out.println("Redis update time1: " + RedisUpdateTime1);
+            long RedisUpdateTime2 = 0;
             if (!isMarketOrder) {
+                redisUpdateStartTime = System.nanoTime();
+                System.out.println("Redis update start time2: " + redisUpdateStartTime);
                 updateOrderInRedis(order, orderbookKey);
+                RedisUpdateTime2 = (System.nanoTime() - redisUpdateStartTime);
+                System.out.println("Redis update time2: " + RedisUpdateTime2);
             }
-            totalRedisUpdateTime += (System.nanoTime() - redisUpdateStartTime);
+            totalRedisUpdateTime = RedisUpdateTime1 + RedisUpdateTime2;
         }
 
         long methodEndTime = System.nanoTime();
@@ -226,13 +234,25 @@ public class OrderMatchingService {
 
     private void updateOrderInRedis(Order order, String orderbookKey) {
         if (order.getStatus() != Order.OrderStatus.COMPLETED) {
+            long saveOrderStartTime = System.nanoTime();
             saveOrderToRedis(order);
+            long saveOrderEndTime = System.nanoTime();
+            System.out.println("Save order time: " + (saveOrderEndTime - saveOrderStartTime) + " ns");
         }
+        long removeOrderStartTime = System.nanoTime();
         redisTemplate.opsForZSet().remove(orderbookKey, order.getId());
+        long removeOrderEndTime = System.nanoTime();
+        System.out.println("Remove order time: " + (removeOrderEndTime - removeOrderStartTime) + " ns");
         if (order.getStatus() == Order.OrderStatus.PARTIALLY_FILLED) {
+            long addOrderToOrderbookStartTime = System.nanoTime();
             addOrderToOrderbook(order, orderbookKey);
+            long addOrderToOrderbookEndTime = System.nanoTime();
+            System.out.println("Add order to orderbook time: " + (addOrderToOrderbookEndTime - addOrderToOrderbookStartTime) + " ns");
         }
+        long sendOrderbookUpdateStartTime = System.nanoTime();
         sendOrderbookUpdate(order.getSymbol());
+        long sendOrderbookUpdateEndTime = System.nanoTime();
+        System.out.println("Send orderbook update time: " + (sendOrderbookUpdateEndTime - sendOrderbookUpdateStartTime) + " ns");
     }
 
     private void addOrderToOrderbook(Order order, String orderbookKey) {

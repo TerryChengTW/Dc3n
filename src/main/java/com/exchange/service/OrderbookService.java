@@ -39,12 +39,19 @@ public class OrderbookService {
         }
 
         List<List<String>> result = new ArrayList<>();
-
         if (entries != null) {
+            List<String> orderIds = new ArrayList<>();
+            for (ZSetOperations.TypedTuple<String> entry : entries) {
+                orderIds.add(entry.getValue());
+            }
+
+            // 批量獲取剩餘訂單數量
+            Map<String, String> remainingQuantities = getRemainingOrderQuantities(orderIds);
+
             for (ZSetOperations.TypedTuple<String> entry : entries) {
                 String orderId = entry.getValue();
                 Double price = entry.getScore();
-                String remainingQuantity = getRemainingOrderQuantity(orderId);
+                String remainingQuantity = remainingQuantities.get(orderId);
                 if (remainingQuantity != null) {
                     result.add(Arrays.asList(price.toString(), remainingQuantity));
                 }
@@ -54,17 +61,22 @@ public class OrderbookService {
         return result;
     }
 
-    // 獲取剩餘的訂單數量（總數量 - 已匹配數量）
-    private String getRemainingOrderQuantity(String orderId) {
-        String orderKey = "order:" + orderId;
-        String quantity = (String) redisTemplate.opsForHash().get(orderKey, "quantity");
-        String filledQuantity = (String) redisTemplate.opsForHash().get(orderKey, "filledQuantity");
+    // 批量獲取剩餘的訂單數量
+    private Map<String, String> getRemainingOrderQuantities(List<String> orderIds) {
+        // 將 List<String> 轉換為 List<Object>
+        List<Object> objectOrderIds = new ArrayList<>(orderIds);
 
-        // 確保兩者都不為空並且是有效數字
-        if (quantity != null && filledQuantity != null) {
-            double remainingQuantity = Double.parseDouble(quantity) - Double.parseDouble(filledQuantity);
-            return String.valueOf(remainingQuantity);
+        // 批量查詢訂單的數量和已填充數量
+        List<Object> quantities = redisTemplate.opsForHash().multiGet("orderQuantities", objectOrderIds);
+        List<Object> filledQuantities = redisTemplate.opsForHash().multiGet("orderFilledQuantities", objectOrderIds);
+
+        Map<String, String> remainingQuantities = new HashMap<>();
+        for (int i = 0; i < orderIds.size(); i++) {
+            if (quantities.get(i) != null && filledQuantities.get(i) != null) {
+                double remaining = Double.parseDouble((String) quantities.get(i)) - Double.parseDouble((String) filledQuantities.get(i));
+                remainingQuantities.put(orderIds.get(i), String.valueOf(remaining));
+            }
         }
-        return null;
+        return remainingQuantities;
     }
 }
