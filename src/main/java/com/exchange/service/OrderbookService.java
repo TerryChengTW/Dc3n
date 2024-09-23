@@ -1,10 +1,13 @@
 package com.exchange.service;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.connection.RedisHashCommands;
+import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 @Service
@@ -23,7 +26,7 @@ public class OrderbookService {
         snapshot.put("bids", getOrderbookEntries(buyOrderbookKey, true));
         snapshot.put("asks", getOrderbookEntries(sellOrderbookKey, false));
         snapshot.put("timestamp", System.currentTimeMillis());
-
+        System.out.println(snapshot);
         return snapshot;
     }
 
@@ -44,6 +47,7 @@ public class OrderbookService {
             for (ZSetOperations.TypedTuple<String> entry : entries) {
                 orderIds.add(entry.getValue());
             }
+            System.out.println("OrderIds: " + orderIds);
 
             // 批量獲取剩餘訂單數量
             Map<String, String> remainingQuantities = getRemainingOrderQuantities(orderIds);
@@ -61,22 +65,32 @@ public class OrderbookService {
         return result;
     }
 
-    // 批量獲取剩餘的訂單數量
+    // 使用 Redis Pipeline 批量查詢剩餘的訂單數量
     private Map<String, String> getRemainingOrderQuantities(List<String> orderIds) {
-        // 將 List<String> 轉換為 List<Object>
-        List<Object> objectOrderIds = new ArrayList<>(orderIds);
-
-        // 批量查詢訂單的數量和已填充數量
-        List<Object> quantities = redisTemplate.opsForHash().multiGet("orderQuantities", objectOrderIds);
-        List<Object> filledQuantities = redisTemplate.opsForHash().multiGet("orderFilledQuantities", objectOrderIds);
-
         Map<String, String> remainingQuantities = new HashMap<>();
+
+        // 使用 RedisTemplate 批量查詢
+        List<Object> results = redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
+            RedisHashCommands hashCommands = connection.hashCommands(); // 使用 RedisHashCommands
+            for (String orderId : orderIds) {
+                String orderKey = "order:" + orderId;
+                hashCommands.hGet(orderKey.getBytes(StandardCharsets.UTF_8), "quantity".getBytes(StandardCharsets.UTF_8));
+                hashCommands.hGet(orderKey.getBytes(StandardCharsets.UTF_8), "filledQuantity".getBytes(StandardCharsets.UTF_8));
+            }
+            return null; // RedisCallback 要返回 null，讓 executePipelined 知道已完成批量操作
+        });
+
+        // results 列表將包含所有的 quantity 和 filledQuantity
         for (int i = 0; i < orderIds.size(); i++) {
-            if (quantities.get(i) != null && filledQuantities.get(i) != null) {
-                double remaining = Double.parseDouble((String) quantities.get(i)) - Double.parseDouble((String) filledQuantities.get(i));
+            String quantity = (String) results.get(i * 2); // 每兩個結果一組，偶數位置是 quantity
+            String filledQuantity = (String) results.get(i * 2 + 1); // 奇數位置是 filledQuantity
+
+            if (quantity != null && filledQuantity != null) {
+                double remaining = Double.parseDouble(quantity) - Double.parseDouble(filledQuantity);
                 remainingQuantities.put(orderIds.get(i), String.valueOf(remaining));
             }
         }
+
         return remainingQuantities;
     }
 }
