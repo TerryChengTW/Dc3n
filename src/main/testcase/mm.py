@@ -5,7 +5,7 @@ import time
 import numpy as np
 
 # 配置參數
-BASE_URL = 'https://terry987.xyz'
+BASE_URL = 'http://localhost:8081'
 SYMBOLS = {
     'ETHUSDT': {'initial_price': 3000, 'price_range': (1000, 5000), 'stddev': 50, 'volatility': 0.01},
     'BTCUSDT': {'initial_price': 50000, 'price_range': (30000, 70000), 'stddev': 500, 'volatility': 0.02}
@@ -16,8 +16,8 @@ CONCURRENCY = 100  # 同時提交訂單的數量（併發數）
 
 # JWT 令牌
 JWT_TOKENS = [
-    'eyJhbGciOiJIUzI1NiJ9.eyJ1c2VybmFtZSI6IjEiLCJ1c2VySWQiOiIxODM0NjY2NjE1NTQ4MDIyNzg0IiwiaWF0IjoxNzI2NjIyMTk5LCJleHAiOjE3NjI2MjIxOTl9.Bsn-OfJVXNIQyPI_oY6lrIQgLWANTXjoOf0fnTX9sVs',
-    'eyJhbGciOiJIUzI1NiJ9.eyJ1c2VybmFtZSI6IjEiLCJ1c2VySWQiOiIxODM3NzkxMDUwNTQ3MjA0MDk2IiwiaWF0IjoxNzI3MDAwNDUyLCJleHAiOjE3NjMwMDA0NTJ9.-aG6aKwea99JrEKxlqWgaTr4yN5vcuneJ221VHhaYEM'
+'eyJhbGciOiJIUzI1NiJ9.eyJ1c2VybmFtZSI6IjMiLCJ1c2VySWQiOiIxODM4MDI5MDA0NjE2MTEwMDgwIiwiaWF0IjoxNzI3MDU1NjA5LCJleHAiOjE3NjMwNTU2MDl9.DU31c_NFobpFS8VfjlMCaV5kSVgBvPst6K7DcaanMWc',
+'eyJhbGciOiJIUzI1NiJ9.eyJ1c2VybmFtZSI6IjQiLCJ1c2VySWQiOiIxODM4MDI5MDQzMjQ5ODQ0MjI0IiwiaWF0IjoxNzI3MDU1MzE5LCJleHAiOjE3NjMwNTUzMTl9.jqyeE6C1N6XDRsYU4uOlvuQG4H46EDBwPzbcQ5ip3Js'
 ]
 
 # 使用正弦波模型控制價格在一個方向內逐漸波動

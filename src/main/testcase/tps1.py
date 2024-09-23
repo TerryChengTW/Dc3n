@@ -6,13 +6,13 @@ import time
 BASE_URL = 'http://localhost:8081'
 SYMBOL = 'BTCUSDT'
 BUY_INITIAL_PRICE = 50000
-BUY_MAX_PRICE = 50250
-SELL_INITIAL_PRICE = 50250
+BUY_MAX_PRICE = 51000
+SELL_INITIAL_PRICE = 51000
 SELL_MIN_PRICE = 50000
 ORDER_QUANTITY = 1.0  # 每次下單數量固定為 1 BTC
 JWT_TOKENS = [
-    'eyJhbGciOiJIUzI1NiJ9.eyJ1c2VybmFtZSI6IjEiLCJ1c2VySWQiOiIxODM0NjY2NjE1NTQ4MDIyNzg0IiwiaWF0IjoxNzI2NjIyMTk5LCJleHAiOjE3NjI2MjIxOTl9.Bsn-OfJVXNIQyPI_oY6lrIQgLWANTXjoOf0fnTX9sVs',
-    'eyJhbGciOiJIUzI1NiJ9.eyJ1c2VybmFtZSI6IjEiLCJ1c2VySWQiOiIxODM3ODcxMjU2Njc5MDkyMjI0IiwiaWF0IjoxNzI3MDE3NjQ3LCJleHAiOjE3NjMwMTc2NDd9.4FLZCrtw56XqXBNYyMxli961LYvz9jwf2SsrMHB24is'
+    'eyJhbGciOiJIUzI1NiJ9.eyJ1c2VybmFtZSI6IjEiLCJ1c2VySWQiOiIxODM2NjcwNDY1MTI5NzEzNjY0IiwiaWF0IjoxNzI3MDcxMzIwLCJleHAiOjE3NjMwNzEzMjB9.vM9mfo6luhs2txg72o9hZGdUimojF5HcJy3hacZkBQ8',
+    'eyJhbGciOiJIUzI1NiJ9.eyJ1c2VybmFtZSI6IjIiLCJ1c2VySWQiOiIxODM2NjcwNDkzNDc5MDE0NDAwIiwiaWF0IjoxNzI3MDcxMzc5LCJleHAiOjE3NjMwNzEzNzl9.u7dlVDnTFP0hSBARwXQM7X5w6Erd1E7wZqTlh128ofA'
 ]
 
 # 記錄訂單計數
@@ -52,7 +52,7 @@ async def sequential_order_placement():
         # 再下賣單
         price = SELL_INITIAL_PRICE
         while price >= SELL_MIN_PRICE:
-            if price <= 50125:
+            if price <= 50500:
                 await submit_order(session, 'SELL', price, quantity=2.0)  # 當價格 <= 50500，賣 2 顆
             else:
                 await submit_order(session, 'SELL', price)  # 否則賣 1 顆

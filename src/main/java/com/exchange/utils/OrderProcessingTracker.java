@@ -56,7 +56,7 @@ public class OrderProcessingTracker {
             sheet.addCell(new Label(5, 0, "Add Order To Orderbook Time (ns)"));
             sheet.addCell(new Label(6, 0, "BigDecimal Operation Time (ns)"));
             sheet.addCell(new Label(7, 0, "Object Creation Time (ns)"));
-            sheet.addCell(new Label(8, 0, "Total Processing Time (ns)"));
+            sheet.addCell(new Label(8, 0, "Total Processing Time (s)"));
             sheet.addCell(new Label(9, 0, "Untracked Time (ns)"));
 
             // 寫入數據
@@ -70,7 +70,8 @@ public class OrderProcessingTracker {
                 sheet.addCell(new Number(5, rowIndex, data.getAddOrderToOrderbookTime()));
                 sheet.addCell(new Number(6, rowIndex, data.getBigDecimalOperationTime()));
                 sheet.addCell(new Number(7, rowIndex, data.getObjectCreationTime()));
-                sheet.addCell(new Number(8, rowIndex, data.getTotalProcessingTime()));
+                double totalProcessingTimeInSeconds = data.getTotalProcessingTime() / 1000000000.0;
+                sheet.addCell(new Number(8, rowIndex, totalProcessingTimeInSeconds));
                 sheet.addCell(new Number(9, rowIndex, data.getUntrackedTime()));
                 rowIndex++;
             }

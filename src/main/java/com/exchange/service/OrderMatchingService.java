@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
@@ -246,20 +247,23 @@ public class OrderMatchingService {
 
     private void saveOrderToRedis(Order order) {
         String orderKey = "order:" + order.getId();
-        redisTemplate.opsForHash().put(orderKey, "id", order.getId());
-        redisTemplate.opsForHash().put(orderKey, "userId", order.getUserId());
-        redisTemplate.opsForHash().put(orderKey, "symbol", order.getSymbol());
-        redisTemplate.opsForHash().put(orderKey, "price", order.getPrice().toString());
-        redisTemplate.opsForHash().put(orderKey, "quantity", order.getQuantity().toString());
-        redisTemplate.opsForHash().put(orderKey, "filledQuantity", order.getFilledQuantity().toString());
-        redisTemplate.opsForHash().put(orderKey, "side", order.getSide().toString());
-        redisTemplate.opsForHash().put(orderKey, "orderType", order.getOrderType().toString());
-        redisTemplate.opsForHash().put(orderKey, "status", order.getStatus().toString());
-        redisTemplate.opsForHash().put(orderKey, "createdAt", order.getCreatedAt().toString());
-        redisTemplate.opsForHash().put(orderKey, "updatedAt", order.getUpdatedAt().toString());
-        redisTemplate.opsForHash().put(orderKey, "modifiedAt", order.getModifiedAt().toString());
+        Map<String, Object> orderMap = new HashMap<>();
+        orderMap.put("id", order.getId());
+        orderMap.put("userId", order.getUserId());
+        orderMap.put("symbol", order.getSymbol());
+        orderMap.put("price", order.getPrice().toString());
+        orderMap.put("quantity", order.getQuantity().toString());
+        orderMap.put("filledQuantity", order.getFilledQuantity().toString());
+        orderMap.put("side", order.getSide().toString());
+        orderMap.put("orderType", order.getOrderType().toString());
+        orderMap.put("status", order.getStatus().toString());
+        orderMap.put("createdAt", order.getCreatedAt().toString());
+        orderMap.put("updatedAt", order.getUpdatedAt().toString());
+        orderMap.put("modifiedAt", order.getModifiedAt().toString());
 
-        // 只在訂單是PENDING時發送ORDER_CREATED事件
+        // 一次性將所有欄位寫入 Redis
+        redisTemplate.opsForHash().putAll(orderKey, orderMap);
+
         if (order.getStatus() == Order.OrderStatus.PENDING) {
             sendWebSocketNotification(order.getUserId(), "ORDER_CREATED", order);
         }
