@@ -1,6 +1,8 @@
 package com.exchange.consumer;
 
 import com.exchange.model.Order;
+import com.exchange.service.NewOrderMatchingService;
+import com.exchange.service.NewOrderbookService;
 import com.exchange.service.OrderMatchingService;
 import com.exchange.service.OrderUpdateService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -13,11 +15,20 @@ public class OrderConsumer {
     private final OrderMatchingService matchingService;
     private final OrderUpdateService updateService;
     private final ObjectMapper objectMapper;
+    private final NewOrderbookService newOrderbookService;
+    private final NewOrderMatchingService newMatchingService;
 
-    public OrderConsumer(OrderMatchingService matchingService, OrderUpdateService updateService, ObjectMapper objectMapper) {
+
+    public OrderConsumer(OrderMatchingService matchingService,
+                         OrderUpdateService updateService,
+                         ObjectMapper objectMapper,
+                         NewOrderbookService newOrderbookService,
+                         NewOrderMatchingService newMatchingService) {
         this.matchingService = matchingService;
         this.updateService = updateService;
         this.objectMapper = objectMapper;
+        this.newOrderbookService = newOrderbookService;
+        this.newMatchingService = newMatchingService;
     }
 
     // 消費新訂單
@@ -27,8 +38,14 @@ public class OrderConsumer {
             // 將接收到的 JSON 訂單轉換為 Order 對象
             Order order = objectMapper.readValue(orderJson, Order.class);
 
-            // 將訂單保存到 Redis 並嘗試匹配
-            matchingService.processOrder(order);
+            // 根據訂單類型進行不同處理
+            if (order.getOrderType() == Order.OrderType.MARKET) {
+                // 市場單立即送至撮合服務處理
+                newMatchingService.processMarketOrder(order);
+            } else if (order.getOrderType() == Order.OrderType.LIMIT) {
+                // 限價單保存到 Redis
+                newOrderbookService.saveOrderToRedis(order);
+            }
 
         } catch (Exception e) {
             e.printStackTrace();

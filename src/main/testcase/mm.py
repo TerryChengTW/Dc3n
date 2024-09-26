@@ -5,19 +5,19 @@ import time
 import numpy as np
 
 # 配置參數
-BASE_URL = 'https://terry987.xyz'
+BASE_URL = 'http://localhost:8081'
 SYMBOLS = {
     'ETHUSDT': {'initial_price': 3000, 'price_range': (1000, 5000), 'stddev': 50, 'volatility': 0.01},
-    'BTCUSDT': {'initial_price': 50000, 'price_range': (30000, 70000), 'stddev': 500, 'volatility': 0.02}
+    'BTCUSDT': {'initial_price': 50000, 'price_range': (30000, 70000), 'stddev': 500, 'volatility': 0.01}
 }
 ORDER_QUANTITY_RANGE = (0.1, 1.0)  # 訂單數量範圍
-MARKET_ORDER_PROBABILITY = 0.05  # 市價單的概率
-CONCURRENCY = 100  # 同時提交訂單的數量（併發數）
+MARKET_ORDER_PROBABILITY = 0.00  # 市價單的概率
+CONCURRENCY = 1000  # 同時提交訂單的數量（併發數）
 
 # JWT 令牌
 JWT_TOKENS = [
-'eyJhbGciOiJIUzI1NiJ9.eyJ1c2VybmFtZSI6IjMiLCJ1c2VySWQiOiIxODM4MDI5MDA0NjE2MTEwMDgwIiwiaWF0IjoxNzI3MDU1NjA5LCJleHAiOjE3NjMwNTU2MDl9.DU31c_NFobpFS8VfjlMCaV5kSVgBvPst6K7DcaanMWc',
-'eyJhbGciOiJIUzI1NiJ9.eyJ1c2VybmFtZSI6IjQiLCJ1c2VySWQiOiIxODM4MDI5MDQzMjQ5ODQ0MjI0IiwiaWF0IjoxNzI3MDU1MzE5LCJleHAiOjE3NjMwNTUzMTl9.jqyeE6C1N6XDRsYU4uOlvuQG4H46EDBwPzbcQ5ip3Js'
+    'eyJhbGciOiJIUzI1NiJ9.eyJ1c2VybmFtZSI6IjMiLCJ1c2VySWQiOiIxODM4MDI5MDA0NjE2MTEwMDgwIiwiaWF0IjoxNzI3MDU1NjA5LCJleHAiOjE3NjMwNTU2MDl9.DU31c_NFobpFS8VfjlMCaV5kSVgBvPst6K7DcaanMWc',
+    'eyJhbGciOiJIUzI1NiJ9.eyJ1c2VybmFtZSI6IjQiLCJ1c2VySWQiOiIxODM4MDI5MDQzMjQ5ODQ0MjI0IiwiaWF0IjoxNzI3MDU1MzE5LCJleHAiOjE3NjMwNTUzMTl9.jqyeE6C1N6XDRsYU4uOlvuQG4H46EDBwPzbcQ5ip3Js'
 ]
 
 # 使用正弦波模型控制價格在一個方向內逐漸波動
@@ -29,7 +29,11 @@ def generate_price(current_price, price_range, time_step, max_percent_change):
     # 確保價格在設定的範圍內
     return max(price_range[0], min(price_range[1], new_price))
 
+# 用於計算成功提交的訂單數量
+success_count = 0
+
 async def submit_order(session, side, symbol, current_price, price_range, time_step, max_percent_change):
+    global success_count
     quantity = round(random.uniform(*ORDER_QUANTITY_RANGE), 2)
     is_market_order = random.random() < MARKET_ORDER_PROBABILITY
 
@@ -53,6 +57,7 @@ async def submit_order(session, side, symbol, current_price, price_range, time_s
         if response.status == 200:
             order_type = "MARKET" if is_market_order else f"LIMIT @ {payload.get('price', 'N/A')}"
             print(f"Order submitted: {side} {quantity} {symbol} {order_type}")
+            success_count += 1  # 成功提交訂單，計數器增加
         else:
             print(f"Failed to submit order: {await response.text()}")
 
@@ -91,7 +96,6 @@ async def market_maker(orders_per_second, run_duration, mixed_test=False):
         if tasks:
             await asyncio.gather(*tasks)
 
-
 if __name__ == '__main__':
     mixed_test = input("是否進行混合測試（y/n）: ").strip().lower() == 'y'
     orders_per_second = float(input("請輸入每秒訂單數量: "))  # 讓使用者輸入每秒訂單數量
@@ -100,3 +104,4 @@ if __name__ == '__main__':
     asyncio.run(market_maker(orders_per_second, run_duration, mixed_test))
     end_time = time.time()
     print(f"Total time: {end_time - start_time} seconds")
+    print(f"Total successful orders submitted: {success_count}")  # 打印成功提交的訂單總數

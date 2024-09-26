@@ -38,6 +38,9 @@ public class Order {
     @Column(precision = 18, scale = 8, nullable = false)
     private BigDecimal filledQuantity = BigDecimal.ZERO;
 
+    @Column(precision = 18, scale = 8, nullable = false)
+    private BigDecimal unfilledQuantity = quantity;
+
     @Enumerated(EnumType.STRING)
     @Column(length = 4, nullable = false)
     private Side side;
