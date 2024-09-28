@@ -249,4 +249,80 @@ public class NewOrderbookService {
         String zsetValue = order.getId() + ":" + order.getUnfilledQuantity().toPlainString() + ":" + modifiedTime.toEpochMilli();
         redisTemplate.opsForZSet().add(redisKey, zsetValue, score);
     }
+
+    // 合併更新訂單狀態（同時處理 remove 和 update）
+    public void updateOrdersStatusInRedis(OrderSummary buyOrder, OrderSummary sellOrder) {
+        // 構建 Redis 鍵值
+        String buyRedisKey = buyOrder.getSymbol() + ":" + buyOrder.getSide();
+        String sellRedisKey = sellOrder.getSymbol() + ":" + sellOrder.getSide();
+        String buyHashKey = "order:" + buyOrder.getOrderId();
+        String sellHashKey = "order:" + sellOrder.getOrderId();
+
+        // Lua 腳本：一次性完成更新/刪除兩個訂單
+        String script =
+                "local buyHashData = redis.call('HGETALL', KEYS[1]); " + // 讀取買單 Hash
+                        "local sellHashData = redis.call('HGETALL', KEYS[2]); " + // 讀取賣單 Hash
+                        "if tonumber(ARGV[1]) == 0 then " + // 如果買單成交完成，則刪除
+                        "   redis.call('ZREM', KEYS[3], ARGV[3]); " +
+                        "   redis.call('DEL', KEYS[1]); " +
+                        "else " + // 否則更新 ZSet
+                        "   redis.call('ZREM', KEYS[3], ARGV[3]); " +
+                        "   redis.call('ZADD', KEYS[3], ARGV[4], ARGV[5]); " +
+                        "end " +
+                        "if tonumber(ARGV[2]) == 0 then " + // 如果賣單成交完成，則刪除
+                        "   redis.call('ZREM', KEYS[4], ARGV[6]); " +
+                        "   redis.call('DEL', KEYS[2]); " +
+                        "else " + // 否則更新 ZSet
+                        "   redis.call('ZREM', KEYS[4], ARGV[6]); " +
+                        "   redis.call('ZADD', KEYS[4], ARGV[7], ARGV[8]); " +
+                        "end " +
+                        "return {buyHashData, sellHashData};"; // 返回買賣雙方 Hash 內容
+
+        // 計算 ZSet 值和分數
+        String buyZsetValue = buyOrder.getOrderId() + ":" + buyOrder.getUnfilledQuantity().toPlainString() + ":" + buyOrder.getModifiedAt().toEpochMilli();
+        String sellZsetValue = sellOrder.getOrderId() + ":" + sellOrder.getUnfilledQuantity().toPlainString() + ":" + sellOrder.getModifiedAt().toEpochMilli();
+        double buyNewScore = calculateZSetScore(buyOrder);
+        double sellNewScore = calculateZSetScore(sellOrder);
+
+        // 執行 Lua 腳本
+        List<Object> result = redisTemplate.execute(new DefaultRedisScript<>(script, List.class),
+                Arrays.asList(buyHashKey, sellHashKey, buyRedisKey, sellRedisKey),
+                buyOrder.getUnfilledQuantity().toPlainString(),
+                sellOrder.getUnfilledQuantity().toPlainString(),
+                buyOrder.getZsetValue(), String.valueOf(buyNewScore), buyZsetValue,
+                sellOrder.getZsetValue(), String.valueOf(sellNewScore), sellZsetValue
+        );
+
+        // 解析 Lua 腳本返回的 Hash 數據
+        @SuppressWarnings("unchecked")
+        Map<Object, Object> buyOrderData = parseRedisHash((List<Object>) result.get(0));
+        @SuppressWarnings("unchecked")
+        Map<Object, Object> sellOrderData = parseRedisHash((List<Object>) result.get(1));
+
+        // 異步處理對象轉換和持久化
+        CompletableFuture.runAsync(() -> {
+            Order buyOrderObject = buildOrderFromHashData(buyOrder, buyOrderData);
+            Order sellOrderObject = buildOrderFromHashData(sellOrder, sellOrderData);
+            // TODO: 持久化到 MySQL
+        });
+    }
+
+    // 用於計算 ZSet 的分數
+    private double calculateZSetScore(OrderSummary orderSummary) {
+        BigDecimal precisionFactor = BigDecimal.TEN.pow(7);
+        BigDecimal calculatedScore = orderSummary.getPrice().multiply(precisionFactor)
+                .add((orderSummary.getSide() == Order.Side.BUY ? BigDecimal.valueOf(-1) : BigDecimal.ONE)
+                        .multiply(BigDecimal.valueOf(orderSummary.getModifiedAt().toEpochMilli())));
+        return calculatedScore.doubleValue();
+    }
+
+    // 用於解析 Lua 腳本返回的 Hash 數據
+    private Map<Object, Object> parseRedisHash(List<Object> hashData) {
+        Map<Object, Object> orderData = new HashMap<>();
+        for (int i = 0; i < hashData.size(); i += 2) {
+            orderData.put(hashData.get(i), hashData.get(i + 1));
+        }
+        return orderData;
+    }
+
 }

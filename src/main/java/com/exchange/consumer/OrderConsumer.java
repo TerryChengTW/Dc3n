@@ -4,6 +4,7 @@ import com.exchange.model.Order;
 import com.exchange.service.NewOrderMatchingService;
 import com.exchange.service.OrderUpdateService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 
@@ -16,7 +17,7 @@ public class OrderConsumer {
 
     public OrderConsumer(OrderUpdateService updateService,
                          ObjectMapper objectMapper,
-                         NewOrderMatchingService newMatchingService) {
+                         @Lazy NewOrderMatchingService newMatchingService) {
         this.updateService = updateService;
         this.objectMapper = objectMapper;
         this.newMatchingService = newMatchingService;

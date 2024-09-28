@@ -74,25 +74,19 @@ public class NewOrderMatchingService {
     private void matchOrders(OrderSummary buyOrder, OrderSummary sellOrder) {
         Instant matchStart = Instant.now();
 
+        // 計算撮合的數量
         BigDecimal matchQuantity = buyOrder.getUnfilledQuantity().min(sellOrder.getUnfilledQuantity());
         buyOrder.setUnfilledQuantity(buyOrder.getUnfilledQuantity().subtract(matchQuantity));
         sellOrder.setUnfilledQuantity(sellOrder.getUnfilledQuantity().subtract(matchQuantity));
 
         totalMatchExecutionTime = totalMatchExecutionTime.plus(Duration.between(matchStart, Instant.now()));
 
+        // 合併更新買賣雙方訂單狀態
         Instant updateStart = Instant.now();
-        updateOrderStatus(buyOrder);
-        updateOrderStatus(sellOrder);
+        orderbookService.updateOrdersStatusInRedis(buyOrder, sellOrder);
         totalRedisUpdateTime = totalRedisUpdateTime.plus(Duration.between(updateStart, Instant.now()));
     }
 
-    private void updateOrderStatus(OrderSummary order) {
-        if (order.getUnfilledQuantity().compareTo(BigDecimal.ZERO) == 0) {
-            orderbookService.removeOrderAndPersistToDatabase(order);
-        } else {
-            orderbookService.updateOrderInZSetAndPersistToDatabase(order);
-        }
-    }
 
     private void printAggregateStatistics() {
         System.out.println("\nAggregate statistics for 1000 matches:");
