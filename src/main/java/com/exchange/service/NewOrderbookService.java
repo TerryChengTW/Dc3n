@@ -131,20 +131,25 @@ public class NewOrderbookService {
         String redisKey = orderSummary.getSymbol() + ":" + orderSummary.getSide();
         String hashKey = "order:" + orderSummary.getOrderId();
 
-        // 使用 pipeline 執行 Hash 讀取和 ZSet/Hash 移除操作
-        List<Object> results = redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
-            // 讀取 Hash 值
-            connection.hashCommands().hGetAll(hashKey.getBytes(StandardCharsets.UTF_8));
-            // 移除 ZSet 值
-            connection.zSetCommands().zRem(redisKey.getBytes(StandardCharsets.UTF_8), orderSummary.getZsetValue().getBytes(StandardCharsets.UTF_8));
-            // 刪除 Hash
-            connection.keyCommands().del(hashKey.getBytes(StandardCharsets.UTF_8));
-            return null;
-        });
+        // Lua 腳本：一次性執行 Hash 讀取、ZSet 移除和 Hash 刪除
+        String script =
+                "local hashData = redis.call('HGETALL', KEYS[1]); " + // 讀取 Hash
+                        "redis.call('ZREM', KEYS[2], ARGV[1]); " + // 移除 ZSet 值
+                        "redis.call('DEL', KEYS[1]); " + // 刪除 Hash
+                        "return hashData;"; // 返回 Hash 內容
 
-        // 從 pipeline 返回的結果中取得 Hash 讀取結果
-        @SuppressWarnings("unchecked")
-        Map<Object, Object> orderData = (Map<Object, Object>) results.get(0);
+        // 執行 Lua 腳本
+        List<Object> result = redisTemplate.execute(
+                new DefaultRedisScript<>(script, List.class),
+                Arrays.asList(hashKey, redisKey),
+                orderSummary.getZsetValue()
+        );
+
+        // 解析 Lua 腳本返回的 Hash 數據
+        Map<Object, Object> orderData = new HashMap<>();
+        for (int i = 0; i < result.size(); i += 2) {
+            orderData.put(result.get(i), result.get(i + 1));
+        }
 
         // 組合完整的 Order 對象
         Order order = buildOrderFromHashData(orderSummary, orderData);
