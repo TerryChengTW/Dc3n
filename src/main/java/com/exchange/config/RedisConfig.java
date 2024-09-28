@@ -19,20 +19,16 @@ public class RedisConfig {
         RedisTemplate<String, Object> template = new RedisTemplate<>();
         template.setConnectionFactory(redisConnectionFactory);
 
-        // 自定義 ObjectMapper 以處理 LocalDateTime
-        ObjectMapper objectMapper = new ObjectMapper();
-        objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
-        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-        objectMapper.registerModule(new JavaTimeModule());  // 註冊 JavaTimeModule 處理 LocalDateTime
+        // ZSet 使用 String 序列化器
+        StringRedisSerializer stringSerializer = new StringRedisSerializer();
 
-        // 使用 GenericJackson2JsonRedisSerializer 來處理 Redis 序列化
-        GenericJackson2JsonRedisSerializer serializer = new GenericJackson2JsonRedisSerializer(objectMapper);
+        // Key 序列化為字串
+        template.setKeySerializer(stringSerializer);
 
-        // 設置 key 和 value 的序列化器
-        template.setKeySerializer(new StringRedisSerializer());
-        template.setValueSerializer(serializer);
-        template.setHashKeySerializer(serializer);
-        template.setHashValueSerializer(serializer);
+        // Value 和 HashKey 使用 String 序列化器
+        template.setValueSerializer(stringSerializer); // ZSet 存取用 String
+        template.setHashKeySerializer(stringSerializer); // HashKey 存取用 String
+        template.setHashValueSerializer(stringSerializer); // **將 HashValue 改為 String 序列化**
 
         return template;
     }
