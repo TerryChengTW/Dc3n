@@ -93,26 +93,13 @@ public class NewOrderbookService {
             return null;
         });
 
-        // 記錄查詢 Redis 耗時
-        Duration fetchDuration = Duration.between(startFetchTime, Instant.now());
-        totalRedisFetchDuration += fetchDuration.toMillis();
-        fetchCount++;
-
         // 分別解析最高買價和最低賣價訂單
         Set<TypedTuple<Object>> highestBuyOrderSet = (Set<TypedTuple<Object>>) results.get(0);
         Set<TypedTuple<Object>> lowestSellOrderSet = (Set<TypedTuple<Object>>) results.get(1);
 
-        // 解析訂單前計時
-        Instant startParseTime = Instant.now();
-
         // 解析訂單
         OrderSummary highestBuyOrder = parseZSetOrder(symbol, highestBuyOrderSet, Order.Side.BUY);
         OrderSummary lowestSellOrder = parseZSetOrder(symbol, lowestSellOrderSet, Order.Side.SELL);
-
-        // 記錄解析訂單耗時
-        Duration parseDuration = Duration.between(startParseTime, Instant.now());
-        totalRedisParseDuration += parseDuration.toMillis();
-        parseCount++;
 
         // 返回最高買價和最低賣價訂單
         Map<String, OrderSummary> orders = new HashMap<>();

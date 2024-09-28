@@ -19,110 +19,98 @@ public class NewOrderMatchingService {
     private final NewOrderbookService orderbookService;
     private final ConcurrentHashMap<String, Boolean> unmatchedOrders = new ConcurrentHashMap<>();
 
-    // 匹配次數計數器
-    private int matchCount = 0;
-    // 開始計時的時間
-    private Instant startTime;
-
-    // 各步驟時間累加器
-    private long redisFetchTime = 0;
-    private long matchExecutionTime = 0;
-    private long redisUpdateTime = 0;
-    private long dbPersistTime = 0;
+    private long matchCount = 0;
+    private Duration totalRedisFetchTime = Duration.ZERO;
+    private Duration totalMatchExecutionTime = Duration.ZERO;
+    private Duration totalRedisUpdateTime = Duration.ZERO;
+    private Duration totalConditionCheckTime = Duration.ZERO;
+    private Duration totalLoopTime = Duration.ZERO;
 
     @Autowired
     public NewOrderMatchingService(NewOrderbookService orderbookService) {
         this.orderbookService = orderbookService;
-        // 初始化計時器
-        this.startTime = Instant.now();
     }
 
-
-    // 處理新訂單的進入
     public void handleNewOrder(Order order) {
-        // 將新訂單保存到 Redis
         orderbookService.saveOrderToRedis(order);
-        // 更新未匹配訂單的狀態，並通知撮合引擎
         unmatchedOrders.put(order.getSymbol(), true);
-        // 異步觸發撮合邏輯
         CompletableFuture.runAsync(() -> startContinuousMatching(order.getSymbol()));
     }
 
-    // 持續撮合買賣訂單
     public void startContinuousMatching(String symbol) {
         synchronized (symbol.intern()) {
             while (Boolean.TRUE.equals(unmatchedOrders.get(symbol))) {
-                // 記錄 Redis 查詢訂單的時間
+                Instant loopStart = Instant.now();
+
                 Instant redisStart = Instant.now();
                 Map<String, OrderSummary> topOrders = orderbookService.getTopBuyAndSellOrders(symbol);
                 OrderSummary highestBuyOrder = topOrders.get("highestBuyOrder");
                 OrderSummary lowestSellOrder = topOrders.get("lowestSellOrder");
-                redisFetchTime += Duration.between(redisStart, Instant.now()).toMillis();
+                totalRedisFetchTime = totalRedisFetchTime.plus(Duration.between(redisStart, Instant.now()));
 
-                if (highestBuyOrder == null || lowestSellOrder == null || highestBuyOrder.getPrice().compareTo(lowestSellOrder.getPrice()) < 0) {
+                Instant conditionStart = Instant.now();
+                boolean canMatch = (highestBuyOrder != null && lowestSellOrder != null &&
+                        highestBuyOrder.getPrice().compareTo(lowestSellOrder.getPrice()) >= 0);
+                totalConditionCheckTime = totalConditionCheckTime.plus(Duration.between(conditionStart, Instant.now()));
+
+                if (!canMatch) {
                     unmatchedOrders.put(symbol, false);
                     break;
                 }
 
-                // 執行撮合邏輯，並計算撮合的執行時間
-                Instant matchStart = Instant.now();
                 matchOrders(highestBuyOrder, lowestSellOrder);
-                matchExecutionTime += Duration.between(matchStart, Instant.now()).toMillis();
+                matchCount++;
+
+                totalLoopTime = totalLoopTime.plus(Duration.between(loopStart, Instant.now()));
+
+                if (matchCount % 1000 == 0) {
+                    printAggregateStatistics();
+                    resetStatistics();
+                }
             }
         }
     }
 
-    // 撮合買賣雙方訂單
     private void matchOrders(OrderSummary buyOrder, OrderSummary sellOrder) {
-        // 撮合數量：取買賣雙方的最小未成交數量
-        BigDecimal matchQuantity = buyOrder.getUnfilledQuantity().min(sellOrder.getUnfilledQuantity());
+        Instant matchStart = Instant.now();
 
-        // 更新未成交數量
+        BigDecimal matchQuantity = buyOrder.getUnfilledQuantity().min(sellOrder.getUnfilledQuantity());
         buyOrder.setUnfilledQuantity(buyOrder.getUnfilledQuantity().subtract(matchQuantity));
         sellOrder.setUnfilledQuantity(sellOrder.getUnfilledQuantity().subtract(matchQuantity));
 
-        // 完全成交時從 Redis 中移除，並持久化到 MySQL
-        if (buyOrder.getUnfilledQuantity().compareTo(BigDecimal.ZERO) == 0) {
-            Instant redisUpdateStart = Instant.now();
-            orderbookService.removeOrderAndPersistToDatabase(buyOrder);
-            redisUpdateTime += Duration.between(redisUpdateStart, Instant.now()).toMillis();
+        totalMatchExecutionTime = totalMatchExecutionTime.plus(Duration.between(matchStart, Instant.now()));
+
+        Instant updateStart = Instant.now();
+        updateOrderStatus(buyOrder);
+        updateOrderStatus(sellOrder);
+        totalRedisUpdateTime = totalRedisUpdateTime.plus(Duration.between(updateStart, Instant.now()));
+    }
+
+    private void updateOrderStatus(OrderSummary order) {
+        if (order.getUnfilledQuantity().compareTo(BigDecimal.ZERO) == 0) {
+            orderbookService.removeOrderAndPersistToDatabase(order);
         } else {
-            Instant redisUpdateStart = Instant.now();
-            orderbookService.updateOrderInZSetAndPersistToDatabase(buyOrder);
-            redisUpdateTime += Duration.between(redisUpdateStart, Instant.now()).toMillis();
+            orderbookService.updateOrderInZSetAndPersistToDatabase(order);
         }
+    }
 
-        if (sellOrder.getUnfilledQuantity().compareTo(BigDecimal.ZERO) == 0) {
-            Instant redisUpdateStart = Instant.now();
-            orderbookService.removeOrderAndPersistToDatabase(sellOrder);
-            redisUpdateTime += Duration.between(redisUpdateStart, Instant.now()).toMillis();
-        } else {
-            Instant redisUpdateStart = Instant.now();
-            orderbookService.updateOrderInZSetAndPersistToDatabase(sellOrder);
-            redisUpdateTime += Duration.between(redisUpdateStart, Instant.now()).toMillis();
-        }
+    private void printAggregateStatistics() {
+        System.out.println("\nAggregate statistics for 1000 matches:");
+        System.out.println("Total Redis fetch time: " + totalRedisFetchTime.toMillis() + " ms");
+        System.out.println("Total match execution time: " + totalMatchExecutionTime.toMillis() + " ms");
+        System.out.println("Total Redis update time: " + totalRedisUpdateTime.toMillis() + " ms");
+        System.out.println("Total condition check time: " + totalConditionCheckTime.toMillis() + " ms");
+        System.out.println("Total loop time: " + totalLoopTime.toMillis() + " ms");
+        Duration accountedTime = totalRedisFetchTime.plus(totalMatchExecutionTime).plus(totalRedisUpdateTime).plus(totalConditionCheckTime);
+        System.out.println("Total time accounted for: " + accountedTime.toMillis() + " ms");
+        System.out.println("Unaccounted time: " + totalLoopTime.minus(accountedTime).toMillis() + " ms");
+    }
 
-        // 增加匹配次數
-        matchCount++;
-
-        // 每 1000 次匹配計算用時
-        if (matchCount % 1000 == 0) {
-            Instant endTime = Instant.now();
-            Duration duration = Duration.between(startTime, endTime);
-            System.out.println("Time taken for 1000 matches: " + duration.toMillis() + " ms");
-
-            // 打印各步驟平均耗時
-            System.out.println("Average time per step for 1000 matches:");
-            System.out.println("Redis fetch: " + (redisFetchTime / 1000.0) + " ms");
-            System.out.println("Matching execution: " + (matchExecutionTime / 1000.0) + " ms");
-            System.out.println("Redis update: " + (redisUpdateTime / 1000.0) + " ms");
-
-            // 重置計時器和累加器
-            startTime = Instant.now();
-            redisFetchTime = 0;
-            matchExecutionTime = 0;
-            redisUpdateTime = 0;
-            dbPersistTime = 0;
-        }
+    private void resetStatistics() {
+        totalRedisFetchTime = Duration.ZERO;
+        totalMatchExecutionTime = Duration.ZERO;
+        totalRedisUpdateTime = Duration.ZERO;
+        totalConditionCheckTime = Duration.ZERO;
+        totalLoopTime = Duration.ZERO;
     }
 }
