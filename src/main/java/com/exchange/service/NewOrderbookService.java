@@ -10,6 +10,7 @@ import org.springframework.data.redis.core.ZSetOperations.TypedTuple;
 import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
@@ -20,6 +21,12 @@ import java.util.Set;
 public class NewOrderbookService {
 
     private final RedisTemplate<String, Object> redisTemplate;
+
+    // 用於累積時間的變量
+    private long totalRedisFetchDuration = 0;
+    private long totalRedisParseDuration = 0;
+    private int fetchCount = 0;
+    private int parseCount = 0;
 
     public NewOrderbookService(RedisTemplate<String, Object> redisTemplate) {
         this.redisTemplate = redisTemplate;
@@ -74,6 +81,9 @@ public class NewOrderbookService {
         String buyKey = symbol + ":BUY";
         String sellKey = symbol + ":SELL";
 
+        // 計時開始 - 查詢 Redis
+        Instant startFetchTime = Instant.now();
+
         // 調用 pipeline 同時執行 ZSet 查詢
         List<Object> results = redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
             // 查詢最高買價訂單
@@ -83,13 +93,26 @@ public class NewOrderbookService {
             return null;
         });
 
+        // 記錄查詢 Redis 耗時
+        Duration fetchDuration = Duration.between(startFetchTime, Instant.now());
+        totalRedisFetchDuration += fetchDuration.toMillis();
+        fetchCount++;
+
         // 分別解析最高買價和最低賣價訂單
         Set<TypedTuple<Object>> highestBuyOrderSet = (Set<TypedTuple<Object>>) results.get(0);
         Set<TypedTuple<Object>> lowestSellOrderSet = (Set<TypedTuple<Object>>) results.get(1);
 
+        // 解析訂單前計時
+        Instant startParseTime = Instant.now();
+
         // 解析訂單
         OrderSummary highestBuyOrder = parseZSetOrder(symbol, highestBuyOrderSet, Order.Side.BUY);
         OrderSummary lowestSellOrder = parseZSetOrder(symbol, lowestSellOrderSet, Order.Side.SELL);
+
+        // 記錄解析訂單耗時
+        Duration parseDuration = Duration.between(startParseTime, Instant.now());
+        totalRedisParseDuration += parseDuration.toMillis();
+        parseCount++;
 
         // 返回最高買價和最低賣價訂單
         Map<String, OrderSummary> orders = new HashMap<>();
@@ -103,9 +126,6 @@ public class NewOrderbookService {
     private OrderSummary parseZSetOrder(String symbol, Set<TypedTuple<Object>> orderSet, Order.Side side) {
         if (orderSet != null && !orderSet.isEmpty()) {
             TypedTuple<Object> order = orderSet.iterator().next();
-
-            // 調試訊息 - 顯示 score 和 value
-            System.out.println("Parsing ZSet Order - Value: " + order.getValue() + ", Score: " + order.getScore());
 
             // 解析 ZSet 的值
             String[] parsedValue = order.getValue().toString().split(":");
@@ -135,8 +155,6 @@ public class NewOrderbookService {
         return null;
     }
 
-
-
     // 從 Redis 移除訂單並組合完整訂單持久化到 MySQL
     public Order removeOrderAndPersistToDatabase(OrderSummary orderSummary) {
         String redisKey = orderSummary.getSymbol() + ":" + orderSummary.getSide();
@@ -150,23 +168,13 @@ public class NewOrderbookService {
 
         // 移除 ZSet 和 Hash，使用原始的 zsetValue 來移除
         redisTemplate.opsForZSet().remove(redisKey, orderSummary.getZsetValue());
-        System.out.println("Removed Order from ZSet - ID: " + orderSummary.getOrderId());
-
         redisTemplate.delete(hashKey);
-        System.out.println("Removed Order Hash - ID: " + orderSummary.getOrderId());
-
-        // 持久化訂單
-        // orderRepository.save(order); // 根據你的 repository 實現
-        System.out.println("Persisted Order to MySQL - ID: " + order.getId());
 
         return order;
     }
 
     // 根據 OrderSummary 和 Hash 資料組合完整的 Order
     public Order buildOrderFromHashData(OrderSummary orderSummary, Map<Object, Object> orderData) {
-        // 檢查 orderData 是否包含所有需要的字段
-        System.out.println("Building Order from Hash Data - Order ID: " + orderSummary.getOrderId() + ", Hash Data: " + orderData);
-
         // 從 Hash 資料中取得原始下單數量
         BigDecimal quantity = new BigDecimal((String) orderData.get("quantity"));
         // 根據原始數量和未成交數量計算已成交數量
@@ -189,7 +197,6 @@ public class NewOrderbookService {
                 orderSummary.getSide(),
                 Order.OrderType.valueOf((String) orderData.get("orderType")),
                 orderStatus, // 設定訂單狀態為 COMPLETED 或 PARTIALLY_FILLED
-                // 假設止損價格和止盈價格為 0，根據需要調整
                 BigDecimal.ZERO,
                 BigDecimal.ZERO,
                 Instant.parse((String) orderData.get("createdAt")),
@@ -223,18 +230,12 @@ public class NewOrderbookService {
             return null;
         });
 
-        System.out.println("Updated ZSet entry for partial match - ID: " + orderSummary.getOrderId());
-
         // 從 Hash 讀取完整的訂單信息
         String hashKey = "order:" + orderSummary.getOrderId();
         Map<Object, Object> orderData = redisTemplate.opsForHash().entries(hashKey);
 
         // 組合完整的 Order 對象
         Order partiallyFilledOrder = buildOrderFromHashData(orderSummary, orderData);
-
-        // 持久化部分匹配訂單
-        // orderRepository.save(partiallyFilledOrder); // 根據你的 repository 實現
-        System.out.println("Persisted Partially Filled Order to MySQL - ID: " + partiallyFilledOrder.getId());
 
         return partiallyFilledOrder;
     }

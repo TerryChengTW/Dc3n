@@ -2,7 +2,6 @@ package com.exchange.service;
 
 import com.exchange.model.Order;
 import com.exchange.model.OrderSummary;
-import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -11,30 +10,40 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CompletableFuture;
 
+import java.time.Instant;
+import java.time.Duration;
+
 @Service
 public class NewOrderMatchingService {
 
     private final NewOrderbookService orderbookService;
-    // 使用 ConcurrentHashMap 來追蹤未匹配訂單（Symbol -> 是否需要撮合）
     private final ConcurrentHashMap<String, Boolean> unmatchedOrders = new ConcurrentHashMap<>();
+
+    // 匹配次數計數器
+    private int matchCount = 0;
+    // 開始計時的時間
+    private Instant startTime;
+
+    // 各步驟時間累加器
+    private long redisFetchTime = 0;
+    private long matchExecutionTime = 0;
+    private long redisUpdateTime = 0;
+    private long dbPersistTime = 0;
 
     @Autowired
     public NewOrderMatchingService(NewOrderbookService orderbookService) {
         this.orderbookService = orderbookService;
+        // 初始化計時器
+        this.startTime = Instant.now();
     }
+
 
     // 處理新訂單的進入
     public void handleNewOrder(Order order) {
-        System.out.println("Received new order: " + order);
-
         // 將新訂單保存到 Redis
         orderbookService.saveOrderToRedis(order);
-        System.out.println("Order saved to Redis: " + order);
-
         // 更新未匹配訂單的狀態，並通知撮合引擎
         unmatchedOrders.put(order.getSymbol(), true);
-        System.out.println("Unmatched order status updated for symbol: " + order.getSymbol());
-
         // 異步觸發撮合邏輯
         CompletableFuture.runAsync(() -> startContinuousMatching(order.getSymbol()));
     }
@@ -42,32 +51,23 @@ public class NewOrderMatchingService {
     // 持續撮合買賣訂單
     public void startContinuousMatching(String symbol) {
         synchronized (symbol.intern()) {
-            // 只在有未匹配的訂單時進行撮合
             while (Boolean.TRUE.equals(unmatchedOrders.get(symbol))) {
-                System.out.println("Checking for orders to match for symbol: " + symbol);
-
-                // 合併查詢最高買價和最低賣價訂單
+                // 記錄 Redis 查詢訂單的時間
+                Instant redisStart = Instant.now();
                 Map<String, OrderSummary> topOrders = orderbookService.getTopBuyAndSellOrders(symbol);
                 OrderSummary highestBuyOrder = topOrders.get("highestBuyOrder");
                 OrderSummary lowestSellOrder = topOrders.get("lowestSellOrder");
+                redisFetchTime += Duration.between(redisStart, Instant.now()).toMillis();
 
-                // 調試輸出最優買賣訂單的細節
-                System.out.println("Highest Buy Order: " + highestBuyOrder);
-                System.out.println("Lowest Sell Order: " + lowestSellOrder);
-
-                // 如果無法匹配訂單，退出輪詢
                 if (highestBuyOrder == null || lowestSellOrder == null || highestBuyOrder.getPrice().compareTo(lowestSellOrder.getPrice()) < 0) {
-                    System.out.println("No matching possible for symbol: " + symbol);
                     unmatchedOrders.put(symbol, false);
                     break;
                 }
 
-                // 調試輸出正在進行匹配的訂單價格與數量
-                System.out.println("Matching Orders - Buy ID: " + highestBuyOrder.getOrderId() + " Price: " + highestBuyOrder.getPrice() + " Quantity: " + highestBuyOrder.getUnfilledQuantity());
-                System.out.println("Matching Orders - Sell ID: " + lowestSellOrder.getOrderId() + " Price: " + lowestSellOrder.getPrice() + " Quantity: " + lowestSellOrder.getUnfilledQuantity());
-
-                // 執行撮合邏輯
+                // 執行撮合邏輯，並計算撮合的執行時間
+                Instant matchStart = Instant.now();
                 matchOrders(highestBuyOrder, lowestSellOrder);
+                matchExecutionTime += Duration.between(matchStart, Instant.now()).toMillis();
             }
         }
     }
@@ -77,44 +77,52 @@ public class NewOrderMatchingService {
         // 撮合數量：取買賣雙方的最小未成交數量
         BigDecimal matchQuantity = buyOrder.getUnfilledQuantity().min(sellOrder.getUnfilledQuantity());
 
-        // 調試輸出撮合數量
-        System.out.println("Matching Quantity: " + matchQuantity);
-
         // 更新未成交數量
         buyOrder.setUnfilledQuantity(buyOrder.getUnfilledQuantity().subtract(matchQuantity));
         sellOrder.setUnfilledQuantity(sellOrder.getUnfilledQuantity().subtract(matchQuantity));
 
-        // 調試輸出匹配後的未成交數量
-        System.out.println("Updated Buy Order - ID: " + buyOrder.getOrderId() + ", Symbol: " + buyOrder.getSymbol() + ", Unfilled Quantity: " + buyOrder.getUnfilledQuantity());
-        System.out.println("Updated Sell Order - ID: " + sellOrder.getOrderId() + ", Symbol: " + sellOrder.getSymbol() + ", Unfilled Quantity: " + sellOrder.getUnfilledQuantity());
-
         // 完全成交時從 Redis 中移除，並持久化到 MySQL
         if (buyOrder.getUnfilledQuantity().compareTo(BigDecimal.ZERO) == 0) {
-            Order completedBuyOrder = orderbookService.removeOrderAndPersistToDatabase(buyOrder);
-            System.out.println("Buy Order fully matched and removed from Redis - ID: " + completedBuyOrder.getId());
-            System.out.println("Completed Buy Order: " + completedBuyOrder);
+            Instant redisUpdateStart = Instant.now();
+            orderbookService.removeOrderAndPersistToDatabase(buyOrder);
+            redisUpdateTime += Duration.between(redisUpdateStart, Instant.now()).toMillis();
         } else {
-            // 使用新方法更新部分匹配訂單並持久化
-            Order partiallyFilledBuyOrder = orderbookService.updateOrderInZSetAndPersistToDatabase(buyOrder);
-            System.out.println("Buy Order partially matched and persisted - ID: " + partiallyFilledBuyOrder.getId());
-            System.out.println("Partially Filled Buy Order: " + partiallyFilledBuyOrder);
+            Instant redisUpdateStart = Instant.now();
+            orderbookService.updateOrderInZSetAndPersistToDatabase(buyOrder);
+            redisUpdateTime += Duration.between(redisUpdateStart, Instant.now()).toMillis();
         }
 
         if (sellOrder.getUnfilledQuantity().compareTo(BigDecimal.ZERO) == 0) {
-            Order completedSellOrder = orderbookService.removeOrderAndPersistToDatabase(sellOrder);
-            System.out.println("Sell Order fully matched and removed from Redis - ID: " + completedSellOrder.getId());
-            System.out.println("Completed Sell Order: " + completedSellOrder);
+            Instant redisUpdateStart = Instant.now();
+            orderbookService.removeOrderAndPersistToDatabase(sellOrder);
+            redisUpdateTime += Duration.between(redisUpdateStart, Instant.now()).toMillis();
         } else {
-            // 使用新方法更新部分匹配訂單並持久化
-            Order partiallyFilledSellOrder = orderbookService.updateOrderInZSetAndPersistToDatabase(sellOrder);
-            System.out.println("Sell Order partially matched and persisted - ID: " + partiallyFilledSellOrder.getId());
-            System.out.println("Partially Filled Sell Order: " + partiallyFilledSellOrder);
+            Instant redisUpdateStart = Instant.now();
+            orderbookService.updateOrderInZSetAndPersistToDatabase(sellOrder);
+            redisUpdateTime += Duration.between(redisUpdateStart, Instant.now()).toMillis();
         }
 
-        // 調試輸出匹配完成的結果
-        System.out.println("Matched Order - Buy Order ID: " + buyOrder.getOrderId() + ", Sell Order ID: " + sellOrder.getOrderId() + ", Matched Quantity: " + matchQuantity);
+        // 增加匹配次數
+        matchCount++;
 
-        // TODO: 將撮合結果持久化到 MySQL 或其他存儲
+        // 每 1000 次匹配計算用時
+        if (matchCount % 1000 == 0) {
+            Instant endTime = Instant.now();
+            Duration duration = Duration.between(startTime, endTime);
+            System.out.println("Time taken for 1000 matches: " + duration.toMillis() + " ms");
+
+            // 打印各步驟平均耗時
+            System.out.println("Average time per step for 1000 matches:");
+            System.out.println("Redis fetch: " + (redisFetchTime / 1000.0) + " ms");
+            System.out.println("Matching execution: " + (matchExecutionTime / 1000.0) + " ms");
+            System.out.println("Redis update: " + (redisUpdateTime / 1000.0) + " ms");
+
+            // 重置計時器和累加器
+            startTime = Instant.now();
+            redisFetchTime = 0;
+            matchExecutionTime = 0;
+            redisUpdateTime = 0;
+            dbPersistTime = 0;
+        }
     }
-
 }
