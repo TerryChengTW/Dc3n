@@ -2,8 +2,6 @@ package com.exchange.consumer;
 
 import com.exchange.model.Order;
 import com.exchange.service.NewOrderMatchingService;
-import com.exchange.service.NewOrderbookService;
-import com.exchange.service.OrderMatchingService;
 import com.exchange.service.OrderUpdateService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -12,22 +10,15 @@ import org.springframework.stereotype.Service;
 @Service
 public class OrderConsumer {
 
-    private final OrderMatchingService matchingService;
     private final OrderUpdateService updateService;
     private final ObjectMapper objectMapper;
-    private final NewOrderbookService newOrderbookService;
     private final NewOrderMatchingService newMatchingService;
 
-
-    public OrderConsumer(OrderMatchingService matchingService,
-                         OrderUpdateService updateService,
+    public OrderConsumer(OrderUpdateService updateService,
                          ObjectMapper objectMapper,
-                         NewOrderbookService newOrderbookService,
                          NewOrderMatchingService newMatchingService) {
-        this.matchingService = matchingService;
         this.updateService = updateService;
         this.objectMapper = objectMapper;
-        this.newOrderbookService = newOrderbookService;
         this.newMatchingService = newMatchingService;
     }
 
@@ -41,10 +32,10 @@ public class OrderConsumer {
             // 根據訂單類型進行不同處理
             if (order.getOrderType() == Order.OrderType.MARKET) {
                 // 市場單立即送至撮合服務處理
-                newMatchingService.processMarketOrder(order);
+//                newMatchingService.processMarketOrder(order);
             } else if (order.getOrderType() == Order.OrderType.LIMIT) {
-                // 限價單保存到 Redis
-                newOrderbookService.saveOrderToRedis(order);
+                // 限價單：通過 NewOrderMatchingService 處理
+                newMatchingService.handleNewOrder(order);
             }
 
         } catch (Exception e) {

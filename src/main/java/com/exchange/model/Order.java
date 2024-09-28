@@ -39,7 +39,7 @@ public class Order {
     private BigDecimal filledQuantity = BigDecimal.ZERO;
 
     @Column(precision = 18, scale = 8, nullable = false)
-    private BigDecimal unfilledQuantity = quantity;
+    private BigDecimal unfilledQuantity;
 
     @Enumerated(EnumType.STRING)
     @Column(length = 4, nullable = false)
@@ -75,6 +75,24 @@ public class Order {
     @OneToMany(mappedBy = "sellOrder")
     @JsonIgnore
     private List<Trade> sellTrades;
+
+    public Order(String id, String userId, String symbol, BigDecimal price, BigDecimal quantity, BigDecimal filledQuantity, BigDecimal unfilledQuantity, Side side, OrderType orderType, OrderStatus status, BigDecimal stopPrice, BigDecimal takeProfitPrice, Instant createdAt, Instant updatedAt, Instant modifiedAt) {
+        this.id = id;
+        this.userId = userId;
+        this.symbol = symbol;
+        this.price = price;
+        this.quantity = quantity;
+        this.filledQuantity = filledQuantity;
+        this.unfilledQuantity = unfilledQuantity;
+        this.side = side;
+        this.orderType = orderType;
+        this.status = status;
+        this.stopPrice = stopPrice;
+        this.takeProfitPrice = takeProfitPrice;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
+        this.modifiedAt = modifiedAt;
+    }
 
     public enum OrderType {
         LIMIT,
