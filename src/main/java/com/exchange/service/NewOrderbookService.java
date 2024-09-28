@@ -3,6 +3,7 @@ package com.exchange.service;
 import com.exchange.model.Order;
 import com.exchange.model.OrderSummary;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.ZSetOperations.TypedTuple;
@@ -11,10 +12,8 @@ import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
 
 @Service
 public class NewOrderbookService {
@@ -132,18 +131,27 @@ public class NewOrderbookService {
         String redisKey = orderSummary.getSymbol() + ":" + orderSummary.getSide();
         String hashKey = "order:" + orderSummary.getOrderId();
 
-        // 從 Hash 讀取完整的訂單信息
-        Map<Object, Object> orderData = redisTemplate.opsForHash().entries(hashKey);
+        // 使用 pipeline 執行 Hash 讀取和 ZSet/Hash 移除操作
+        List<Object> results = redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
+            // 讀取 Hash 值
+            connection.hashCommands().hGetAll(hashKey.getBytes(StandardCharsets.UTF_8));
+            // 移除 ZSet 值
+            connection.zSetCommands().zRem(redisKey.getBytes(StandardCharsets.UTF_8), orderSummary.getZsetValue().getBytes(StandardCharsets.UTF_8));
+            // 刪除 Hash
+            connection.keyCommands().del(hashKey.getBytes(StandardCharsets.UTF_8));
+            return null;
+        });
+
+        // 從 pipeline 返回的結果中取得 Hash 讀取結果
+        @SuppressWarnings("unchecked")
+        Map<Object, Object> orderData = (Map<Object, Object>) results.get(0);
 
         // 組合完整的 Order 對象
         Order order = buildOrderFromHashData(orderSummary, orderData);
 
-        // 移除 ZSet 和 Hash，使用原始的 zsetValue 來移除
-        redisTemplate.opsForZSet().remove(redisKey, orderSummary.getZsetValue());
-        redisTemplate.delete(hashKey);
-
         return order;
     }
+
 
     // 根據 OrderSummary 和 Hash 資料組合完整的 Order
     public Order buildOrderFromHashData(OrderSummary orderSummary, Map<Object, Object> orderData) {
@@ -180,36 +188,40 @@ public class NewOrderbookService {
     // 更新部分匹配訂單的 ZSet 並持久化到 MySQL
     public Order updateOrderInZSetAndPersistToDatabase(OrderSummary orderSummary) {
         String redisKey = orderSummary.getSymbol() + ":" + orderSummary.getSide();
-        String originalZsetValue = orderSummary.getZsetValue();
+        String hashKey = "order:" + orderSummary.getOrderId();
 
-        // 使用 orderSummary 的 modifiedAt 來保持原始值
-        Instant modifiedTime = orderSummary.getModifiedAt();
+        // 保留原有的 BigDecimal 計算
         BigDecimal precisionFactor = BigDecimal.TEN.pow(7);
-
-        // 重新計算 ZSet 的 score
         BigDecimal calculatedScore = orderSummary.getPrice().multiply(precisionFactor)
                 .add((orderSummary.getSide() == Order.Side.BUY ? BigDecimal.valueOf(-1) : BigDecimal.ONE)
-                        .multiply(BigDecimal.valueOf(modifiedTime.toEpochMilli())));
+                        .multiply(BigDecimal.valueOf(orderSummary.getModifiedAt().toEpochMilli())));
         double newScore = calculatedScore.doubleValue();
 
-        // 更新 ZSet value，保持原始 modifiedAt
-        String newZsetValue = orderSummary.getOrderId() + ":" + orderSummary.getUnfilledQuantity().toPlainString() + ":" + modifiedTime.toEpochMilli();
+        String newZsetValue = orderSummary.getOrderId() + ":" + orderSummary.getUnfilledQuantity().toPlainString() + ":" + orderSummary.getModifiedAt().toEpochMilli();
 
-        // 使用 pipeline 執行移除和添加
-        redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
-            connection.zSetCommands().zRem(redisKey.getBytes(StandardCharsets.UTF_8), originalZsetValue.getBytes(StandardCharsets.UTF_8));
-            connection.zSetCommands().zAdd(redisKey.getBytes(StandardCharsets.UTF_8), newScore, newZsetValue.getBytes(StandardCharsets.UTF_8));
-            return null;
+        // 使用 Lua 腳本一次性完成 ZSet 更新和 Hash 讀取
+        String script = "redis.call('zrem', KEYS[1], ARGV[1]); " +
+                "redis.call('zadd', KEYS[1], ARGV[2], ARGV[3]); " +
+                "return redis.call('hgetall', KEYS[2]);";
+
+        List<Object> result = redisTemplate.execute(new DefaultRedisScript<>(script, List.class),
+                Arrays.asList(redisKey, hashKey),
+                orderSummary.getZsetValue(), String.valueOf(newScore), newZsetValue);
+
+        // 解析 Lua 腳本返回的 Hash 數據
+        Map<Object, Object> orderData = new HashMap<>();
+        for (int i = 0; i < result.size(); i += 2) {
+            orderData.put(result.get(i), result.get(i + 1));
+        }
+
+        // 異步處理對象轉換和持久化
+        CompletableFuture.runAsync(() -> {
+            Order partiallyFilledOrder = buildOrderFromHashData(orderSummary, orderData);
+            // TODO: 持久化到 MySQL
         });
 
-        // 從 Hash 讀取完整的訂單信息
-        String hashKey = "order:" + orderSummary.getOrderId();
-        Map<Object, Object> orderData = redisTemplate.opsForHash().entries(hashKey);
-
-        // 組合完整的 Order 對象
-        Order partiallyFilledOrder = buildOrderFromHashData(orderSummary, orderData);
-
-        return partiallyFilledOrder;
+        // 如果需要立即返回 Order 對象，在這裡同步構建
+        return buildOrderFromHashData(orderSummary, orderData);
     }
 
     // 當用戶提交更新訂單時，同時更新 ZSet 和 Hash
