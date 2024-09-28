@@ -10,7 +10,6 @@ import org.springframework.data.redis.core.ZSetOperations.TypedTuple;
 import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.math.BigDecimal;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
@@ -21,12 +20,6 @@ import java.util.Set;
 public class NewOrderbookService {
 
     private final RedisTemplate<String, Object> redisTemplate;
-
-    // 用於累積時間的變量
-    private long totalRedisFetchDuration = 0;
-    private long totalRedisParseDuration = 0;
-    private int fetchCount = 0;
-    private int parseCount = 0;
 
     public NewOrderbookService(RedisTemplate<String, Object> redisTemplate) {
         this.redisTemplate = redisTemplate;
@@ -76,19 +69,14 @@ public class NewOrderbookService {
         return orderMap;
     }
 
-    // 取得 ZSet 中最高買價與最低賣價訂單
     public Map<String, OrderSummary> getTopBuyAndSellOrders(String symbol) {
+
         String buyKey = symbol + ":BUY";
         String sellKey = symbol + ":SELL";
 
-        // 計時開始 - 查詢 Redis
-        Instant startFetchTime = Instant.now();
-
         // 調用 pipeline 同時執行 ZSet 查詢
         List<Object> results = redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
-            // 查詢最高買價訂單
             connection.zSetCommands().zRevRangeWithScores(buyKey.getBytes(StandardCharsets.UTF_8), 0, 0);
-            // 查詢最低賣價訂單
             connection.zSetCommands().zRangeWithScores(sellKey.getBytes(StandardCharsets.UTF_8), 0, 0);
             return null;
         });
@@ -97,7 +85,6 @@ public class NewOrderbookService {
         Set<TypedTuple<Object>> highestBuyOrderSet = (Set<TypedTuple<Object>>) results.get(0);
         Set<TypedTuple<Object>> lowestSellOrderSet = (Set<TypedTuple<Object>>) results.get(1);
 
-        // 解析訂單
         OrderSummary highestBuyOrder = parseZSetOrder(symbol, highestBuyOrderSet, Order.Side.BUY);
         OrderSummary lowestSellOrder = parseZSetOrder(symbol, lowestSellOrderSet, Order.Side.SELL);
 
@@ -109,7 +96,6 @@ public class NewOrderbookService {
         return orders;
     }
 
-    // 解析 ZSet 訂單，拿到價格和數量
     private OrderSummary parseZSetOrder(String symbol, Set<TypedTuple<Object>> orderSet, Order.Side side) {
         if (orderSet != null && !orderSet.isEmpty()) {
             TypedTuple<Object> order = orderSet.iterator().next();
@@ -121,7 +107,7 @@ public class NewOrderbookService {
             Instant modifiedAt = Instant.ofEpochMilli(Long.parseLong(parsedValue[2]));
 
             // 還原價格
-            BigDecimal precisionFactor = BigDecimal.TEN.pow(7); // 與存入時的精度保持一致
+            BigDecimal precisionFactor = BigDecimal.TEN.pow(7);
             BigDecimal score = BigDecimal.valueOf(order.getScore());
 
             // 計算時間戳部分
@@ -135,7 +121,6 @@ public class NewOrderbookService {
                 price = score.subtract(timestampPart).divide(precisionFactor, RoundingMode.HALF_UP);
             }
 
-            // 返回 OrderSummary，並保存原始的 zsetValue
             return new OrderSummary(orderId, symbol, price, unfilledQuantity, side, modifiedAt, order.getValue().toString());
         }
 
