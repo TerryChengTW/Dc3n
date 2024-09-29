@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.ZSetOperations.TypedTuple;
@@ -22,6 +23,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 @Service
 public class NewOrderbookService {
@@ -34,6 +36,7 @@ public class NewOrderbookService {
 
     private final SnowflakeIdGenerator snowflakeIdGenerator;
 
+    private final String DELAYED_DELETION_QUEUE = "delayed_deletion_queue";
 
     public NewOrderbookService(RedisTemplate<String, Object> redisTemplate, KafkaTemplate<String, String> kafkaTemplate, ObjectMapper objectMapper, SnowflakeIdGenerator snowflakeIdGenerator) {
         this.redisTemplate = redisTemplate;
@@ -73,10 +76,17 @@ public class NewOrderbookService {
             // Hash 操作
             byte[] hashKeyBytes = hashKey.getBytes(StandardCharsets.UTF_8);
             for (Map.Entry<String, Object> entry : orderMap.entrySet()) {
+                // 在插入 userId 前進行檢查
+                if ("userId".equals(entry.getKey()) && entry.getValue() == null) {
+                    System.err.println("Error: userId is null while saving to Redis. Hash key: " + hashKey);
+                    // 你可以選擇在這裡拋出異常，以便在測試時發現問題
+                    throw new IllegalStateException("userId is null while saving to Redis.");
+                }
                 connection.hashCommands().hSet(hashKeyBytes, entry.getKey().getBytes(StandardCharsets.UTF_8), entry.getValue().toString().getBytes(StandardCharsets.UTF_8));
             }
             return null;
         });
+
     }
 
 
@@ -162,19 +172,11 @@ public class NewOrderbookService {
                 ? Order.OrderStatus.COMPLETED
                 : Order.OrderStatus.PARTIALLY_FILLED;
 
-        // 獲取 userId
-        String userId = (String) orderData.get("userId");
-
-        // 當 userId 為 null 時打印相關資訊
-        if (userId == null) {
-            System.err.println("userId is null! orderData: " + orderData);
-            System.err.println("OrderSummary: " + orderSummary);
-        }
 
         // 使用 Hash 資料構建完整的 Order 對象
         return new Order(
                 (String) orderData.get("id"),
-                userId,
+                (String) orderData.get("userId"),
                 orderSummary.getSymbol(),
                 orderSummary.getPrice(),
                 quantity, // 原始下單數量
@@ -199,61 +201,63 @@ public class NewOrderbookService {
         String buyHashKey = "order:" + buyOrder.getOrderId();
         String sellHashKey = "order:" + sellOrder.getOrderId();
 
-        // Lua 腳本：一次性完成更新/刪除兩個訂單
-        String script =
-                "local buyHashData = redis.call('HGETALL', KEYS[1]); " + // 讀取買單 Hash
-                        "local sellHashData = redis.call('HGETALL', KEYS[2]); " + // 讀取賣單 Hash
-                        "if tonumber(ARGV[1]) == 0 then " + // 如果買單成交完成，則刪除
-                        "   redis.call('ZREM', KEYS[3], ARGV[3]); " +
-                        "   redis.call('DEL', KEYS[1]); " +
-                        "else " + // 否則更新 ZSet
-                        "   redis.call('ZREM', KEYS[3], ARGV[3]); " +
-                        "   redis.call('ZADD', KEYS[3], ARGV[4], ARGV[5]); " +
-                        "end " +
-                        "if tonumber(ARGV[2]) == 0 then " + // 如果賣單成交完成，則刪除
-                        "   redis.call('ZREM', KEYS[4], ARGV[6]); " +
-                        "   redis.call('DEL', KEYS[2]); " +
-                        "else " + // 否則更新 ZSet
-                        "   redis.call('ZREM', KEYS[4], ARGV[6]); " +
-                        "   redis.call('ZADD', KEYS[4], ARGV[7], ARGV[8]); " +
-                        "end " +
-                        "return {buyHashData, sellHashData};"; // 返回買賣雙方 Hash 內容
-
         // 計算 ZSet 值和分數
         String buyZsetValue = buyOrder.getOrderId() + ":" + buyOrder.getUnfilledQuantity().toPlainString() + ":" + buyOrder.getModifiedAt().toEpochMilli();
         String sellZsetValue = sellOrder.getOrderId() + ":" + sellOrder.getUnfilledQuantity().toPlainString() + ":" + sellOrder.getModifiedAt().toEpochMilli();
         double buyNewScore = calculateZSetScore(buyOrder);
         double sellNewScore = calculateZSetScore(sellOrder);
 
-        // 執行 Lua 腳本
-        List<Object> result = redisTemplate.execute(new DefaultRedisScript<>(script, List.class),
-                Arrays.asList(buyHashKey, sellHashKey, buyRedisKey, sellRedisKey),
-                buyOrder.getUnfilledQuantity().toPlainString(),
-                sellOrder.getUnfilledQuantity().toPlainString(),
-                buyOrder.getZsetValue(), String.valueOf(buyNewScore), buyZsetValue,
-                sellOrder.getZsetValue(), String.valueOf(sellNewScore), sellZsetValue
-        );
+        // 執行 pipeline 更新狀態
+        List<Object> result = redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
+            connection.hashCommands().hGetAll(buyHashKey.getBytes(StandardCharsets.UTF_8));
+            connection.hashCommands().hGetAll(sellHashKey.getBytes(StandardCharsets.UTF_8));
 
-        // 解析 Lua 腳本返回的 Hash 數據
-        @SuppressWarnings("unchecked")
-        Map<Object, Object> buyOrderData = parseRedisHash((List<Object>) result.get(0));
-        @SuppressWarnings("unchecked")
-        Map<Object, Object> sellOrderData = parseRedisHash((List<Object>) result.get(1));
+            // 更新買單
+            if (buyOrder.getUnfilledQuantity().compareTo(BigDecimal.ZERO) == 0) {
+                markOrderForDeletion(buyHashKey); // 延遲刪除
+                connection.zSetCommands().zRem(buyRedisKey.getBytes(StandardCharsets.UTF_8), buyOrder.getZsetValue().getBytes(StandardCharsets.UTF_8));
+            } else {
+                connection.zSetCommands().zRem(buyRedisKey.getBytes(StandardCharsets.UTF_8), buyOrder.getZsetValue().getBytes(StandardCharsets.UTF_8));
+                connection.zSetCommands().zAdd(buyRedisKey.getBytes(StandardCharsets.UTF_8), buyNewScore, buyZsetValue.getBytes(StandardCharsets.UTF_8));
+            }
 
+            // 更新賣單
+            if (sellOrder.getUnfilledQuantity().compareTo(BigDecimal.ZERO) == 0) {
+                markOrderForDeletion(sellHashKey); // 延遲刪除
+                connection.zSetCommands().zRem(sellRedisKey.getBytes(StandardCharsets.UTF_8), sellOrder.getZsetValue().getBytes(StandardCharsets.UTF_8));
+            } else {
+                connection.zSetCommands().zRem(sellRedisKey.getBytes(StandardCharsets.UTF_8), sellOrder.getZsetValue().getBytes(StandardCharsets.UTF_8));
+                connection.zSetCommands().zAdd(sellRedisKey.getBytes(StandardCharsets.UTF_8), sellNewScore, sellZsetValue.getBytes(StandardCharsets.UTF_8));
+            }
+
+            return null;
+        });
+
+        @SuppressWarnings("unchecked")
+        Map<Object, Object> buyOrderData = (Map<Object, Object>) result.get(0);
+        @SuppressWarnings("unchecked")
+        Map<Object, Object> sellOrderData = (Map<Object, Object>) result.get(1);
         // 檢查返回的數據是否完整
         if (buyOrderData.get("userId") == null || sellOrderData.get("userId") == null) {
-            System.err.println("Warning: userId is null in Lua script result. buyOrderData: " + buyOrderData + ", sellOrderData: " + sellOrderData);
+            System.err.println("Warning: userId is null in pipeline result. buyOrderData: " + buyOrderData + ", sellOrderData: " + sellOrderData);
+
+            // 重新查詢 Redis 以確保數據完整性
+            buyOrderData = redisTemplate.opsForHash().entries(buyHashKey);
+            sellOrderData = redisTemplate.opsForHash().entries(sellHashKey);
+
+            // 如果重新查詢後仍然為 null，發出第二次警告
+            if (buyOrderData.get("userId") == null || sellOrderData.get("userId") == null) {
+                System.err.println("Warning: userId is still null after re-query. buyOrderData: " + buyOrderData + ", sellOrderData: " + sellOrderData);
+                return;
+            }
         }
 
         // 在異步處理之前構建完整的 Order 對象
         Order buyOrderObject = buildOrderFromHashData(buyOrder, buyOrderData);
         Order sellOrderObject = buildOrderFromHashData(sellOrder, sellOrderData);
 
-
-        // 異步處理對象轉換並發送到 Kafka
         CompletableFuture.runAsync(() -> {
             try {
-                // 創建 Trade 對象
                 Trade tradeObject = new Trade();
                 tradeObject.setId(String.valueOf(snowflakeIdGenerator.nextId()));
                 tradeObject.setBuyOrder(buyOrderObject);
@@ -263,15 +267,12 @@ public class NewOrderbookService {
                 tradeObject.setQuantity(matchQuantity);
                 tradeObject.setTradeTime(Instant.now());
 
-                // 創建新的 TradeOrdersMessage，包含買賣訂單和交易
                 TradeOrdersMessage tradeOrdersMessage = new TradeOrdersMessage();
                 tradeOrdersMessage.setBuyOrder(buyOrderObject);
                 tradeOrdersMessage.setSellOrder(sellOrderObject);
                 tradeOrdersMessage.setTrade(tradeObject);
 
-                // 發送到 Kafka topic
                 kafkaTemplate.send("matched_orders", objectMapper.writeValueAsString(tradeOrdersMessage));
-
             } catch (JsonProcessingException e) {
                 e.printStackTrace();
             }
@@ -294,6 +295,30 @@ public class NewOrderbookService {
             orderData.put(hashData.get(i), hashData.get(i + 1));
         }
         return orderData;
+    }
+
+    // 將需要刪除的訂單加入延遲刪除隊列
+    private void markOrderForDeletion(String orderKey) {
+        // 設置延遲時間，例如 5 秒
+        long deletionTime = System.currentTimeMillis() + 5000;
+        redisTemplate.opsForZSet().add(DELAYED_DELETION_QUEUE, orderKey, deletionTime);
+    }
+
+    // 定時刪除已到期的訂單
+    @Scheduled(fixedRate = 5000) // 每 5 秒執行一次
+    public void processDelayedDeletions() {
+        long currentTime = System.currentTimeMillis();
+
+        // 獲取要刪除的鍵，並將結果轉換為 Set<String>
+        Set<Object> keysToDeleteRaw = redisTemplate.opsForZSet().rangeByScore(DELAYED_DELETION_QUEUE, 0, currentTime);
+        Set<String> keysToDelete = keysToDeleteRaw.stream()
+                .map(Object::toString)
+                .collect(Collectors.toSet());
+
+        for (String key : keysToDelete) {
+            redisTemplate.delete(key); // 刪除 hash
+            redisTemplate.opsForZSet().remove(DELAYED_DELETION_QUEUE, key); // 從隊列中移除
+        }
     }
 
 }
