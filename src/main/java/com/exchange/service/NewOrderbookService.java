@@ -219,7 +219,7 @@ public class NewOrderbookService {
 
             // 更新買單
             if (buyOrder.getUnfilledQuantity().compareTo(BigDecimal.ZERO) == 0) {
-                markOrderForDeletion(buyHashKey); // 延遲刪除
+                connection.hashCommands().hDel(buyHashKey.getBytes(StandardCharsets.UTF_8), buyOrder.getZsetValue().getBytes(StandardCharsets.UTF_8));
                 connection.zSetCommands().zRem(buyRedisKey.getBytes(StandardCharsets.UTF_8), buyOrder.getZsetValue().getBytes(StandardCharsets.UTF_8));
             } else {
                 connection.zSetCommands().zRem(buyRedisKey.getBytes(StandardCharsets.UTF_8), buyOrder.getZsetValue().getBytes(StandardCharsets.UTF_8));
@@ -228,7 +228,7 @@ public class NewOrderbookService {
 
             // 更新賣單
             if (sellOrder.getUnfilledQuantity().compareTo(BigDecimal.ZERO) == 0) {
-                markOrderForDeletion(sellHashKey); // 延遲刪除
+                connection.hashCommands().hDel(sellHashKey.getBytes(StandardCharsets.UTF_8), sellOrder.getZsetValue().getBytes(StandardCharsets.UTF_8));
                 connection.zSetCommands().zRem(sellRedisKey.getBytes(StandardCharsets.UTF_8), sellOrder.getZsetValue().getBytes(StandardCharsets.UTF_8));
             } else {
                 connection.zSetCommands().zRem(sellRedisKey.getBytes(StandardCharsets.UTF_8), sellOrder.getZsetValue().getBytes(StandardCharsets.UTF_8));
@@ -292,38 +292,4 @@ public class NewOrderbookService {
                         .multiply(BigDecimal.valueOf(orderSummary.getModifiedAt().toEpochMilli())));
         return calculatedScore.doubleValue();
     }
-
-    // 用於解析 Lua 腳本返回的 Hash 數據
-    private Map<Object, Object> parseRedisHash(List<Object> hashData) {
-        Map<Object, Object> orderData = new HashMap<>();
-        for (int i = 0; i < hashData.size(); i += 2) {
-            orderData.put(hashData.get(i), hashData.get(i + 1));
-        }
-        return orderData;
-    }
-
-    // 將需要刪除的訂單加入延遲刪除隊列
-    private void markOrderForDeletion(String orderKey) {
-        // 設置延遲時間，例如 5 秒
-        long deletionTime = System.currentTimeMillis() + 5000;
-        redisTemplate.opsForZSet().add(DELAYED_DELETION_QUEUE, orderKey, deletionTime);
-    }
-
-    // 定時刪除已到期的訂單
-    @Scheduled(fixedRate = 5000) // 每 5 秒執行一次
-    public void processDelayedDeletions() {
-        long currentTime = System.currentTimeMillis();
-
-        // 獲取要刪除的鍵，並將結果轉換為 Set<String>
-        Set<Object> keysToDeleteRaw = redisTemplate.opsForZSet().rangeByScore(DELAYED_DELETION_QUEUE, 0, currentTime);
-        Set<String> keysToDelete = keysToDeleteRaw.stream()
-                .map(Object::toString)
-                .collect(Collectors.toSet());
-
-        for (String key : keysToDelete) {
-            redisTemplate.delete(key); // 刪除 hash
-            redisTemplate.opsForZSet().remove(DELAYED_DELETION_QUEUE, key); // 從隊列中移除
-        }
-    }
-
 }
