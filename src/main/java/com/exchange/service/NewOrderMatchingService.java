@@ -33,8 +33,13 @@ public class NewOrderMatchingService {
 
     public void handleNewOrder(Order order) {
         orderbookService.saveOrderToRedis(order);
-        unmatchedOrders.put(order.getSymbol(), true);
-        CompletableFuture.runAsync(() -> startContinuousMatching(order.getSymbol()));
+        // 確保只有當 unmatchedOrders 中該 symbol 不為 true 時，才啟動新的撮合
+        synchronized (unmatchedOrders) {
+            if (!Boolean.TRUE.equals(unmatchedOrders.get(order.getSymbol()))) {
+                unmatchedOrders.put(order.getSymbol(), true);
+                CompletableFuture.runAsync(() -> startContinuousMatching(order.getSymbol()));
+            }
+        }
     }
 
     public void startContinuousMatching(String symbol) {
@@ -42,27 +47,34 @@ public class NewOrderMatchingService {
             while (Boolean.TRUE.equals(unmatchedOrders.get(symbol))) {
                 Instant loopStart = Instant.now();
 
+                // 獲取訂單資料並計算時間
                 Instant redisStart = Instant.now();
                 Map<String, OrderSummary> topOrders = orderbookService.getTopBuyAndSellOrders(symbol);
-                OrderSummary highestBuyOrder = topOrders.get("highestBuyOrder");
-                OrderSummary lowestSellOrder = topOrders.get("lowestSellOrder");
                 totalRedisFetchTime = totalRedisFetchTime.plus(Duration.between(redisStart, Instant.now()));
 
+                OrderSummary highestBuyOrder = topOrders.get("highestBuyOrder");
+                OrderSummary lowestSellOrder = topOrders.get("lowestSellOrder");
+
+                // 判斷是否有可撮合的訂單並計算時間
                 Instant conditionStart = Instant.now();
                 boolean canMatch = (highestBuyOrder != null && lowestSellOrder != null &&
                         highestBuyOrder.getPrice().compareTo(lowestSellOrder.getPrice()) >= 0);
                 totalConditionCheckTime = totalConditionCheckTime.plus(Duration.between(conditionStart, Instant.now()));
 
+                // 如果沒有可撮合訂單，停止撮合並標記該 symbol 為未匹配狀態
                 if (!canMatch) {
                     unmatchedOrders.put(symbol, false);
                     break;
                 }
 
+                // 如果有可撮合訂單，執行撮合並計算撮合時間
                 matchOrders(highestBuyOrder, lowestSellOrder);
                 matchCount++;
 
+                // 計算整個循環的時間
                 totalLoopTime = totalLoopTime.plus(Duration.between(loopStart, Instant.now()));
 
+                // 每1000次撮合後，打印統計數據並重置
                 if (matchCount % 1000 == 0) {
                     printAggregateStatistics();
                     resetStatistics();
@@ -83,10 +95,9 @@ public class NewOrderMatchingService {
 
         // 合併更新買賣雙方訂單狀態
         Instant updateStart = Instant.now();
-        orderbookService.updateOrdersStatusInRedis(buyOrder, sellOrder);
+        orderbookService.updateOrdersStatusInRedis(buyOrder, sellOrder, matchQuantity); // 傳遞 matchQuantity
         totalRedisUpdateTime = totalRedisUpdateTime.plus(Duration.between(updateStart, Instant.now()));
     }
-
 
     private void printAggregateStatistics() {
         System.out.println("\nAggregate statistics for 1000 matches:");

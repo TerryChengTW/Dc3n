@@ -269,7 +269,7 @@ public class NewOrderbookService {
     }
 
     // 合併更新訂單狀態（同時處理 remove 和 update）
-    public void updateOrdersStatusInRedis(OrderSummary buyOrder, OrderSummary sellOrder) {
+    public void updateOrdersStatusInRedis(OrderSummary buyOrder, OrderSummary sellOrder, BigDecimal matchQuantity) {
         // 構建 Redis 鍵值
         String buyRedisKey = buyOrder.getSymbol() + ":" + buyOrder.getSide();
         String sellRedisKey = sellOrder.getSymbol() + ":" + sellOrder.getSide();
@@ -333,7 +333,7 @@ public class NewOrderbookService {
                 tradeObject.setSellOrder(sellOrderObject);
                 tradeObject.setSymbol(buyOrder.getSymbol());
                 tradeObject.setPrice(buyOrder.getPrice()); // 可以選擇買單或賣單價格，視業務邏輯而定
-                tradeObject.setQuantity(buyOrderObject.getFilledQuantity()); // 設置交易的數量，通常等於買單或賣單的成交量
+                tradeObject.setQuantity(matchQuantity); // 設置交易的數量，通常等於買單或賣單的成交量
                 tradeObject.setTradeTime(Instant.now());
 
                 // 創建新的 TradeOrdersMessage，包含買賣訂單和交易
