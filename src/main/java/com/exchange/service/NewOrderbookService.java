@@ -71,10 +71,9 @@ public class NewOrderbookService {
 
         // Pipeline 合併 ZSet 和 Hash 操作
         redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
-            // ZSet 操作
-            connection.zSetCommands().zAdd(redisKey.getBytes(StandardCharsets.UTF_8), score, zsetValue.getBytes(StandardCharsets.UTF_8));
             // Hash 操作
             byte[] hashKeyBytes = hashKey.getBytes(StandardCharsets.UTF_8);
+            Map<byte[], byte[]> hashEntries = new HashMap<>();
             for (Map.Entry<String, Object> entry : orderMap.entrySet()) {
                 // 在插入 userId 前進行檢查
                 if ("userId".equals(entry.getKey()) && entry.getValue() == null) {
@@ -82,10 +81,16 @@ public class NewOrderbookService {
                     // 你可以選擇在這裡拋出異常，以便在測試時發現問題
                     throw new IllegalStateException("userId is null while saving to Redis.");
                 }
-                connection.hashCommands().hSet(hashKeyBytes, entry.getKey().getBytes(StandardCharsets.UTF_8), entry.getValue().toString().getBytes(StandardCharsets.UTF_8));
+                hashEntries.put(entry.getKey().getBytes(StandardCharsets.UTF_8), entry.getValue().toString().getBytes(StandardCharsets.UTF_8));
             }
+            // 一次性將 hashEntries 放入 Redis
+            connection.hashCommands().hMSet(hashKeyBytes, hashEntries);
+
+            // ZSet 操作
+            connection.zSetCommands().zAdd(redisKey.getBytes(StandardCharsets.UTF_8), score, zsetValue.getBytes(StandardCharsets.UTF_8));
             return null;
         });
+
 
     }
 
