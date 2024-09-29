@@ -61,6 +61,11 @@ public class NewOrderbookService {
         // 構建 Hash 資料
         Map<String, Object> orderMap = buildOrderMap(order);
 
+        // 確認 userId 是否為 null
+        if (orderMap.get("userId") == null) {
+            System.err.println("Warning: userId is null when saving to Redis. Order: " + order);
+        }
+
         // Pipeline 合併 ZSet 和 Hash 操作
         redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
             // ZSet 操作
@@ -73,6 +78,7 @@ public class NewOrderbookService {
             return null;
         });
     }
+
 
     // 構建 Hash 資料
     private Map<String, Object> buildOrderMap(Order order) {
@@ -144,38 +150,6 @@ public class NewOrderbookService {
         return null;
     }
 
-    // 從 Redis 移除訂單並組合完整訂單持久化到 MySQL
-    public Order removeOrderAndPersistToDatabase(OrderSummary orderSummary) {
-        String redisKey = orderSummary.getSymbol() + ":" + orderSummary.getSide();
-        String hashKey = "order:" + orderSummary.getOrderId();
-
-        // Lua 腳本：一次性執行 Hash 讀取、ZSet 移除和 Hash 刪除
-        String script =
-                "local hashData = redis.call('HGETALL', KEYS[1]); " + // 讀取 Hash
-                        "redis.call('ZREM', KEYS[2], ARGV[1]); " + // 移除 ZSet 值
-                        "redis.call('DEL', KEYS[1]); " + // 刪除 Hash
-                        "return hashData;"; // 返回 Hash 內容
-
-        // 執行 Lua 腳本
-        List<Object> result = redisTemplate.execute(
-                new DefaultRedisScript<>(script, List.class),
-                Arrays.asList(hashKey, redisKey),
-                orderSummary.getZsetValue()
-        );
-
-        // 解析 Lua 腳本返回的 Hash 數據
-        Map<Object, Object> orderData = new HashMap<>();
-        for (int i = 0; i < result.size(); i += 2) {
-            orderData.put(result.get(i), result.get(i + 1));
-        }
-
-        // 組合完整的 Order 對象
-        Order order = buildOrderFromHashData(orderSummary, orderData);
-
-        return order;
-    }
-
-
     // 根據 OrderSummary 和 Hash 資料組合完整的 Order
     public Order buildOrderFromHashData(OrderSummary orderSummary, Map<Object, Object> orderData) {
         // 從 Hash 資料中取得原始下單數量
@@ -188,10 +162,19 @@ public class NewOrderbookService {
                 ? Order.OrderStatus.COMPLETED
                 : Order.OrderStatus.PARTIALLY_FILLED;
 
+        // 獲取 userId
+        String userId = (String) orderData.get("userId");
+
+        // 當 userId 為 null 時打印相關資訊
+        if (userId == null) {
+            System.err.println("userId is null! orderData: " + orderData);
+            System.err.println("OrderSummary: " + orderSummary);
+        }
+
         // 使用 Hash 資料構建完整的 Order 對象
         return new Order(
                 (String) orderData.get("id"),
-                (String) orderData.get("userId"),
+                userId,
                 orderSummary.getSymbol(),
                 orderSummary.getPrice(),
                 quantity, // 原始下單數量
@@ -208,67 +191,7 @@ public class NewOrderbookService {
         );
     }
 
-    // 更新部分匹配訂單的 ZSet 並持久化到 MySQL
-    public Order updateOrderInZSetAndPersistToDatabase(OrderSummary orderSummary) {
-        String redisKey = orderSummary.getSymbol() + ":" + orderSummary.getSide();
-        String hashKey = "order:" + orderSummary.getOrderId();
 
-        // 保留原有的 BigDecimal 計算
-        BigDecimal precisionFactor = BigDecimal.TEN.pow(7);
-        BigDecimal calculatedScore = orderSummary.getPrice().multiply(precisionFactor)
-                .add((orderSummary.getSide() == Order.Side.BUY ? BigDecimal.valueOf(-1) : BigDecimal.ONE)
-                        .multiply(BigDecimal.valueOf(orderSummary.getModifiedAt().toEpochMilli())));
-        double newScore = calculatedScore.doubleValue();
-
-        String newZsetValue = orderSummary.getOrderId() + ":" + orderSummary.getUnfilledQuantity().toPlainString() + ":" + orderSummary.getModifiedAt().toEpochMilli();
-
-        // 使用 Lua 腳本一次性完成 ZSet 更新和 Hash 讀取
-        String script = "redis.call('zrem', KEYS[1], ARGV[1]); " +
-                "redis.call('zadd', KEYS[1], ARGV[2], ARGV[3]); " +
-                "return redis.call('hgetall', KEYS[2]);";
-
-        List<Object> result = redisTemplate.execute(new DefaultRedisScript<>(script, List.class),
-                Arrays.asList(redisKey, hashKey),
-                orderSummary.getZsetValue(), String.valueOf(newScore), newZsetValue);
-
-        // 解析 Lua 腳本返回的 Hash 數據
-        Map<Object, Object> orderData = new HashMap<>();
-        for (int i = 0; i < result.size(); i += 2) {
-            orderData.put(result.get(i), result.get(i + 1));
-        }
-
-        // 異步處理對象轉換和持久化
-        CompletableFuture.runAsync(() -> {
-            Order partiallyFilledOrder = buildOrderFromHashData(orderSummary, orderData);
-            // TODO: 持久化到 MySQL
-        });
-
-        // 如果需要立即返回 Order 對象，在這裡同步構建
-        return buildOrderFromHashData(orderSummary, orderData);
-    }
-
-    // 當用戶提交更新訂單時，同時更新 ZSet 和 Hash
-    public void updateOrderInRedis(Order order) {
-        String redisKey = order.getSymbol() + ":" + order.getSide();
-        String hashKey = "order:" + order.getId();
-
-        // 更新 Hash，覆蓋用戶提交的變動屬性
-        Map<String, Object> orderMap = buildOrderMap(order);
-        redisTemplate.opsForHash().putAll(hashKey, orderMap);
-
-        // 重新計算 ZSet 的 score
-        BigDecimal precisionFactor = BigDecimal.TEN.pow(7);
-        Instant modifiedTime = order.getModifiedAt();
-        BigDecimal calculatedScore = order.getPrice().multiply(precisionFactor)
-                .add((order.getSide() == Order.Side.BUY ? BigDecimal.valueOf(-1) : BigDecimal.ONE).multiply(BigDecimal.valueOf(modifiedTime.toEpochMilli())));
-        double score = calculatedScore.doubleValue();
-
-        // 更新 ZSet value，包含新的 unfilledQuantity 和 modifiedAt
-        String zsetValue = order.getId() + ":" + order.getUnfilledQuantity().toPlainString() + ":" + modifiedTime.toEpochMilli();
-        redisTemplate.opsForZSet().add(redisKey, zsetValue, score);
-    }
-
-    // 合併更新訂單狀態（同時處理 remove 和 update）
     public void updateOrdersStatusInRedis(OrderSummary buyOrder, OrderSummary sellOrder, BigDecimal matchQuantity) {
         // 構建 Redis 鍵值
         String buyRedisKey = buyOrder.getSymbol() + ":" + buyOrder.getSide();
@@ -316,24 +239,28 @@ public class NewOrderbookService {
         Map<Object, Object> buyOrderData = parseRedisHash((List<Object>) result.get(0));
         @SuppressWarnings("unchecked")
         Map<Object, Object> sellOrderData = parseRedisHash((List<Object>) result.get(1));
-//        System.out.println("Buy order data: " + buyOrderData);
-//        System.out.println("Sell order data: " + sellOrderData);
+
+        // 檢查返回的數據是否完整
+        if (buyOrderData.get("userId") == null || sellOrderData.get("userId") == null) {
+            System.err.println("Warning: userId is null in Lua script result. buyOrderData: " + buyOrderData + ", sellOrderData: " + sellOrderData);
+        }
+
+        // 在異步處理之前構建完整的 Order 對象
+        Order buyOrderObject = buildOrderFromHashData(buyOrder, buyOrderData);
+        Order sellOrderObject = buildOrderFromHashData(sellOrder, sellOrderData);
+
 
         // 異步處理對象轉換並發送到 Kafka
         CompletableFuture.runAsync(() -> {
             try {
-                // 構建 Order 對象
-                Order buyOrderObject = buildOrderFromHashData(buyOrder, buyOrderData);
-                Order sellOrderObject = buildOrderFromHashData(sellOrder, sellOrderData);
-
                 // 創建 Trade 對象
                 Trade tradeObject = new Trade();
-                tradeObject.setId(String.valueOf(snowflakeIdGenerator.nextId())); // 使用注入的 snowflakeIdGenerator 生成 ID
+                tradeObject.setId(String.valueOf(snowflakeIdGenerator.nextId()));
                 tradeObject.setBuyOrder(buyOrderObject);
                 tradeObject.setSellOrder(sellOrderObject);
                 tradeObject.setSymbol(buyOrder.getSymbol());
-                tradeObject.setPrice(buyOrder.getPrice()); // 可以選擇買單或賣單價格，視業務邏輯而定
-                tradeObject.setQuantity(matchQuantity); // 設置交易的數量，通常等於買單或賣單的成交量
+                tradeObject.setPrice(buyOrder.getPrice());
+                tradeObject.setQuantity(matchQuantity);
                 tradeObject.setTradeTime(Instant.now());
 
                 // 創建新的 TradeOrdersMessage，包含買賣訂單和交易
@@ -345,7 +272,6 @@ public class NewOrderbookService {
                 // 發送到 Kafka topic
                 kafkaTemplate.send("matched_orders", objectMapper.writeValueAsString(tradeOrdersMessage));
 
-//                System.out.println("Buy and Sell orders and Trade sent to Kafka as one message");
             } catch (JsonProcessingException e) {
                 e.printStackTrace();
             }
