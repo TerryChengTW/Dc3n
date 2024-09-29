@@ -1,20 +1,17 @@
 package com.exchange.consumer;
 
-import com.exchange.dto.MatchedMessage;
+import com.exchange.dto.TradeOrdersMessage;
 import com.exchange.model.Order;
 import com.exchange.model.Trade;
-import com.exchange.repository.OrderRepository;
 import com.exchange.repository.TradeRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class MatchedOrderConsumer {
-
-    @Autowired
-    private OrderRepository orderRepository;
 
     @Autowired
     private TradeRepository tradeRepository;
@@ -22,23 +19,23 @@ public class MatchedOrderConsumer {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @Transactional // 一個事務內處理
     @KafkaListener(topics = "matched_orders", groupId = "order_group")
-    public void consumeMatchedMessage(String messageJson) {
+    public void consumeTradeOrdersMessage(String messageJson) {
         try {
-            // 反序列化消息
-            MatchedMessage message = objectMapper.readValue(messageJson, MatchedMessage.class);
+            // 反序列化新的 TradeOrdersMessage
+            TradeOrdersMessage message = objectMapper.readValue(messageJson, TradeOrdersMessage.class);
 
-            // 根據消息類型處理數據
-            if ("ORDER".equals(message.getType())) {
-                Order order = objectMapper.readValue(message.getData(), Order.class);
-                orderRepository.save(order);
-            } else if ("TRADE".equals(message.getType())) {
-                Trade trade = objectMapper.readValue(message.getData(), Trade.class);
-                tradeRepository.save(trade);
-            }
+            // 提取買單、賣單和交易
+            Order buyOrder = message.getBuyOrder();
+            Order sellOrder = message.getSellOrder();
+            Trade trade = message.getTrade();
 
+            // 使用自定義方法一次性保存所有對象
+            tradeRepository.saveAllOrdersAndTrade(buyOrder, sellOrder, trade);
         } catch (Exception e) {
             e.printStackTrace();
+            // 錯誤處理
         }
     }
 }

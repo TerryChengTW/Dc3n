@@ -9,7 +9,7 @@ import java.time.Instant;
 import java.util.List;
 
 @Repository
-public interface TradeRepository extends JpaRepository<Trade, String> {
+public interface TradeRepository extends JpaRepository<Trade, String>, CustomTradeRepository {
     List<Trade> findBySymbolOrderByTradeTimeDesc(String symbol, PageRequest pageRequest);
 
     List<Trade> findBySymbolAndTradeTimeBetween(String symbol, Instant startTime, Instant endTime);

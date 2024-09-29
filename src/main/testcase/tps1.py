@@ -36,27 +36,39 @@ async def submit_order(session, side, price, quantity=ORDER_QUANTITY):
     async with session.post(f'{BASE_URL}/orders/submit', json=payload, headers=headers) as response:
         if response.status == 200:
             order_count += 1
-            print(f"Order submitted: {side} {quantity} {SYMBOL} LIMIT @ {price}")
+            #print(f"Order submitted: {side} {quantity} {SYMBOL} LIMIT @ {price}")
         else:
             print(f"Failed to submit order: {await response.text()}")
 
 async def sequential_order_placement():
-    async with aiohttp.ClientSession() as session:
+    connector = aiohttp.TCPConnector(limit=500, limit_per_host=500)
+    async with aiohttp.ClientSession(connector=connector) as session:
         # 先下買單
+        buy_tasks = []
         price = BUY_INITIAL_PRICE
         while price <= BUY_MAX_PRICE:
-            await submit_order(session, 'BUY', price)
-            price += 1  # 每次價格增加 1
+            task = submit_order(session, 'BUY', price)
+            buy_tasks.append(task)
+            price += 1
+
+        # 按順序等待買單完成
+        for task in buy_tasks:
+            await task
 
         # 再下賣單
+        sell_tasks = []
         price = SELL_INITIAL_PRICE
         while price >= SELL_MIN_PRICE:
             if price <= 50500:
-                await submit_order(session, 'SELL', price, quantity=2.0)  # 當價格 <= 50500，賣 2 顆
+                task = submit_order(session, 'SELL', price, quantity=2.0)
             else:
-                await submit_order(session, 'SELL', price)  # 否則賣 1 顆
-            price -= 1  # 每次價格減少 1
+                task = submit_order(session, 'SELL', price)
+            sell_tasks.append(task)
+            price -= 1
 
+        # 按順序等待賣單完成
+        for task in sell_tasks:
+            await task
 
 if __name__ == '__main__':
     start_time = time.time()

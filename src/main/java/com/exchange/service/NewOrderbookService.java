@@ -1,9 +1,17 @@
 package com.exchange.service;
 
+import com.exchange.dto.MatchedMessage;
+import com.exchange.dto.TradeOrdersMessage;
 import com.exchange.model.Order;
 import com.exchange.model.OrderSummary;
+import com.exchange.model.Trade;
+import com.exchange.utils.SnowflakeIdGenerator;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.ZSetOperations.TypedTuple;
@@ -20,8 +28,18 @@ public class NewOrderbookService {
 
     private final RedisTemplate<String, Object> redisTemplate;
 
-    public NewOrderbookService(RedisTemplate<String, Object> redisTemplate) {
+    private final KafkaTemplate<String, String> kafkaTemplate;
+
+    private final ObjectMapper objectMapper;
+
+    private final SnowflakeIdGenerator snowflakeIdGenerator;
+
+
+    public NewOrderbookService(RedisTemplate<String, Object> redisTemplate, KafkaTemplate<String, String> kafkaTemplate, ObjectMapper objectMapper, SnowflakeIdGenerator snowflakeIdGenerator) {
         this.redisTemplate = redisTemplate;
+        this.kafkaTemplate = kafkaTemplate;
+        this.objectMapper = objectMapper;
+        this.snowflakeIdGenerator = snowflakeIdGenerator;
     }
 
     // 保存訂單到 Redis
@@ -182,8 +200,8 @@ public class NewOrderbookService {
                 orderSummary.getSide(),
                 Order.OrderType.valueOf((String) orderData.get("orderType")),
                 orderStatus, // 設定訂單狀態為 COMPLETED 或 PARTIALLY_FILLED
-                BigDecimal.ZERO,
-                BigDecimal.ZERO,
+                null,
+                null,
                 Instant.parse((String) orderData.get("createdAt")),
                 Instant.now(), // 更新 updatedAt
                 orderSummary.getModifiedAt() // 使用 ZSet 中的原始 modifiedAt
@@ -298,12 +316,39 @@ public class NewOrderbookService {
         Map<Object, Object> buyOrderData = parseRedisHash((List<Object>) result.get(0));
         @SuppressWarnings("unchecked")
         Map<Object, Object> sellOrderData = parseRedisHash((List<Object>) result.get(1));
+//        System.out.println("Buy order data: " + buyOrderData);
+//        System.out.println("Sell order data: " + sellOrderData);
 
-        // 異步處理對象轉換和持久化
+        // 異步處理對象轉換並發送到 Kafka
         CompletableFuture.runAsync(() -> {
-            Order buyOrderObject = buildOrderFromHashData(buyOrder, buyOrderData);
-            Order sellOrderObject = buildOrderFromHashData(sellOrder, sellOrderData);
-            // TODO: 持久化到 MySQL
+            try {
+                // 構建 Order 對象
+                Order buyOrderObject = buildOrderFromHashData(buyOrder, buyOrderData);
+                Order sellOrderObject = buildOrderFromHashData(sellOrder, sellOrderData);
+
+                // 創建 Trade 對象
+                Trade tradeObject = new Trade();
+                tradeObject.setId(String.valueOf(snowflakeIdGenerator.nextId())); // 使用注入的 snowflakeIdGenerator 生成 ID
+                tradeObject.setBuyOrder(buyOrderObject);
+                tradeObject.setSellOrder(sellOrderObject);
+                tradeObject.setSymbol(buyOrder.getSymbol());
+                tradeObject.setPrice(buyOrder.getPrice()); // 可以選擇買單或賣單價格，視業務邏輯而定
+                tradeObject.setQuantity(buyOrderObject.getFilledQuantity()); // 設置交易的數量，通常等於買單或賣單的成交量
+                tradeObject.setTradeTime(Instant.now());
+
+                // 創建新的 TradeOrdersMessage，包含買賣訂單和交易
+                TradeOrdersMessage tradeOrdersMessage = new TradeOrdersMessage();
+                tradeOrdersMessage.setBuyOrder(buyOrderObject);
+                tradeOrdersMessage.setSellOrder(sellOrderObject);
+                tradeOrdersMessage.setTrade(tradeObject);
+
+                // 發送到 Kafka topic
+                kafkaTemplate.send("matched_orders", objectMapper.writeValueAsString(tradeOrdersMessage));
+
+//                System.out.println("Buy and Sell orders and Trade sent to Kafka as one message");
+            } catch (JsonProcessingException e) {
+                e.printStackTrace();
+            }
         });
     }
 
