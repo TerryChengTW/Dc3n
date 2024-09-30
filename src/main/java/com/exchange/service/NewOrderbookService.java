@@ -69,9 +69,10 @@ public class NewOrderbookService {
         String sellKey = symbol + SELL_SUFFIX;
 
         // 同時查詢最高買價和最低賣價的訂單
+        // 調用 pipeline 同時執行 ZSet 查詢
         List<Object> bestOrders = redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
-            connection.zRevRangeWithScores(buyKey.getBytes(StandardCharsets.UTF_8), 0, 0); // 查詢最高買價訂單
-            connection.zRangeWithScores(sellKey.getBytes(StandardCharsets.UTF_8), 0, 0); // 查詢最低賣價訂單
+            connection.zSetCommands().zRevRangeWithScores(buyKey.getBytes(StandardCharsets.UTF_8), 0, 0);
+            connection.zSetCommands().zRangeWithScores(sellKey.getBytes(StandardCharsets.UTF_8), 0, 0);
             return null;
         });
 
