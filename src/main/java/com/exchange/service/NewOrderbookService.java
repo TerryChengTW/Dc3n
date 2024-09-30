@@ -216,7 +216,4 @@ public class NewOrderbookService {
         }
     }
 
-    private void saveTradeToDatabase(Order buyOrder, Order sellOrder, BigDecimal matchedQuantity) {
-        // 執行將交易記錄保存到 MySQL 的邏輯
-    }
 }
