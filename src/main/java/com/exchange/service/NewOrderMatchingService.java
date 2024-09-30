@@ -17,36 +17,34 @@ public class NewOrderMatchingService {
     }
 
     public void handleNewOrder(Order order) {
+        // 在嘗試將新訂單存入 Redis 之前，先進行撮合
+        matchOrders(order);
 
+        // 未完全匹配的訂單才存入 Redis
         orderbookService.saveOrderToRedis(order);
-
-        matchOrders(order.getSymbol());
     }
 
-
     // 撮合邏輯
-    public void matchOrders(String symbol) {
-        Order[] bestOrders = orderbookService.getBestBuyAndSellOrders(symbol);
-        Order bestBuyOrder = bestOrders[0];
-        Order bestSellOrder = bestOrders[1];
+    public void matchOrders(Order newOrder) {
+        // 根據新訂單方向獲取對手方的最佳訂單
+        Order opponentOrder = orderbookService.getBestOpponentOrder(newOrder);
 
-        if (bestBuyOrder == null || bestSellOrder == null) {
-            // 沒有可撮合的訂單
+        // 如果沒有對手方訂單，則不進行匹配
+        if (opponentOrder == null) {
+            System.out.println("No opponent order available for matching.");
             return;
         }
 
-        BigDecimal buyPrice = bestBuyOrder.getPrice();
-        BigDecimal sellPrice = bestSellOrder.getPrice();
-        boolean isPriceMatch = buyPrice.compareTo(sellPrice) >= 0;
+        // 檢查價格是否匹配
+        boolean isPriceMatch = (newOrder.getSide() == Order.Side.BUY && newOrder.getPrice().compareTo(opponentOrder.getPrice()) >= 0) ||
+                (newOrder.getSide() == Order.Side.SELL && newOrder.getPrice().compareTo(opponentOrder.getPrice()) <= 0);
 
         if (isPriceMatch) {
-            BigDecimal buyQuantity = bestBuyOrder.getUnfilledQuantity();
-            BigDecimal sellQuantity = bestSellOrder.getUnfilledQuantity();
-            // 計算撮合數量
-            BigDecimal matchedQuantity = buyQuantity.min(sellQuantity);
-
-            // 執行撮合
-            orderbookService.executeTrade(bestBuyOrder, bestSellOrder, matchedQuantity);
+            // 打印匹配結果
+            System.out.println("Matched Order: " + newOrder);
+            System.out.println("Opponent Order: " + opponentOrder);
+        } else {
+            System.out.println("No price match for order: " + newOrder);
         }
     }
 }
