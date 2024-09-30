@@ -1,6 +1,5 @@
 package com.exchange.service;
 
-import com.exchange.dto.MatchedMessage;
 import com.exchange.dto.TradeOrdersMessage;
 import com.exchange.model.Order;
 import com.exchange.model.OrderSummary;
@@ -8,7 +7,6 @@ import com.exchange.model.Trade;
 import com.exchange.utils.SnowflakeIdGenerator;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -61,26 +59,14 @@ public class NewOrderbookService {
         // 構建 Hash 資料
         Map<String, Object> orderMap = buildOrderMap(order);
 
-        // 確認 userId 是否為 null
-        if (orderMap.get("userId") == null) {
-            System.err.println("Warning: userId is null when saving to Redis. Order: " + order);
-        }
-
         // Pipeline 合併 ZSet 和 Hash 操作
         redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
             // Hash 操作
             byte[] hashKeyBytes = hashKey.getBytes(StandardCharsets.UTF_8);
             Map<byte[], byte[]> hashEntries = new HashMap<>();
             for (Map.Entry<String, Object> entry : orderMap.entrySet()) {
-                // 在插入 userId 前進行檢查
-                if ("userId".equals(entry.getKey()) && entry.getValue() == null) {
-                    System.err.println("Error: userId is null while saving to Redis. Hash key: " + hashKey);
-                    // 你可以選擇在這裡拋出異常，以便在測試時發現問題
-                    throw new IllegalStateException("userId is null while saving to Redis.");
-                }
                 hashEntries.put(entry.getKey().getBytes(StandardCharsets.UTF_8), entry.getValue().toString().getBytes(StandardCharsets.UTF_8));
             }
-            // 一次性將 hashEntries 放入 Redis
             connection.hashCommands().hMSet(hashKeyBytes, hashEntries);
 
             // ZSet 操作
@@ -117,7 +103,9 @@ public class NewOrderbookService {
         });
 
         // 分別解析最高買價和最低賣價訂單
+        @SuppressWarnings("unchecked")
         Set<TypedTuple<Object>> highestBuyOrderSet = (Set<TypedTuple<Object>>) results.get(0);
+        @SuppressWarnings("unchecked")
         Set<TypedTuple<Object>> lowestSellOrderSet = (Set<TypedTuple<Object>>) results.get(1);
 
         OrderSummary highestBuyOrder = parseZSetOrder(symbol, highestBuyOrderSet, Order.Side.BUY);
@@ -230,6 +218,7 @@ public class NewOrderbookService {
         double sellNewScore = calculateZSetScore(sellOrder);
 
         // 執行 Lua 腳本
+        @SuppressWarnings("unchecked")
         List<Object> result = redisTemplate.execute(new DefaultRedisScript<>(script, List.class),
                 Arrays.asList(buyHashKey, sellHashKey, buyRedisKey, sellRedisKey),
                 buyOrder.getUnfilledQuantity().toPlainString(),
