@@ -94,12 +94,8 @@ public class NewOrderMatchingService {
 
         // 保存所有的交易和訂單到 MySQL
         if (!matchedTrades.isEmpty()) {
-            // 只需一次性地保存訂單和交易
-            Order buyOrder = matchedTrades.get(0).getBuyOrder();
-            Order sellOrder = matchedTrades.get(0).getSellOrder();
-
             // 使用自定義 repository 同時保存所有 `Order` 和 `Trade`
-            orderbookService.saveAllOrdersAndTrades(buyOrder, sellOrder, matchedTrades);
+            orderbookService.saveAllOrdersAndTrades(matchedTrades);
         }
     }
 

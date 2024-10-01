@@ -41,8 +41,16 @@ public class NewOrderbookService {
         // 決定對手方的 key
         String opponentKey = newOrder.getSymbol() + (newOrder.getSide() == Order.Side.BUY ? SELL_SUFFIX : BUY_SUFFIX);
 
-        // 從 Redis ZSet 中獲取對手方最佳價格的訂單
-        Set<TypedTuple<Object>> opponentOrders = redisTemplate.opsForZSet().rangeWithScores(opponentKey, 0, 0);
+        Set<TypedTuple<Object>> opponentOrders;
+
+        // 根據 `side` 選擇 ZSet 排序方式
+        if (newOrder.getSide() == Order.Side.BUY) {
+            // 如果 `newOrder` 是買單，取 `score` 最小的賣單
+            opponentOrders = redisTemplate.opsForZSet().rangeWithScores(opponentKey, 0, 0);
+        } else {
+            // 如果 `newOrder` 是賣單，取 `score` 最大的買單
+            opponentOrders = redisTemplate.opsForZSet().reverseRangeWithScores(opponentKey, 0, 0);
+        }
 
         // 解析對手訂單
         if (opponentOrders != null && !opponentOrders.isEmpty()) {
@@ -143,9 +151,12 @@ public class NewOrderbookService {
     }
 
 
-    public void saveAllOrdersAndTrades(Order buyOrder, Order sellOrder, List<Trade> trades) {
+    public void saveAllOrdersAndTrades(List<Trade> trades) {
         // 將訂單和交易信息封裝到 MatchedMessage 中並發送到 Kafka
         for (Trade trade : trades) {
+            Order buyOrder = trade.getBuyOrder();
+            Order sellOrder = trade.getSellOrder();
+
             TradeOrdersMessage tradeOrdersMessage = new TradeOrdersMessage(buyOrder, sellOrder, trade);
 
             // 發送到 Kafka，type 為 "TRADE_ORDER"
