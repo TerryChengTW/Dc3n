@@ -117,6 +117,38 @@ public class OrderController {
     public ResponseEntity<ApiResponse<?>> cancelOrder(
             @PathVariable String orderId,
             HttpServletRequest request) {
+        try {
+            // 從 JWT 中提取 userId
+            String userId = (String) request.getAttribute("userId");
+
+            // 根據 orderId 查找訂單
+            Optional<Order> orderOptional = orderService.getOrderById(orderId);
+            if (orderOptional.isEmpty()) {
+                return ResponseEntity.badRequest().body(new ApiResponse<>("訂單未找到", "40401"));
+            }
+            Order order = orderOptional.get();
+
+            // 驗證訂單的擁有者是否與 JWT 中的 userId 一致
+            if (!order.getUserId().equals(userId)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ApiResponse<>("無權取消此訂單", "40302"));
+            }
+
+            // 檢查訂單狀態
+            if (order.getStatus() != Order.OrderStatus.PENDING && order.getStatus() != Order.OrderStatus.PARTIALLY_FILLED) {
+                return ResponseEntity.badRequest().body(new ApiResponse<>("只有 PENDING 或 PARTIALLY_FILLED 狀態的訂單可以取消", "40003"));
+            }
+
+            // 執行取消訂單
+            orderService.cancelOrder(order);
+
+            return ResponseEntity.ok(new ApiResponse<>("訂單取消成功", order));
+
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(new ApiResponse<>(e.getMessage(), "40004"));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(new ApiResponse<>("訂單取消失敗，請稍後再試", "50003"));
+        }
     }
+
 
 }
