@@ -8,6 +8,8 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 @Service
 public class NewOrderMatchingService {
@@ -33,66 +35,88 @@ public class NewOrderMatchingService {
 
     // 撮合邏輯
     public void matchOrders(Order newOrder) {
-        // 循環，直到新訂單完全匹配或無法再匹配
+        // 保存所有匹配到的 `Trade`
+        List<Trade> matchedTrades = new ArrayList<>();
+
         while (newOrder.getUnfilledQuantity().compareTo(BigDecimal.ZERO) > 0) {
-            // 從 Redis 中獲取對手方的最佳訂單
             Order p1 = orderbookService.getBestOpponentOrder(newOrder);
 
-            // 如果沒有對手方訂單，則跳出循環
             if (p1 == null) {
                 System.out.println("No opponent order available for matching.");
                 break;
             }
 
-            // 檢查價格是否匹配
+            // 保存原始對手訂單的 JSON 值
+            String originalP1Json = orderbookService.convertOrderToJson(p1);
+
             boolean isPriceMatch = (newOrder.getSide() == Order.Side.BUY && newOrder.getPrice().compareTo(p1.getPrice()) >= 0) ||
                     (newOrder.getSide() == Order.Side.SELL && newOrder.getPrice().compareTo(p1.getPrice()) <= 0);
 
             if (isPriceMatch) {
-                // 計算匹配的數量
                 BigDecimal matchedQuantity = newOrder.getUnfilledQuantity().min(p1.getUnfilledQuantity());
 
-                // 更新兩個訂單的數量
+                // 更新訂單數量和狀態
                 newOrder.setFilledQuantity(newOrder.getFilledQuantity().add(matchedQuantity));
                 newOrder.setUnfilledQuantity(newOrder.getUnfilledQuantity().subtract(matchedQuantity));
 
                 p1.setFilledQuantity(p1.getFilledQuantity().add(matchedQuantity));
                 p1.setUnfilledQuantity(p1.getUnfilledQuantity().subtract(matchedQuantity));
 
-                // 如果 `p1` 被完全匹配，將其狀態設為 `COMPLETED`
-                if (p1.getUnfilledQuantity().compareTo(BigDecimal.ZERO) == 0) {
-                    p1.setStatus(Order.OrderStatus.COMPLETED);
-                    // 從 Redis ZSet 中刪除 `p1`
-                    orderbookService.removeOrderFromRedis(p1);
-                } else {
-                    // 如果 `p1` 被部分匹配，更新其狀態為 `PARTIALLY_FILLED` 並更新在 Redis
-                    p1.setStatus(Order.OrderStatus.PARTIALLY_FILLED);
-                    orderbookService.updateOrderInRedis(p1);
-                }
+                // 更新狀態
+                updateOrdersStatus(List.of(newOrder, p1));
 
-                // 如果 `newOrder` 被完全匹配，設為 `COMPLETED`
-                if (newOrder.getUnfilledQuantity().compareTo(BigDecimal.ZERO) == 0) {
-                    newOrder.setStatus(Order.OrderStatus.COMPLETED);
-                } else {
-                    newOrder.setStatus(Order.OrderStatus.PARTIALLY_FILLED);
-                }
-
-                // 建立交易並持久化到 MySQL
+                // 建立 `Trade`
                 Trade trade = new Trade();
                 trade.setId(String.valueOf(snowflakeIdGenerator.nextId()));
                 trade.setBuyOrder(newOrder.getSide() == Order.Side.BUY ? newOrder : p1);
                 trade.setSellOrder(newOrder.getSide() == Order.Side.SELL ? newOrder : p1);
                 trade.setSymbol(newOrder.getSymbol());
-                trade.setPrice(p1.getPrice());
+                trade.setPrice(p1.getPrice());  // 確保交易價格為對手方訂單的價格
                 trade.setQuantity(matchedQuantity);
                 trade.setTradeTime(Instant.now());
-                orderbookService.saveTradeToDatabase(trade);
+
+                // 將 `Trade` 加入列表中
+                matchedTrades.add(trade);
 
                 System.out.println("Matched Trade: " + trade);
+
+                // 更新 `p1` 在 Redis 中的狀態
+                if (p1.getUnfilledQuantity().compareTo(BigDecimal.ZERO) == 0) {
+                    orderbookService.removeOrderFromRedis(p1, originalP1Json);
+                } else {
+                    orderbookService.updateOrderInRedis(p1, originalP1Json);
+                }
             } else {
                 System.out.println("No price match for order: " + newOrder);
                 break;
             }
         }
+
+        // 保存所有的交易和訂單到 MySQL
+        if (!matchedTrades.isEmpty()) {
+            // 只需一次性地保存訂單和交易
+            Order buyOrder = matchedTrades.get(0).getBuyOrder();
+            Order sellOrder = matchedTrades.get(0).getSellOrder();
+
+            // 使用自定義 repository 同時保存所有 `Order` 和 `Trade`
+            orderbookService.saveAllOrdersAndTrades(buyOrder, sellOrder, matchedTrades);
+        }
     }
+
+    // 更新訂單狀態和時間
+    private void updateOrdersStatus(List<Order> orders) {
+        for (Order order : orders) {
+            // 如果未成交數量為零，訂單狀態更新為 `COMPLETED`
+            if (order.getUnfilledQuantity().compareTo(BigDecimal.ZERO) == 0) {
+                order.setStatus(Order.OrderStatus.COMPLETED);
+            } else {
+                order.setStatus(Order.OrderStatus.PARTIALLY_FILLED);
+            }
+
+            // 更新 `updatedAt` 字段為當前時間
+            order.setUpdatedAt(Instant.now());
+        }
+    }
+
+
 }

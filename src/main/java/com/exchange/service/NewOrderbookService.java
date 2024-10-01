@@ -14,6 +14,7 @@ import org.springframework.data.redis.core.RedisCallback;
 import java.nio.charset.StandardCharsets;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 import java.util.Set;
 
 @Service
@@ -82,10 +83,10 @@ public class NewOrderbookService {
         return calculatedScore.doubleValue();
     }
 
-    // 從 Redis 中移除訂單
-    public void removeOrderFromRedis(Order order) {
+    // 從 Redis 中移除訂單，使用原始的 JSON 值
+    public void removeOrderFromRedis(Order order, String originalJson) {
         byte[] redisKey = getRedisKeyBytes(order.getSymbol(), order.getSide());
-        byte[] originalBytes = convertOrderToBytes(order);
+        byte[] originalBytes = originalJson.getBytes(StandardCharsets.UTF_8);
 
         redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
             connection.zSetCommands().zRem(redisKey, originalBytes);
@@ -93,30 +94,33 @@ public class NewOrderbookService {
         });
     }
 
-    // 更新 Redis 中的訂單
-    public void updateOrderInRedis(Order order) {
+    // 更新 Redis 中的訂單，先刪除舊的再更新
+    public void updateOrderInRedis(Order order, String originalJson) {
         byte[] redisKey = getRedisKeyBytes(order.getSymbol(), order.getSide());
+        byte[] originalBytes = originalJson.getBytes(StandardCharsets.UTF_8);
         double newScore = calculateScore(order);
         byte[] updatedBytes = convertOrderToBytes(order);
 
         redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
             // 移除舊的訂單
-            connection.zSetCommands().zRem(redisKey, updatedBytes);
+            connection.zSetCommands().zRem(redisKey, originalBytes);
             // 插入新的訂單
             connection.zSetCommands().zAdd(redisKey, newScore, updatedBytes);
             return null;
         });
     }
 
-    // 保存交易到 MySQL
-    public void saveTradeToDatabase(Trade trade) {
-        // 更新買賣訂單的狀態（`buyOrder` 和 `sellOrder`）
-        Order buyOrder = trade.getBuyOrder();
-        Order sellOrder = trade.getSellOrder();
-
-        // 使用自定義 repository 方法，同時保存訂單和交易
-        customTradeRepository.saveAllOrdersAndTrade(buyOrder, sellOrder, trade);
+    // 轉換訂單為 JSON 字符串
+    public String convertOrderToJson(Order order) {
+        try {
+            return objectMapper.writeValueAsString(order);
+        } catch (JsonProcessingException e) {
+            System.err.println("Error: Failed to convert order to JSON. Order: " + order);
+            e.printStackTrace();
+            throw new RuntimeException("Failed to convert order to JSON", e);
+        }
     }
+
 
     // 獲取 Redis key 的字節數組
     private byte[] getRedisKeyBytes(String symbol, Order.Side side) {
@@ -133,4 +137,13 @@ public class NewOrderbookService {
             throw new RuntimeException("Failed to convert order to JSON bytes", e);
         }
     }
+
+
+    public void saveAllOrdersAndTrades(Order buyOrder, Order sellOrder, List<Trade> trades) {
+        // 遍歷 trades 保存到數據庫
+        for (Trade trade : trades) {
+            customTradeRepository.saveAllOrdersAndTrade(buyOrder, sellOrder, trade);
+        }
+    }
+
 }
