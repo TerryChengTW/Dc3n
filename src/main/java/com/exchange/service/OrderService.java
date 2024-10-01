@@ -18,9 +18,9 @@ public class OrderService {
 
     @Autowired
     private OrderRepository orderRepository;
-
-    @Autowired
-    private OrderMatchingService orderMatchingService;  // 用於保存新訂單到 Redis 並進行匹配
+//
+//    @Autowired
+//    private OrderMatchingService orderMatchingService;  // 用於保存新訂單到 Redis 並進行匹配
 
     // 保存新訂單，並將其發送到 Kafka
     public void saveOrder(Order order) {
@@ -61,25 +61,25 @@ public class OrderService {
         orderProducer.sendCancelOrder(order);
     }
 
-    // 根據訂單 ID 查詢訂單
-    public Optional<Order> getOrderById(String id) {
-        // 優先從 Redis 查詢訂單
-        Order orderFromRedis = orderMatchingService.getOrderFromRedis(id);
-        if (orderFromRedis != null) {
-            return Optional.of(orderFromRedis);
-        }
-
-        // 如果 Redis 中沒有找到，從 MySQL 查詢
-        Optional<Order> orderFromDB = orderRepository.findById(id);
-        if (orderFromDB.isPresent()) {
-            // 記錄日誌，確認是從 MySQL 查到的訂單
-            System.out.println("訂單從 MySQL 中查詢到: " + orderFromDB.get().getId());
-        } else {
-            // 記錄日誌，確認沒有找到訂單
-            System.out.println("訂單未找到: " + id);
-        }
-        return orderFromDB;
-    }
+//    // 根據訂單 ID 查詢訂單
+//    public Optional<Order> getOrderById(String id) {
+//        // 優先從 Redis 查詢訂單
+//        Order orderFromRedis = orderMatchingService.getOrderFromRedis(id);
+//        if (orderFromRedis != null) {
+//            return Optional.of(orderFromRedis);
+//        }
+//
+//        // 如果 Redis 中沒有找到，從 MySQL 查詢
+//        Optional<Order> orderFromDB = orderRepository.findById(id);
+//        if (orderFromDB.isPresent()) {
+//            // 記錄日誌，確認是從 MySQL 查到的訂單
+//            System.out.println("訂單從 MySQL 中查詢到: " + orderFromDB.get().getId());
+//        } else {
+//            // 記錄日誌，確認沒有找到訂單
+//            System.out.println("訂單未找到: " + id);
+//        }
+//        return orderFromDB;
+//    }
 
     // 驗證訂單的有效性
     private void validateOrder(Order order) {

@@ -14,17 +14,19 @@ public class CustomTradeRepositoryImpl implements CustomTradeRepository {
     private EntityManager entityManager;
 
     @Override
-    @Transactional // 確保在同一事務內
+    @Transactional
     public void saveAllOrdersAndTrade(Order buyOrder, Order sellOrder, Trade trade) {
-        // 更新或保存買單
-        entityManager.merge(buyOrder);
-        // 更新或保存賣單
-        entityManager.merge(sellOrder);
+        // 使用 merge 來保存或更新買單
+        buyOrder = entityManager.merge(buyOrder);
+        // 使用 merge 來保存或更新賣單
+        sellOrder = entityManager.merge(sellOrder);
 
-        // 立即將 buyOrder 和 sellOrder 插入或更新到數據庫中
+        // 立即 flush，確保 buyOrder 和 sellOrder 都已經被持久化
         entityManager.flush();
 
         // 保存交易
+        trade.setBuyOrder(buyOrder); // 確保 trade 關聯正確的持久化實體
+        trade.setSellOrder(sellOrder);
         entityManager.persist(trade);
     }
 }

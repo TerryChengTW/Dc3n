@@ -1,13 +1,17 @@
 package com.exchange.service;
 
+import com.exchange.dto.MatchedMessage;
+import com.exchange.dto.TradeOrdersMessage;
 import com.exchange.model.Order;
 import com.exchange.model.Trade;
+import com.exchange.producer.MatchedOrderProducer;
 import com.exchange.repository.CustomTradeRepositoryImpl;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations.TypedTuple;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.data.redis.core.RedisCallback;
 
@@ -24,12 +28,12 @@ public class NewOrderbookService {
     private final ObjectMapper objectMapper;
     private final String BUY_SUFFIX = ":BUY";
     private final String SELL_SUFFIX = ":SELL";
-    private final CustomTradeRepositoryImpl customTradeRepository;
+    private MatchedOrderProducer matchedOrderProducer;
 
-    public NewOrderbookService(RedisTemplate<String, Object> redisTemplate, ObjectMapper objectMapper, CustomTradeRepositoryImpl customTradeRepository) {
+    public NewOrderbookService(RedisTemplate<String, Object> redisTemplate, ObjectMapper objectMapper, MatchedOrderProducer matchedOrderProducer) {
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper;
-        this.customTradeRepository = customTradeRepository;
+        this.matchedOrderProducer = matchedOrderProducer;
     }
 
     // 獲取對手方最佳訂單
@@ -140,9 +144,12 @@ public class NewOrderbookService {
 
 
     public void saveAllOrdersAndTrades(Order buyOrder, Order sellOrder, List<Trade> trades) {
-        // 遍歷 trades 保存到數據庫
+        // 將訂單和交易信息封裝到 MatchedMessage 中並發送到 Kafka
         for (Trade trade : trades) {
-            customTradeRepository.saveAllOrdersAndTrade(buyOrder, sellOrder, trade);
+            TradeOrdersMessage tradeOrdersMessage = new TradeOrdersMessage(buyOrder, sellOrder, trade);
+
+            // 發送到 Kafka，type 為 "TRADE_ORDER"
+            matchedOrderProducer.sendMatchedTrade(tradeOrdersMessage);
         }
     }
 
