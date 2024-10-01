@@ -99,9 +99,6 @@ public class OrderService {
             // 將更新後的訂單添加到 Redis
             addOrderToRedis(order);
 
-            // 發送更新訂單到 Kafka
-            orderProducer.sendUpdateOrder(order);
-
             return order;
         } else {
             throw new IllegalArgumentException("只有PENDING或PARTIALLY_FILLED狀態的訂單可以更新");
@@ -128,34 +125,6 @@ public class OrderService {
         }
     }
 
-    // 取消訂單，並將其發送到 Kafka
-    public void cancelOrder(Order order) {
-        order.setStatus(Order.OrderStatus.CANCELLED);  // 設置訂單狀態為取消
-        order.setUpdatedAt(Instant.now());  // 更新時間戳
-
-        // 發送取消訂單到 Kafka
-        orderProducer.sendCancelOrder(order);
-    }
-
-//    // 根據訂單 ID 查詢訂單
-//    public Optional<Order> getOrderById(String id) {
-//        // 優先從 Redis 查詢訂單
-//        Order orderFromRedis = orderMatchingService.getOrderFromRedis(id);
-//        if (orderFromRedis != null) {
-//            return Optional.of(orderFromRedis);
-//        }
-//
-//        // 如果 Redis 中沒有找到，從 MySQL 查詢
-//        Optional<Order> orderFromDB = orderRepository.findById(id);
-//        if (orderFromDB.isPresent()) {
-//            // 記錄日誌，確認是從 MySQL 查到的訂單
-//            System.out.println("訂單從 MySQL 中查詢到: " + orderFromDB.get().getId());
-//        } else {
-//            // 記錄日誌，確認沒有找到訂單
-//            System.out.println("訂單未找到: " + id);
-//        }
-//        return orderFromDB;
-//    }
 
     // 驗證訂單的有效性
     private void validateOrder(Order order) {

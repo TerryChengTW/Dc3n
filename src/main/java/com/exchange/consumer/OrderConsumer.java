@@ -46,31 +46,12 @@ public class OrderConsumer {
 
     // 消費更新訂單
     @KafkaListener(topics = "update_orders", groupId = "order_group")
-    public void consumeUpdateOrder(String orderJson) {
-        try {
-            // 將接收到的 JSON 訂單轉換為 Order 對象
-            Order order = objectMapper.readValue(orderJson, Order.class);
-
-            // 更新訂單到 Redis 和 MySQL
-            updateService.updateOrderInRedis(order);
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+    public void consumeUpdateOrder() {
     }
 
     // 消費取消訂單
-//    @KafkaListener(topics = "cancel_orders", groupId = "order_group")
-//    public void consumeCancelOrder(String orderJson) {
-//        try {
-//            // 將接收到的 JSON 訂單轉換為 Order 對象
-//            Order order = objectMapper.readValue(orderJson, Order.class);
-//
-//            // 取消訂單並更新 Redis 和 MySQL
-//            updateService.cancelOrder(order);
-//
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//        }
-//    }
+    @KafkaListener(topics = "cancel_orders", groupId = "order_group")
+    public void consumeCancelOrder() {
+
+    }
 }

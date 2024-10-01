@@ -112,36 +112,11 @@ public class OrderController {
     }
 
 
-//    // 取消訂單
-//    @DeleteMapping("/cancel/{orderId}")
-//    public ResponseEntity<ApiResponse<?>> cancelOrder(
-//            @PathVariable String orderId,
-//            HttpServletRequest request) {
-//        try {
-//            String userId = (String) request.getAttribute("userId");
-//
-//            Order order = orderService.getOrderById(orderId).orElse(null);
-//            if (order == null) {
-//                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>("訂單未找到", "40401"));
-//            }
-//
-//            if (!order.getUserId().equals(userId)) {
-//                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ApiResponse<>("無權取消此訂單", "40302"));
-//            }
-//
-//            if (order.getStatus() == Order.OrderStatus.COMPLETED || order.getStatus() == Order.OrderStatus.CANCELLED) {
-//                return ResponseEntity.badRequest().body(new ApiResponse<>("訂單已完成或已取消", "40003"));
-//            }
-//
-//            orderService.cancelOrder(order);
-//
-//            return ResponseEntity.ok(new ApiResponse<>("訂單已取消", order));
-//
-//        } catch (Exception e) {
-//            // 打印異常訊息
-//            e.printStackTrace();
-//            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>("訂單取消失敗，請稍後再試", "50003"));
-//        }
-//    }
+    // 取消訂單
+    @DeleteMapping("/cancel/{orderId}")
+    public ResponseEntity<ApiResponse<?>> cancelOrder(
+            @PathVariable String orderId,
+            HttpServletRequest request) {
+    }
 
 }
