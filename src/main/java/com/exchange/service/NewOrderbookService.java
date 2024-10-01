@@ -1,24 +1,20 @@
 package com.exchange.service;
 
-import com.exchange.dto.TradeOrdersMessage;
 import com.exchange.model.Order;
 import com.exchange.model.Trade;
-import com.exchange.utils.SnowflakeIdGenerator;
+import com.exchange.repository.CustomTradeRepositoryImpl;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.data.redis.connection.RedisConnection;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations.TypedTuple;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.data.redis.core.RedisCallback;
 
 import java.nio.charset.StandardCharsets;
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.util.List;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 
 @Service
 public class NewOrderbookService {
@@ -27,10 +23,12 @@ public class NewOrderbookService {
     private final ObjectMapper objectMapper;
     private final String BUY_SUFFIX = ":BUY";
     private final String SELL_SUFFIX = ":SELL";
+    private final CustomTradeRepositoryImpl customTradeRepository;
 
-    public NewOrderbookService(RedisTemplate<String, Object> redisTemplate, ObjectMapper objectMapper) {
+    public NewOrderbookService(RedisTemplate<String, Object> redisTemplate, ObjectMapper objectMapper, CustomTradeRepositoryImpl customTradeRepository) {
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper;
+        this.customTradeRepository = customTradeRepository;
     }
 
     // 獲取對手方最佳訂單
@@ -84,6 +82,42 @@ public class NewOrderbookService {
         return calculatedScore.doubleValue();
     }
 
+    // 從 Redis 中移除訂單
+    public void removeOrderFromRedis(Order order) {
+        byte[] redisKey = getRedisKeyBytes(order.getSymbol(), order.getSide());
+        byte[] originalBytes = convertOrderToBytes(order);
+
+        redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
+            connection.zSetCommands().zRem(redisKey, originalBytes);
+            return null;
+        });
+    }
+
+    // 更新 Redis 中的訂單
+    public void updateOrderInRedis(Order order) {
+        byte[] redisKey = getRedisKeyBytes(order.getSymbol(), order.getSide());
+        double newScore = calculateScore(order);
+        byte[] updatedBytes = convertOrderToBytes(order);
+
+        redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
+            // 移除舊的訂單
+            connection.zSetCommands().zRem(redisKey, updatedBytes);
+            // 插入新的訂單
+            connection.zSetCommands().zAdd(redisKey, newScore, updatedBytes);
+            return null;
+        });
+    }
+
+    // 保存交易到 MySQL
+    public void saveTradeToDatabase(Trade trade) {
+        // 更新買賣訂單的狀態（`buyOrder` 和 `sellOrder`）
+        Order buyOrder = trade.getBuyOrder();
+        Order sellOrder = trade.getSellOrder();
+
+        // 使用自定義 repository 方法，同時保存訂單和交易
+        customTradeRepository.saveAllOrdersAndTrade(buyOrder, sellOrder, trade);
+    }
+
     // 獲取 Redis key 的字節數組
     private byte[] getRedisKeyBytes(String symbol, Order.Side side) {
         return (symbol + (side == Order.Side.BUY ? BUY_SUFFIX : SELL_SUFFIX)).getBytes(StandardCharsets.UTF_8);
@@ -99,5 +133,4 @@ public class NewOrderbookService {
             throw new RuntimeException("Failed to convert order to JSON bytes", e);
         }
     }
-
 }
