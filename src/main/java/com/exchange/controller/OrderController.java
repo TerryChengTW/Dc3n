@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/orders")
@@ -68,44 +69,47 @@ public class OrderController {
     }
 
     // 更新訂單
-//    @PutMapping("/modify/{orderId}")
-//    public ResponseEntity<ApiResponse<?>> modifyOrder(
-//            @PathVariable String orderId,
-//            @RequestBody OrderRequest orderRequest,
-//            HttpServletRequest request) {
-//        try {
-//            // 從 JWT 中提取 userId
-//            String userId = (String) request.getAttribute("userId");
-//
-//            // 根據 orderId 查找訂單
-//            Order order = orderService.getOrderById(orderId).orElse(null);
-//            if (order == null) {
-//                return ResponseEntity.badRequest().body(new ApiResponse<>("訂單未找到", "40401"));
-//            }
-//
-//            // 驗證訂單的擁有者是否與 JWT 中的 userId 一致
-//            if (!order.getUserId().equals(userId)) {
-//                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ApiResponse<>("無權修改此訂單", "40302"));
-//            }
-//
-//            // 更新訂單資料
-//            BigDecimal newQuantity = orderRequest.getQuantity();
-//            order.setPrice(orderRequest.getPrice());
-//            order.setQuantity(newQuantity);
-//            order.setUpdatedAt(Instant.now());
-//            order.setModifiedAt(Instant.now());
-//
-//            // 更新訂單
-//            orderService.updateOrder(order, newQuantity);
-//
-//            return ResponseEntity.ok(new ApiResponse<>("訂單修改成功", order));
-//
-//        } catch (IllegalArgumentException e) {
-//            return ResponseEntity.badRequest().body(new ApiResponse<>(e.getMessage(), "40002"));
-//        } catch (Exception e) {
-//            return ResponseEntity.status(500).body(new ApiResponse<>("訂單更新失敗，請稍後再試", "50002"));
-//        }
-//    }
+    @PutMapping("/modify/{orderId}")
+    public ResponseEntity<ApiResponse<?>> modifyOrder(
+            @PathVariable String orderId,
+            @RequestBody OrderRequest orderRequest,
+            HttpServletRequest request) {
+        try {
+            // 從 JWT 中提取 userId
+            String userId = (String) request.getAttribute("userId");
+
+            // 根據 orderId 查找訂單
+            Optional<Order> orderOptional = orderService.getOrderById(orderId);
+            if (orderOptional.isEmpty()) {
+                return ResponseEntity.badRequest().body(new ApiResponse<>("訂單未找到", "40401"));
+            }
+            Order order = orderOptional.get();
+
+            // 驗證訂單的擁有者是否與 JWT 中的 userId 一致
+            if (!order.getUserId().equals(userId)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ApiResponse<>("無權修改此訂單", "40302"));
+            }
+
+            // 檢查訂單狀態
+            if (order.getStatus() != Order.OrderStatus.PENDING && order.getStatus() != Order.OrderStatus.PARTIALLY_FILLED) {
+                return ResponseEntity.badRequest().body(new ApiResponse<>("只有PENDING或PARTIALLY_FILLED狀態的訂單可以更新", "40003"));
+            }
+
+            // 準備更新訂單資料
+            BigDecimal newQuantity = orderRequest.getQuantity();
+            BigDecimal newPrice = orderRequest.getPrice();
+
+            // 更新訂單
+            Order updatedOrder = orderService.updateOrder(order, newQuantity, newPrice);
+
+            return ResponseEntity.ok(new ApiResponse<>("訂單修改成功", updatedOrder));
+
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(new ApiResponse<>(e.getMessage(), "40002"));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(new ApiResponse<>("訂單更新失敗，請稍後再試", "50002"));
+        }
+    }
 
 
 //    // 取消訂單

@@ -5,10 +5,13 @@ import com.exchange.producer.OrderProducer;
 import com.exchange.repository.OrderRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.data.redis.core.RedisTemplate;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 public class OrderService {
@@ -18,9 +21,12 @@ public class OrderService {
 
     @Autowired
     private OrderRepository orderRepository;
-//
-//    @Autowired
-//    private OrderMatchingService orderMatchingService;  // 用於保存新訂單到 Redis 並進行匹配
+
+    @Autowired
+    private RedisTemplate<String, String> redisTemplate;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     // 保存新訂單，並將其發送到 Kafka
     public void saveOrder(Order order) {
@@ -30,26 +36,96 @@ public class OrderService {
         orderProducer.sendNewOrder(order);
     }
 
+    public Optional<Order> getOrderById(String orderId) {
+        // 先在 Redis 中查找
+        Order order = findOrderInRedis(orderId);
+        if (order != null) {
+            return Optional.of(order);
+        }
+
+        // 如果 Redis 中沒有，則在 MySQL 中查找
+        return orderRepository.findById(orderId);
+    }
+
+    private Order findOrderInRedis(String orderId) {
+        String[] sides = {"BUY", "SELL"};
+        String[] symbols = {"BTCUSDT"}; // 您可能需要擴展此列表以包含所有支持的交易對
+
+        for (String symbol : symbols) {
+            for (String side : sides) {
+                String key = symbol + ":" + side;
+                Set<String> orders = redisTemplate.opsForZSet().range(key, 0, -1);
+                if (orders != null) {
+                    for (String orderJson : orders) {
+                        try {
+                            Order order = objectMapper.readValue(orderJson, Order.class);
+                            if (order.getId().equals(orderId)) {
+                                return order;
+                            }
+                        } catch (Exception e) {
+                            // 處理 JSON 解析錯誤
+                            e.printStackTrace();
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
     // 更新訂單，並將其發送到 Kafka
-    public void updateOrder(Order order, BigDecimal newQuantity) {
+    public Order updateOrder(Order order, BigDecimal newQuantity, BigDecimal newPrice) {
         validateOrder(order);  // 確保訂單類型和價格有效
 
-        // 取得已成交數量和總數量
+        // 取得已成交數量
         BigDecimal filledQuantity = order.getFilledQuantity();
 
-        if (order.getStatus() == Order.OrderStatus.PENDING) {
-            // PENDING 狀態可以直接更新
-        } else if (order.getStatus() == Order.OrderStatus.PARTIALLY_FILLED) {
+        if (order.getStatus() == Order.OrderStatus.PENDING || order.getStatus() == Order.OrderStatus.PARTIALLY_FILLED) {
             // 檢查新數量是否大於成交數量
             if (newQuantity.compareTo(filledQuantity) < 0) {
                 throw new IllegalArgumentException("更新的數量不能小於成交的數量");
             }
-        } else {
-            throw new IllegalArgumentException("只有PENDING狀態的訂單可以更新");
-        }
 
-        // 如果檢查通過，發送更新訂單到 Kafka
-        orderProducer.sendUpdateOrder(order);
+            // 從 Redis 中刪除舊訂單
+            removeOrderFromRedis(order);
+
+            // 更新訂單資料
+            order.setQuantity(newQuantity);
+            order.setPrice(newPrice);
+            order.setUnfilledQuantity(newQuantity.subtract(filledQuantity));
+            order.setUpdatedAt(Instant.now());
+            order.setModifiedAt(Instant.now());
+
+            // 將更新後的訂單添加到 Redis
+            addOrderToRedis(order);
+
+            // 發送更新訂單到 Kafka
+            orderProducer.sendUpdateOrder(order);
+
+            return order;
+        } else {
+            throw new IllegalArgumentException("只有PENDING或PARTIALLY_FILLED狀態的訂單可以更新");
+        }
+    }
+
+    private void removeOrderFromRedis(Order order) {
+        String key = order.getSymbol() + ":" + order.getSide();
+        try {
+            String orderJson = objectMapper.writeValueAsString(order);
+            redisTemplate.opsForZSet().remove(key, orderJson);
+        } catch (Exception e) {
+            throw new RuntimeException("訂單序列化失敗", e);
+        }
+    }
+
+    private void addOrderToRedis(Order order) {
+        String key = order.getSymbol() + ":" + order.getSide();
+        try {
+            String orderJson = objectMapper.writeValueAsString(order);
+            redisTemplate.opsForZSet().add(key, orderJson, -order.getCreatedAt().toEpochMilli());
+        } catch (Exception e) {
+            throw new RuntimeException("訂單序列化失敗", e);
+        }
     }
 
     // 取消訂單，並將其發送到 Kafka
