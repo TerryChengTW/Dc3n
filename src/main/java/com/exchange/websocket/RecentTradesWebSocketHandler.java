@@ -38,7 +38,7 @@ public class RecentTradesWebSocketHandler extends TextWebSocketHandler {
         symbolSessions.computeIfAbsent(symbol, k -> ConcurrentHashMap.newKeySet()).add(session);
 
         // 發送最近的五筆成交記錄
-        List<Trade> recentTrades = tradeService.getRecentTrades(symbol, 3);
+        List<Trade> recentTrades = tradeService.getRecentTrades(symbol, 5);
         sendRecentTrades(session, recentTrades);
     }
 

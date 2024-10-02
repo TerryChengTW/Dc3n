@@ -74,10 +74,10 @@ public class OrderbookSnapshotService {
         Map<BigDecimal, BigDecimal> buySnapshot = aggregateOrderSnapshot(buyOrders, priceInterval, true);
         Map<BigDecimal, BigDecimal> sellSnapshot = aggregateOrderSnapshot(sellOrders, priceInterval, false);
 
-        // 組裝最終快照
+        // 組裝最終快照，取前50檔
         Map<String, Object> snapshot = new HashMap<>();
-        snapshot.put("buy", getTopNOrders(buySnapshot, 5, true));
-        snapshot.put("sell", getTopNOrders(sellSnapshot, 5, false));
+        snapshot.put("buy", getTopNOrders(buySnapshot, 50, true));
+        snapshot.put("sell", getTopNOrders(sellSnapshot, 50, false));
 
         long endTime = System.currentTimeMillis(); // 結束計時
         long duration = endTime - startTime; // 計算執行時間
@@ -119,8 +119,9 @@ public class OrderbookSnapshotService {
     }
 
     private double[] calculateScoreRange(BigDecimal price, BigDecimal priceInterval, boolean isBuy) {
-        double minScore = calculateScore(price.subtract(priceInterval.multiply(BigDecimal.valueOf(4))), priceInterval, isBuy, true);
-        double maxScore = calculateScore(price.add(priceInterval.multiply(BigDecimal.valueOf(4))), priceInterval, isBuy, false);
+        double rangeMultiplier = 50; // 例如，擴大到 25 倍區間，兩邊加總50檔
+        double minScore = calculateScore(price.subtract(priceInterval.multiply(BigDecimal.valueOf(rangeMultiplier))), priceInterval, isBuy, true);
+        double maxScore = calculateScore(price.add(priceInterval.multiply(BigDecimal.valueOf(rangeMultiplier))), priceInterval, isBuy, false);
         return new double[]{minScore, maxScore};
     }
 
@@ -156,7 +157,7 @@ public class OrderbookSnapshotService {
                     BigDecimal intervalPrice = calculateIntervalPrice(orderPrice, priceInterval, isBuy);
 
                     // 打印對應價格和價格區間
-                    System.out.println("Order Price: " + orderPrice + ", Interval Price: " + intervalPrice);
+//                    System.out.println("Order Price: " + orderPrice + ", Interval Price: " + intervalPrice);
 
                     // 聚合對應價格區間的訂單數量
                     snapshot.merge(intervalPrice, orderQuantity, BigDecimal::add);

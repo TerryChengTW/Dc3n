@@ -239,16 +239,20 @@ let orderbookSocket;
 let currentSymbol;
 
 function connectOrderbookWebSocket(symbol) {
+    // 獲取選擇的價格間隔
+    const interval = document.getElementById('priceInterval').value;
+
     if (orderbookSocket) {
         orderbookSocket.close();
     }
 
     const token = localStorage.getItem('jwtToken');
     currentSymbol = symbol;
-    orderbookSocket = new WebSocket(`/ws/orderbook?&symbol=${symbol}`);
+    // 將 interval 作為參數添加到 WebSocket URL 中
+    orderbookSocket = new WebSocket(`/ws/orderbook?symbol=${symbol}&interval=${interval}`);
 
     orderbookSocket.onopen = function() {
-        console.log(`訂單簿 WebSocket 連接已建立，交易對：${symbol}`);
+        console.log(`訂單簿 WebSocket 連接已建立，交易對：${symbol}，價格間隔：${interval}`);
     };
 
     orderbookSocket.onmessage = function(event) {
@@ -326,15 +330,18 @@ function addRecentTrade(trade) {
     const tradesList = document.getElementById('recentTradesList');
     const row = document.createElement('tr');
 
+    // 使用 24 小時制格式化時間
+    const tradeTime = new Date(trade.tradeTime).toLocaleTimeString('zh-TW', { hour12: false });
+
     row.innerHTML = `
         <td>${trade.price}</td>
         <td>${trade.quantity}</td>
-        <td>${new Date(trade.tradeTime).toLocaleTimeString()}</td>
+        <td>${tradeTime}</td>
     `;
     tradesList.insertBefore(row, tradesList.firstChild);
 
     // 限制顯示的成交數量，例如只顯示最新的 5 筆
-    if (tradesList.children.length > 3) {
+    if (tradesList.children.length > 5) {
         tradesList.removeChild(tradesList.lastChild);
     }
 }
@@ -365,26 +372,32 @@ function groupOrdersByPriceRange(orders, rangeSize) {
 }
 
 function updateOrderbookDisplay(orderbookUpdate) {
-    const { bids, asks } = orderbookUpdate;
+    const { buy, sell } = orderbookUpdate;
 
-    // 分組並顯示五檔買單 (綠色)
+    // 將 buy 和 sell 轉換為 [price, quantity] 格式，並按價格排序
+    const bids = Object.entries(buy).map(([price, quantity]) => [parseFloat(price), quantity]).sort((a, b) => b[0] - a[0]);
+    const asks = Object.entries(sell).map(([price, quantity]) => [parseFloat(price), quantity]).sort((a, b) => a[0] - b[0]);
+
+    // 顯示五檔買單 (綠色)
     const bidsList = document.getElementById('bidsList');
     bidsList.innerHTML = '';
-    const groupedBids = groupOrdersByPriceRange(bids, 1); // 每1塊分組
-    groupedBids.slice(-5).reverse().forEach(([price, totalQuantity]) => {
-        const row = `<tr class="bid-row"><td>${price}</td><td>${totalQuantity.toFixed(2)}</td></tr>`;
+    const filledBids = bids.length < 5 ? [...bids, ...Array(5 - bids.length).fill(['-', '-'])] : bids; // 填充佔位符
+    filledBids.slice(0, 5).forEach(([price, totalQuantity]) => {
+        const row = `<tr class="bid-row"><td>${price}</td><td>${totalQuantity !== '-' ? totalQuantity.toFixed(2) : '-'}</td></tr>`;
         bidsList.innerHTML += row;
     });
 
-    // 分組並顯示五檔賣單 (紅色)
+    // 顯示五檔賣單 (紅色)
     const asksList = document.getElementById('asksList');
     asksList.innerHTML = '';
-    const groupedAsks = groupOrdersByPriceRange(asks, 1); // 每1塊分組
-    groupedAsks.slice(0, 5).reverse().forEach(([price, totalQuantity]) => { // 不再reverse
-        const row = `<tr class="ask-row"><td>${price}</td><td>${totalQuantity.toFixed(2)}</td></tr>`;
+    // 填充佔位符從前端插入
+    const filledAsks = asks.length < 5 ? [...Array(5 - asks.length).fill(['-', '-']), ...asks] : asks;
+    filledAsks.slice(0, 5).forEach(([price, totalQuantity]) => {
+        const row = `<tr class="ask-row"><td>${price}</td><td>${totalQuantity !== '-' ? totalQuantity.toFixed(2) : '-'}</td></tr>`;
         asksList.innerHTML += row;
     });
 }
+
 
 // 在頁面加載時連接 WebSocket
 window.onload = function() {
@@ -450,3 +463,8 @@ document.querySelector(".close").addEventListener("click", function() {
 
 // 當交易對變更時重新連接訂單簿 WebSocket
 document.getElementById('symbol').addEventListener('change', updateSymbol);
+
+// 設置當價格間隔選擇變更時，重新建立 WebSocket 連接
+document.getElementById('priceInterval').addEventListener('change', function() {
+    connectOrderbookWebSocket(currentSymbol);
+});
