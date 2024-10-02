@@ -1,96 +1,91 @@
 package com.exchange.service;
 
+import com.exchange.model.Order;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.redis.connection.RedisHashCommands;
-import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Service;
 
-import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.math.BigDecimal;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 @Service
 public class OrderbookService {
 
+    private final RedisTemplate<String, String> redisTemplate;
+    private final ObjectMapper objectMapper;
+
     @Autowired
-    private RedisTemplate<String, String> redisTemplate;
+    public OrderbookService(RedisTemplate<String, String> redisTemplate, ObjectMapper objectMapper) {
+        this.redisTemplate = redisTemplate;
+        this.objectMapper = objectMapper;
+    }
 
-    // 獲取訂單簿快照，返回bids、asks以及時間戳
     public Map<String, Object> getOrderbookSnapshot(String symbol) {
-        String buyOrderbookKey = "orderbook:" + symbol + ":BUY";
-        String sellOrderbookKey = "orderbook:" + symbol + ":SELL";
-
         Map<String, Object> snapshot = new HashMap<>();
-        snapshot.put("symbol", symbol);
-        snapshot.put("bids", getOrderbookEntries(buyOrderbookKey, true));
-        snapshot.put("asks", getOrderbookEntries(sellOrderbookKey, false));
-        snapshot.put("timestamp", System.currentTimeMillis());
-        System.out.println(snapshot);
+        // Assuming you get the latest trade price from another source or service
+        BigDecimal latestTradePrice = getLatestTradePrice(symbol);
+
+        // Define the price interval
+        BigDecimal priceInterval = BigDecimal.TEN;
+
+        // Get buy and sell orders
+        Map<BigDecimal, BigDecimal> buySnapshot = getOrderSnapshot(symbol, "BUY", latestTradePrice, priceInterval, true);
+        Map<BigDecimal, BigDecimal> sellSnapshot = getOrderSnapshot(symbol, "SELL", latestTradePrice, priceInterval, false);
+
+        snapshot.put("buy", buySnapshot);
+        snapshot.put("sell", sellSnapshot);
+
         return snapshot;
     }
 
-    // 根據訂單類型獲取訂單數據（買單或賣單）
-    private List<List<String>> getOrderbookEntries(String orderbookKey, boolean isBuyOrder) {
-        Set<ZSetOperations.TypedTuple<String>> entries;
-        if (isBuyOrder) {
-            // 買單按價格降序排列
-            entries = redisTemplate.opsForZSet().reverseRangeWithScores(orderbookKey, 0, 499);
-        } else {
-            // 賣單按價格升序排列
-            entries = redisTemplate.opsForZSet().rangeWithScores(orderbookKey, 0, 499);
-        }
+    private Map<BigDecimal, BigDecimal> getOrderSnapshot(String symbol, String side, BigDecimal latestTradePrice, BigDecimal priceInterval, boolean isBuy) {
+        Map<BigDecimal, BigDecimal> snapshot = new HashMap<>();
 
-        List<List<String>> result = new ArrayList<>();
-        if (entries != null) {
-            List<String> orderIds = new ArrayList<>();
-            for (ZSetOperations.TypedTuple<String> entry : entries) {
-                orderIds.add(entry.getValue());
-            }
-            System.out.println("OrderIds: " + orderIds);
+        // Redis key for buy/sell orders
+        String redisKey = symbol + ":" + side;
 
-            // 批量獲取剩餘訂單數量
-            Map<String, String> remainingQuantities = getRemainingOrderQuantities(orderIds);
+        // Define the range for top 5 price intervals
+        BigDecimal startPrice = isBuy ? latestTradePrice.subtract(priceInterval.multiply(BigDecimal.valueOf(5))) : latestTradePrice;
+        BigDecimal endPrice = isBuy ? latestTradePrice : latestTradePrice.add(priceInterval.multiply(BigDecimal.valueOf(5)));
 
-            for (ZSetOperations.TypedTuple<String> entry : entries) {
-                String orderId = entry.getValue();
-                Double price = entry.getScore();
-                String remainingQuantity = remainingQuantities.get(orderId);
-                if (remainingQuantity != null) {
-                    result.add(Arrays.asList(price.toString(), remainingQuantity));
+        // Get orders within the price range from Redis
+        Set<String> orders = redisTemplate.opsForZSet().rangeByScore(redisKey, startPrice.doubleValue(), endPrice.doubleValue());
+
+        if (orders != null) {
+            for (String orderJson : orders) {
+                try {
+                    // Parse each order JSON and calculate the quantity sum per price interval
+                    Order order = objectMapper.readValue(orderJson, Order.class);
+                    BigDecimal orderPrice = order.getPrice();
+                    BigDecimal orderQuantity = order.getUnfilledQuantity();
+
+                    // Calculate the price interval key
+                    BigDecimal intervalPrice = calculateIntervalPrice(orderPrice, priceInterval, isBuy);
+
+                    // Aggregate the quantity in the corresponding price interval
+                    snapshot.merge(intervalPrice, orderQuantity, BigDecimal::add);
+                } catch (Exception e) {
+                    e.printStackTrace(); // Handle parse exceptions appropriately
                 }
             }
         }
 
-        return result;
+        return snapshot;
     }
 
-    // 使用 Redis Pipeline 批量查詢剩餘的訂單數量
-    private Map<String, String> getRemainingOrderQuantities(List<String> orderIds) {
-        Map<String, String> remainingQuantities = new HashMap<>();
+    private BigDecimal calculateIntervalPrice(BigDecimal orderPrice, BigDecimal priceInterval, boolean isBuy) {
+        // Calculate the interval based on price and interval size
+        BigDecimal intervalPrice = orderPrice.divide(priceInterval).setScale(0, isBuy ? BigDecimal.ROUND_FLOOR : BigDecimal.ROUND_CEILING);
+        return intervalPrice.multiply(priceInterval);
+    }
 
-        // 使用 RedisTemplate 批量查詢
-        List<Object> results = redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
-            RedisHashCommands hashCommands = connection.hashCommands(); // 使用 RedisHashCommands
-            for (String orderId : orderIds) {
-                String orderKey = "order:" + orderId;
-                hashCommands.hGet(orderKey.getBytes(StandardCharsets.UTF_8), "quantity".getBytes(StandardCharsets.UTF_8));
-                hashCommands.hGet(orderKey.getBytes(StandardCharsets.UTF_8), "filledQuantity".getBytes(StandardCharsets.UTF_8));
-            }
-            return null; // RedisCallback 要返回 null，讓 executePipelined 知道已完成批量操作
-        });
-
-        // results 列表將包含所有的 quantity 和 filledQuantity
-        for (int i = 0; i < orderIds.size(); i++) {
-            String quantity = (String) results.get(i * 2); // 每兩個結果一組，偶數位置是 quantity
-            String filledQuantity = (String) results.get(i * 2 + 1); // 奇數位置是 filledQuantity
-
-            if (quantity != null && filledQuantity != null) {
-                double remaining = Double.parseDouble(quantity) - Double.parseDouble(filledQuantity);
-                remainingQuantities.put(orderIds.get(i), String.valueOf(remaining));
-            }
-        }
-
-        return remainingQuantities;
+    private BigDecimal getLatestTradePrice(String symbol) {
+        // Mock implementation to return the latest trade price
+        // You should replace this with actual logic to get the latest trade price
+        return new BigDecimal("500");
     }
 }

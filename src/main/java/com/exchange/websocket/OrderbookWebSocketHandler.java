@@ -66,31 +66,10 @@ public class OrderbookWebSocketHandler extends TextWebSocketHandler {
         }
     }
 
-    public void broadcastOrderbookUpdate(String symbol, Object update) {
-        String updateJson;
-        try {
-            updateJson = objectMapper.writeValueAsString(update);
-        } catch (Exception e) {
-            e.printStackTrace();
-            return;
-        }
-
-        Set<WebSocketSession> sessions = symbolSessions.get(symbol);
-        if (sessions != null) {
-            sessions.forEach(session -> {
-                try {
-                    if (session.isOpen()) {
-                        session.sendMessage(new TextMessage(updateJson));
-                    }
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            });
-        }
-    }
 
     private void sendOrderbookSnapshot(WebSocketSession session, String symbol) throws IOException {
         Map<String, Object> snapshot = orderbookService.getOrderbookSnapshot(symbol);
+        System.out.println("Sending orderbook snapshot: " + snapshot);
         String snapshotJson = objectMapper.writeValueAsString(snapshot);
         session.sendMessage(new TextMessage(snapshotJson));
     }
