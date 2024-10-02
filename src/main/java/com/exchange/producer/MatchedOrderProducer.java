@@ -1,6 +1,7 @@
 package com.exchange.producer;
 
 import com.exchange.dto.MatchedMessage;
+import com.exchange.dto.TradeOrdersMessage;
 import com.exchange.model.Order;
 import com.exchange.model.Trade;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -18,20 +19,21 @@ public class MatchedOrderProducer {
     private KafkaTemplate<String, String> kafkaTemplate;
 
     @Autowired
-    private ObjectMapper objectMapper; // 用來轉換成JSON
+    private ObjectMapper objectMapper; // 用來轉換成 JSON
 
-    public void sendMatchedOrder(Order order) {
-        sendToKafka("ORDER", order);
+    // 發送匹配交易
+    public void sendMatchedTrade(TradeOrdersMessage tradeOrdersMessage) {
+        sendToKafka("TRADE_ORDER", tradeOrdersMessage);
     }
 
-    public void sendMatchedTrade(Trade trade) {
-        sendToKafka("TRADE", trade);
-    }
-
+    // 發送消息到 Kafka
     private void sendToKafka(String type, Object data) {
         try {
+            // 封裝 MatchedMessage
             MatchedMessage message = new MatchedMessage(type, objectMapper.writeValueAsString(data));
+            // 序列化 MatchedMessage 成 JSON
             String messageJson = objectMapper.writeValueAsString(message);
+            // 發送到 Kafka
             kafkaTemplate.send(TOPIC, messageJson);
         } catch (JsonProcessingException e) {
             e.printStackTrace();

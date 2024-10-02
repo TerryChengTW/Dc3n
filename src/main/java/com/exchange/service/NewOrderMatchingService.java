@@ -1,121 +1,118 @@
 package com.exchange.service;
 
 import com.exchange.model.Order;
-import com.exchange.model.OrderSummary;
+import com.exchange.model.Trade;
+import com.exchange.utils.SnowflakeIdGenerator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CompletableFuture;
-
 import java.time.Instant;
-import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 
 @Service
 public class NewOrderMatchingService {
 
     private final NewOrderbookService orderbookService;
-    private final ConcurrentHashMap<String, Boolean> unmatchedOrders = new ConcurrentHashMap<>();
-
-    private long matchCount = 0;
-    private Duration totalRedisFetchTime = Duration.ZERO;
-    private Duration totalMatchExecutionTime = Duration.ZERO;
-    private Duration totalRedisUpdateTime = Duration.ZERO;
-    private Duration totalConditionCheckTime = Duration.ZERO;
-    private Duration totalLoopTime = Duration.ZERO;
+    private final SnowflakeIdGenerator snowflakeIdGenerator;
 
     @Autowired
-    public NewOrderMatchingService(NewOrderbookService orderbookService) {
+    public NewOrderMatchingService(NewOrderbookService orderbookService, SnowflakeIdGenerator snowflakeIdGenerator) {
         this.orderbookService = orderbookService;
+        this.snowflakeIdGenerator = snowflakeIdGenerator;
     }
 
     public void handleNewOrder(Order order) {
-        orderbookService.saveOrderToRedis(order);
-        // 確保只有當 unmatchedOrders 中該 symbol 不為 true 時，才啟動新的撮合
-        synchronized (unmatchedOrders) {
-            if (!Boolean.TRUE.equals(unmatchedOrders.get(order.getSymbol()))) {
-                unmatchedOrders.put(order.getSymbol(), true);
-                CompletableFuture.runAsync(() -> startContinuousMatching(order.getSymbol()));
-            }
+        // 在嘗試將新訂單存入 Redis 之前，先進行撮合
+        matchOrders(order);
+
+        // 未完全匹配的訂單才存入 Redis
+        if (order.getUnfilledQuantity().compareTo(BigDecimal.ZERO) > 0) {
+            orderbookService.saveOrderToRedis(order);
         }
     }
 
-    public void startContinuousMatching(String symbol) {
-        synchronized (symbol.intern()) {
-            while (Boolean.TRUE.equals(unmatchedOrders.get(symbol))) {
-                Instant loopStart = Instant.now();
+    // 撮合邏輯
+    public void matchOrders(Order newOrder) {
+        // 保存所有匹配到的 `Trade`
+        List<Trade> matchedTrades = new ArrayList<>();
 
-                // 獲取訂單資料並計算時間
-                Instant redisStart = Instant.now();
-                Map<String, OrderSummary> topOrders = orderbookService.getTopBuyAndSellOrders(symbol);
-                totalRedisFetchTime = totalRedisFetchTime.plus(Duration.between(redisStart, Instant.now()));
+        while (newOrder.getUnfilledQuantity().compareTo(BigDecimal.ZERO) > 0) {
+            Order p1 = orderbookService.getBestOpponentOrder(newOrder);
 
-                OrderSummary highestBuyOrder = topOrders.get("highestBuyOrder");
-                OrderSummary lowestSellOrder = topOrders.get("lowestSellOrder");
-
-                // 判斷是否有可撮合的訂單並計算時間
-                Instant conditionStart = Instant.now();
-                boolean canMatch = (highestBuyOrder != null && lowestSellOrder != null &&
-                        highestBuyOrder.getPrice().compareTo(lowestSellOrder.getPrice()) >= 0);
-                totalConditionCheckTime = totalConditionCheckTime.plus(Duration.between(conditionStart, Instant.now()));
-
-                // 如果沒有可撮合訂單，停止撮合並標記該 symbol 為未匹配狀態
-                if (!canMatch) {
-                    unmatchedOrders.put(symbol, false);
-                    break;
-                }
-
-                // 如果有可撮合訂單，執行撮合並計算撮合時間
-                matchOrders(highestBuyOrder, lowestSellOrder);
-                matchCount++;
-
-                // 計算整個循環的時間
-                totalLoopTime = totalLoopTime.plus(Duration.between(loopStart, Instant.now()));
-
-                // 每1000次撮合後，打印統計數據並重置
-                if (matchCount % 1000 == 0) {
-                    printAggregateStatistics();
-                    resetStatistics();
-                }
+            if (p1 == null) {
+                System.out.println("No opponent order available for matching.");
+                break;
             }
+
+            // 保存原始對手訂單的 JSON 值
+            String originalP1Json = orderbookService.convertOrderToJson(p1);
+
+            boolean isPriceMatch = (newOrder.getSide() == Order.Side.BUY && newOrder.getPrice().compareTo(p1.getPrice()) >= 0) ||
+                    (newOrder.getSide() == Order.Side.SELL && newOrder.getPrice().compareTo(p1.getPrice()) <= 0);
+
+            if (isPriceMatch) {
+                BigDecimal matchedQuantity = newOrder.getUnfilledQuantity().min(p1.getUnfilledQuantity());
+
+                // 更新訂單數量和狀態
+                newOrder.setFilledQuantity(newOrder.getFilledQuantity().add(matchedQuantity));
+                newOrder.setUnfilledQuantity(newOrder.getUnfilledQuantity().subtract(matchedQuantity));
+
+                p1.setFilledQuantity(p1.getFilledQuantity().add(matchedQuantity));
+                p1.setUnfilledQuantity(p1.getUnfilledQuantity().subtract(matchedQuantity));
+
+                // 更新狀態
+                updateOrdersStatus(List.of(newOrder, p1));
+
+                // 建立 `Trade`
+                Trade trade = new Trade();
+                trade.setId(String.valueOf(snowflakeIdGenerator.nextId()));
+                trade.setBuyOrder(newOrder.getSide() == Order.Side.BUY ? newOrder : p1);
+                trade.setSellOrder(newOrder.getSide() == Order.Side.SELL ? newOrder : p1);
+                trade.setSymbol(newOrder.getSymbol());
+                trade.setPrice(p1.getPrice());  // 確保交易價格為對手方訂單的價格
+                trade.setQuantity(matchedQuantity);
+                trade.setTradeTime(Instant.now());
+
+                // 將 `Trade` 加入列表中
+                matchedTrades.add(trade);
+
+                System.out.println("Matched Trade: " + trade);
+
+                // 更新 `p1` 在 Redis 中的狀態
+                if (p1.getUnfilledQuantity().compareTo(BigDecimal.ZERO) == 0) {
+                    orderbookService.removeOrderFromRedis(p1, originalP1Json);
+                } else {
+                    orderbookService.updateOrderInRedis(p1, originalP1Json);
+                }
+            } else {
+                System.out.println("No price match for order: " + newOrder);
+                break;
+            }
+        }
+
+        // 保存所有的交易和訂單到 MySQL
+        if (!matchedTrades.isEmpty()) {
+            // 使用自定義 repository 同時保存所有 `Order` 和 `Trade`
+            orderbookService.saveAllOrdersAndTrades(matchedTrades);
         }
     }
 
-    private void matchOrders(OrderSummary buyOrder, OrderSummary sellOrder) {
-        Instant matchStart = Instant.now();
+    // 更新訂單狀態和時間
+    private void updateOrdersStatus(List<Order> orders) {
+        for (Order order : orders) {
+            // 如果未成交數量為零，訂單狀態更新為 `COMPLETED`
+            if (order.getUnfilledQuantity().compareTo(BigDecimal.ZERO) == 0) {
+                order.setStatus(Order.OrderStatus.COMPLETED);
+            } else {
+                order.setStatus(Order.OrderStatus.PARTIALLY_FILLED);
+            }
 
-        // 計算撮合的數量
-        BigDecimal matchQuantity = buyOrder.getUnfilledQuantity().min(sellOrder.getUnfilledQuantity());
-        buyOrder.setUnfilledQuantity(buyOrder.getUnfilledQuantity().subtract(matchQuantity));
-        sellOrder.setUnfilledQuantity(sellOrder.getUnfilledQuantity().subtract(matchQuantity));
-
-        totalMatchExecutionTime = totalMatchExecutionTime.plus(Duration.between(matchStart, Instant.now()));
-
-        // 合併更新買賣雙方訂單狀態
-        Instant updateStart = Instant.now();
-        orderbookService.updateOrdersStatusInRedis(buyOrder, sellOrder, matchQuantity); // 傳遞 matchQuantity
-        totalRedisUpdateTime = totalRedisUpdateTime.plus(Duration.between(updateStart, Instant.now()));
+            // 更新 `updatedAt` 字段為當前時間
+            order.setUpdatedAt(Instant.now());
+        }
     }
 
-    private void printAggregateStatistics() {
-        System.out.println("\nAggregate statistics for 1000 matches:");
-        System.out.println("Total Redis fetch time: " + totalRedisFetchTime.toMillis() + " ms");
-        System.out.println("Total match execution time: " + totalMatchExecutionTime.toMillis() + " ms");
-        System.out.println("Total Redis update time: " + totalRedisUpdateTime.toMillis() + " ms");
-        System.out.println("Total condition check time: " + totalConditionCheckTime.toMillis() + " ms");
-        System.out.println("Total loop time: " + totalLoopTime.toMillis() + " ms");
-        Duration accountedTime = totalRedisFetchTime.plus(totalMatchExecutionTime).plus(totalRedisUpdateTime).plus(totalConditionCheckTime);
-        System.out.println("Total time accounted for: " + accountedTime.toMillis() + " ms");
-        System.out.println("Unaccounted time: " + totalLoopTime.minus(accountedTime).toMillis() + " ms");
-    }
 
-    private void resetStatistics() {
-        totalRedisFetchTime = Duration.ZERO;
-        totalMatchExecutionTime = Duration.ZERO;
-        totalRedisUpdateTime = Duration.ZERO;
-        totalConditionCheckTime = Duration.ZERO;
-        totalLoopTime = Duration.ZERO;
-    }
 }

@@ -1,6 +1,5 @@
 package com.exchange.consumer;
 
-import com.exchange.dto.MatchedMessage;
 import com.exchange.model.Trade;
 import com.exchange.websocket.RecentTradesWebSocketHandler;
 import com.fasterxml.jackson.databind.ObjectMapper;

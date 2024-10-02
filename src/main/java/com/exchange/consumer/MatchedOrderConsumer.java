@@ -1,5 +1,6 @@
 package com.exchange.consumer;
 
+import com.exchange.dto.MatchedMessage;
 import com.exchange.dto.TradeOrdersMessage;
 import com.exchange.model.Order;
 import com.exchange.model.Trade;
@@ -20,25 +21,30 @@ public class MatchedOrderConsumer {
     @Autowired
     private ObjectMapper objectMapper;
 
-    @Transactional // 一個事務內處理
+    @Transactional
     @KafkaListener(topics = "matched_orders", groupId = "order_group")
     public void consumeTradeOrdersMessage(String messageJson) {
         try {
-            // 反序列化新的 TradeOrdersMessage
-            TradeOrdersMessage message = objectMapper.readValue(messageJson, TradeOrdersMessage.class);
+            // 反序列化 MatchedMessage
+            MatchedMessage matchedMessage = objectMapper.readValue(messageJson, MatchedMessage.class);
 
-            // 提取買單、賣單和交易
-            Order buyOrder = message.getBuyOrder();
-            Order sellOrder = message.getSellOrder();
-            Trade trade = message.getTrade();
+            // 檢查消息類型
+            if ("TRADE_ORDER".equals(matchedMessage.getType())) {
+                // 反序列化 TradeOrdersMessage
+                TradeOrdersMessage tradeOrdersMessage = objectMapper.readValue(matchedMessage.getData(), TradeOrdersMessage.class);
 
-            try {
-                // 使用自定義方法一次性保存所有對象
-                tradeRepository.saveAllOrdersAndTrade(buyOrder, sellOrder, trade);
-            } catch (ObjectOptimisticLockingFailureException e) {
-                // 處理樂觀鎖異常：可能進行重試或放棄操作
-                System.err.println("Optimistic lock failure: " + e.getMessage());
-                // 可根據需求進行重試或其他操作
+                // 提取買單、賣單和交易
+                Order buyOrder = tradeOrdersMessage.getBuyOrder();
+                Order sellOrder = tradeOrdersMessage.getSellOrder();
+                Trade trade = tradeOrdersMessage.getTrade();
+
+                try {
+                    // 使用自定義方法一次性保存所有對象
+                    tradeRepository.saveAllOrdersAndTrade(buyOrder, sellOrder, trade);
+                } catch (ObjectOptimisticLockingFailureException e) {
+                    // 處理樂觀鎖異常
+                    System.err.println("Optimistic lock failure: " + e.getMessage());
+                }
             }
         } catch (Exception e) {
             e.printStackTrace();

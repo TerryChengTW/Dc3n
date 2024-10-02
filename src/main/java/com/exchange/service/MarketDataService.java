@@ -26,13 +26,12 @@ public class MarketDataService {
     public void aggregateAndSaveMarketData() {
         Instant now = Instant.now().truncatedTo(ChronoUnit.MINUTES);
         Instant startTime = now.minus(1, ChronoUnit.MINUTES);
-        Instant endTime = now;
 
-        List<String> symbols = List.of("BTCUSDT", "ETHUSDT", "BNBUSDT"); // 根據需要擴展
+        List<String> symbols = List.of("BTCUSDT", "ETHUSDT"); // 根據需要擴展
 
         for (String symbol : symbols) {
             // 1. 聚合1分鐘數據
-            MarketData oneMinuteData = aggregateOneMinuteData(symbol, startTime, endTime);
+            MarketData oneMinuteData = aggregateOneMinuteData(symbol, startTime, now);
             if (oneMinuteData != null) {
                 marketDataRepository.save(oneMinuteData);
             }

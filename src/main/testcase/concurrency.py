@@ -41,18 +41,19 @@ async def submit_order(session, side, price, quantity):
 async def sequential_order_placement():
     connector = aiohttp.TCPConnector(limit=1000, limit_per_host=1000)
     async with aiohttp.ClientSession(connector=connector) as session:
-        # 先下 10 次價格 50000 元 1 BTC 的買單
-        for _ in range(10):
-            await submit_order(session, 'BUY', BUY_PRICE, BUY_ORDER_QUANTITY)
-
         # 併發地下 1000 個 0.01 BTC 的賣單
         sell_tasks = []
-        for _ in range(1000):
-            task = submit_order(session, 'SELL', SELL_PRICE, SELL_ORDER_QUANTITY)
-            sell_tasks.append(task)
+        for _ in range(10000):
+            await submit_order(session, 'SELL', SELL_PRICE, SELL_ORDER_QUANTITY)
         
         # 等待所有賣單完成
         await asyncio.gather(*sell_tasks)
+        
+        # 先下 10 次價格 50000 元 1 BTC 的買單
+        for _ in range(100):
+            await submit_order(session, 'BUY', BUY_PRICE, BUY_ORDER_QUANTITY)
+
+
 
 if __name__ == '__main__':
     start_time = time.time()
