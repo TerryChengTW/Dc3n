@@ -70,7 +70,7 @@ public class OrderbookWebSocketHandler extends TextWebSocketHandler {
                 e.printStackTrace();
             }
         }
-        return BigDecimal.valueOf(1000); // Default value
+        return BigDecimal.valueOf(100); // Default value
     }
 
     @Override
