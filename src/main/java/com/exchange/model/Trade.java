@@ -39,4 +39,7 @@ public class Trade {
 
     @Column(nullable = false)
     private Instant tradeTime = Instant.now();
+
+    @Column(length = 4, nullable = false)
+    private String direction; // 新增字段："buy" 或 "sell"
 }

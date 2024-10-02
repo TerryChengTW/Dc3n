@@ -11,6 +11,7 @@ import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -37,10 +38,16 @@ public class RecentTradesWebSocketHandler extends TextWebSocketHandler {
 
         symbolSessions.computeIfAbsent(symbol, k -> ConcurrentHashMap.newKeySet()).add(session);
 
-        // 發送最近的五筆成交記錄
-        List<Trade> recentTrades = tradeService.getRecentTrades(symbol, 5);
+        // 獲取最近的六筆成交記錄
+        List<Trade> recentTrades = tradeService.getRecentTrades(symbol, 6);
+
+        // 反轉資料順序，確保最新的交易在最前面
+        Collections.reverse(recentTrades);
+
+        // 發送最近的六筆成交記錄
         sendRecentTrades(session, recentTrades);
     }
+
 
     private String extractSymbolFromUri(String uri) {
         String[] parts = uri.split("/");

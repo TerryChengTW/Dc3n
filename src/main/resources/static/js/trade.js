@@ -292,7 +292,7 @@ function connectRecentTradesWebSocket(symbol) {
     recentTradesSocket.onmessage = function(event) {
         const tradesList = document.getElementById('recentTradesList');
         const tradesData = JSON.parse(event.data);
-
+        console.log("最新成交：", tradesData);
         if (isFirstMessage) {
             // 確認資料是否為陣列且不為空
             if (Array.isArray(tradesData) && tradesData.length > 0) {
@@ -333,11 +333,19 @@ function addRecentTrade(trade) {
     // 使用 24 小時制格式化時間
     const tradeTime = new Date(trade.tradeTime).toLocaleTimeString('zh-TW', { hour12: false });
 
+    // 根據 `trade.direction` 來設定顏色
+    let priceColor = trade.direction === 'buy' ? '#008000' : '#ff0000'; // `buy` 為綠色，`sell` 為紅色
+
+    // 固定價格和數量的小數位為兩位
+    const formattedPrice = parseFloat(trade.price).toFixed(2);
+    const formattedQuantity = parseFloat(trade.quantity).toFixed(2);
+
     row.innerHTML = `
-        <td>${trade.price}</td>
-        <td>${trade.quantity}</td>
+        <td style="color: ${priceColor};">${formattedPrice}</td>
+        <td>${formattedQuantity}</td>
         <td>${tradeTime}</td>
     `;
+
     tradesList.insertBefore(row, tradesList.firstChild);
 
     // 限制顯示的成交數量，例如只顯示最新的 5 筆
@@ -345,8 +353,6 @@ function addRecentTrade(trade) {
         tradesList.removeChild(tradesList.lastChild);
     }
 }
-
-
 
 function updateSymbol() {
     const symbol = document.getElementById('symbol').value;
