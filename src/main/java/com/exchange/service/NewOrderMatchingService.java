@@ -42,7 +42,7 @@ public class NewOrderMatchingService {
             Order p1 = orderbookService.getBestOpponentOrder(newOrder);
 
             if (p1 == null) {
-                System.out.println("No opponent order available for matching.");
+//                System.out.println("No opponent order available for matching.");
                 break;
             }
 
@@ -78,7 +78,7 @@ public class NewOrderMatchingService {
                 // 將 `Trade` 加入列表中
                 matchedTrades.add(trade);
 
-                System.out.println("Matched Trade: " + trade);
+//                System.out.println("Matched Trade: " + trade);
 
                 // 更新 `p1` 在 Redis 中的狀態
                 if (p1.getUnfilledQuantity().compareTo(BigDecimal.ZERO) == 0) {
@@ -87,7 +87,7 @@ public class NewOrderMatchingService {
                     orderbookService.updateOrderInRedis(p1, originalP1Json);
                 }
             } else {
-                System.out.println("No price match for order: " + newOrder);
+//                System.out.println("No price match for order: " + newOrder);
                 break;
             }
         }

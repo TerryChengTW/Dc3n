@@ -1,6 +1,6 @@
 package com.exchange.websocket;
 
-import com.exchange.service.OrderbookService;
+import com.exchange.service.OrderbookSnapshotService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
@@ -9,6 +9,8 @@ import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -18,9 +20,9 @@ public class OrderbookWebSocketHandler extends TextWebSocketHandler {
 
     private final ConcurrentHashMap<String, Set<WebSocketSession>> symbolSessions = new ConcurrentHashMap<>();
     private final ObjectMapper objectMapper;
-    private final OrderbookService orderbookService;
+    private final OrderbookSnapshotService orderbookService;
 
-    public OrderbookWebSocketHandler(ObjectMapper objectMapper, OrderbookService orderbookService) {
+    public OrderbookWebSocketHandler(ObjectMapper objectMapper, OrderbookSnapshotService orderbookService) {
         this.objectMapper = objectMapper;
         this.orderbookService = orderbookService;
     }
@@ -28,28 +30,47 @@ public class OrderbookWebSocketHandler extends TextWebSocketHandler {
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
         String symbol = extractSymbolFromUrl(session);
+        BigDecimal interval = extractIntervalFromUrl(session);
+
         if (symbol != null) {
             System.out.println("WebSocket connection established for symbol: " + symbol + ", sessionId: " + session.getId());
             session.getAttributes().put("symbol", symbol); // 將 symbol 設置到 session 屬性中
+            session.getAttributes().put("interval", interval); // 將 interval 設置到 session 屬性中
             symbolSessions.computeIfAbsent(symbol, k -> ConcurrentHashMap.newKeySet()).add(session);
-            sendOrderbookSnapshot(session, symbol); // 發送訂單簿快照
+            sendOrderbookSnapshot(session, symbol, interval); // 發送訂單簿快照
         } else {
             session.close(CloseStatus.POLICY_VIOLATION); // 如果沒有 symbol，則關閉連接
         }
     }
 
-    private String extractSymbolFromUrl(WebSocketSession session) {
+    private Map<String, String> extractQueryParams(WebSocketSession session) {
+        Map<String, String> queryParams = new HashMap<>();
         String query = session.getUri().getQuery();
         if (query != null) {
-            String[] params = query.split("&");
-            for (String param : params) {
+            for (String param : query.split("&")) {
                 String[] keyValue = param.split("=");
-                if (keyValue.length == 2 && "symbol".equals(keyValue[0])) {
-                    return keyValue[1]; // 返回 symbol
+                if (keyValue.length == 2) {
+                    queryParams.put(keyValue[0], keyValue[1]);
                 }
             }
         }
-        return null; // 如果找不到 symbol，返回 null
+        return queryParams;
+    }
+
+    private String extractSymbolFromUrl(WebSocketSession session) {
+        return extractQueryParams(session).get("symbol");
+    }
+
+    private BigDecimal extractIntervalFromUrl(WebSocketSession session) {
+        Map<String, String> queryParams = extractQueryParams(session);
+        if (queryParams.containsKey("interval")) {
+            try {
+                return new BigDecimal(queryParams.get("interval"));
+            } catch (NumberFormatException e) {
+                e.printStackTrace();
+            }
+        }
+        return BigDecimal.valueOf(1000); // Default value
     }
 
     @Override
@@ -67,8 +88,8 @@ public class OrderbookWebSocketHandler extends TextWebSocketHandler {
     }
 
 
-    private void sendOrderbookSnapshot(WebSocketSession session, String symbol) throws IOException {
-        Map<String, Object> snapshot = orderbookService.getOrderbookSnapshot(symbol);
+    private void sendOrderbookSnapshot(WebSocketSession session, String symbol, BigDecimal Interval) throws IOException {
+        Map<String, Object> snapshot = orderbookService.getOrderbookSnapshot(symbol, Interval);
         System.out.println("Sending orderbook snapshot: " + snapshot);
         String snapshotJson = objectMapper.writeValueAsString(snapshot);
         session.sendMessage(new TextMessage(snapshotJson));
