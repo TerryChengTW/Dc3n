@@ -21,11 +21,6 @@ public class MatchedOrderProducer {
     @Autowired
     private ObjectMapper objectMapper; // 用來轉換成 JSON
 
-    // 發送匹配訂單
-    public void sendMatchedOrder(Order order) {
-        sendToKafka("ORDER", order);
-    }
-
     // 發送匹配交易
     public void sendMatchedTrade(TradeOrdersMessage tradeOrdersMessage) {
         sendToKafka("TRADE_ORDER", tradeOrdersMessage);

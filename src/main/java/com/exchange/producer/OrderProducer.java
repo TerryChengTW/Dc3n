@@ -21,16 +21,6 @@ public class OrderProducer {
         sendOrderToTopic(order, "new_orders");
     }
 
-    // 發送更新訂單到 Kafka
-    public void sendUpdateOrder(Order order) {
-        sendOrderToTopic(order, "update_orders");
-    }
-
-    // 發送取消訂單到 Kafka
-    public void sendCancelOrder(Order order) {
-        sendOrderToTopic(order, "cancel_orders");
-    }
-
     // 通用方法，發送訂單到不同的 Kafka topic
     private void sendOrderToTopic(Order order, String topic) {
         try {
