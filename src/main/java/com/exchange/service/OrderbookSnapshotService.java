@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.DefaultTypedTuple;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -48,11 +49,26 @@ public class OrderbookSnapshotService {
         double[] buyScoreRange = calculateScoreRange(buyPrice, priceInterval, true);
         double[] sellScoreRange = calculateScoreRange(sellPrice, priceInterval, false);
 
-        // 從 Redis 查詢符合範圍的訂單
-        Set<ZSetOperations.TypedTuple<String>> buyOrders = redisTemplate.opsForZSet()
-                .reverseRangeByScoreWithScores(symbol + ":BUY", buyScoreRange[0], buyScoreRange[1]);
-        Set<ZSetOperations.TypedTuple<String>> sellOrders = redisTemplate.opsForZSet()
-                .rangeByScoreWithScores(symbol + ":SELL", sellScoreRange[0], sellScoreRange[1]);
+        // Lua腳本查詢
+        String luaScript =
+                "local buyOrders = redis.call('ZRANGEBYSCORE', KEYS[1], ARGV[1], ARGV[2], 'WITHSCORES') " +
+                        "local sellOrders = redis.call('ZRANGEBYSCORE', KEYS[2], ARGV[3], ARGV[4], 'WITHSCORES') " +
+                        "return {buyOrders, sellOrders}";
+
+        // 構建參數
+        List<String> keys = Arrays.asList(symbol + ":BUY", symbol + ":SELL");
+        List<String> args = Arrays.asList(
+                String.valueOf(buyScoreRange[0]), String.valueOf(buyScoreRange[1]),
+                String.valueOf(sellScoreRange[0]), String.valueOf(sellScoreRange[1])
+        );
+
+        // 執行Lua腳本
+        DefaultRedisScript<List> redisScript = new DefaultRedisScript<>(luaScript, List.class);
+        List<Object> result = redisTemplate.execute(redisScript, keys, args.toArray());
+
+        // 解析買單和賣單的結果
+        Set<ZSetOperations.TypedTuple<String>> buyOrders = parseRedisResult((List<Object>) result.get(0));
+        Set<ZSetOperations.TypedTuple<String>> sellOrders = parseRedisResult((List<Object>) result.get(1));
 
         // 聚合買單和賣單快照
         Map<BigDecimal, BigDecimal> buySnapshot = aggregateOrderSnapshot(buyOrders, priceInterval, true);
@@ -68,6 +84,20 @@ public class OrderbookSnapshotService {
         System.out.println("執行時間: " + duration + " 毫秒");
 
         return snapshot;
+    }
+
+    // 解析Redis查詢結果
+    private Set<ZSetOperations.TypedTuple<String>> parseRedisResult(List<Object> redisResult) {
+        Set<ZSetOperations.TypedTuple<String>> orders = new HashSet<>();
+        if (redisResult == null || redisResult.isEmpty()) {
+            return orders;
+        }
+        for (int i = 0; i < redisResult.size(); i += 2) {
+            String value = (String) redisResult.get(i);
+            Double score = Double.parseDouble(redisResult.get(i + 1).toString());
+            orders.add(new DefaultTypedTuple<>(value, score));
+        }
+        return orders;
     }
 
     private ZSetOperations.TypedTuple<String> fetchFirstOrder(String symbol, String type, boolean isBuy) {
