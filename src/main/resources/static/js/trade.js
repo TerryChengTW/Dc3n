@@ -364,8 +364,10 @@ function connectOrderbookWebSocket(symbol) {
             // 快照更新
             orderbook.buy = aggregateOrderbook(orderbookUpdate.buy, currentInterval);
             orderbook.sell = aggregateOrderbook(orderbookUpdate.sell, currentInterval);
+            console.log("訂單簿快照：", orderbook);
             updateOrderbookDisplay(orderbook);
         } else {
+            console.log("訂單簿增量：", orderbookUpdate);
             // 增量更新
             updateOrderbookDelta(orderbookUpdate);
         }
@@ -400,25 +402,29 @@ function updateOrderbookDisplay(orderbookUpdate) {
     const { buy, sell } = orderbookUpdate;
 
     // 將 buy 和 sell 轉換為 [price, quantity] 格式，並按價格排序
-    const bids = Object.entries(buy).map(([price, quantity]) => [parseFloat(price), quantity]).sort((a, b) => b[0] - a[0]);
-    const asks = Object.entries(sell).map(([price, quantity]) => [parseFloat(price), quantity]).sort((a, b) => a[0] - b[0]);
+    const bids = Object.entries(buy)
+        .map(([price, quantity]) => [parseFloat(price), quantity])
+        .sort((a, b) => b[0] - a[0]); // 買單從高到低排列
+
+    const asks = Object.entries(sell)
+        .map(([price, quantity]) => [parseFloat(price), quantity])
+        .sort((a, b) => b[0] - a[0]); // 賣單從高到低排列
 
     // 顯示五檔買單 (綠色)
     const bidsList = document.getElementById('bidsList');
     bidsList.innerHTML = '';
-    const filledBids = bids.length < 5 ? [...bids, ...Array(5 - bids.length).fill(['-', '-'])] : bids; // 填充佔位符
+    const filledBids = bids.length < 5 ? [...bids, ...Array(5 - bids.length).fill(['-', '-'])] : bids; // 填充至底部
     filledBids.slice(0, 5).forEach(([price, totalQuantity]) => {
-        const row = `<tr class="bid-row"><td>${price}</td><td>${totalQuantity !== '-' ? totalQuantity.toFixed(2) : '-'}</td></tr>`;
+        const row = `<tr class="bid-row"><td>${price !== '-' ? price : '-'}</td><td>${totalQuantity !== '-' ? totalQuantity.toFixed(2) : '-'}</td></tr>`;
         bidsList.innerHTML += row;
     });
 
     // 顯示五檔賣單 (紅色)
     const asksList = document.getElementById('asksList');
     asksList.innerHTML = '';
-    // 填充佔位符從前端插入
     const filledAsks = asks.length < 5 ? [...Array(5 - asks.length).fill(['-', '-']), ...asks] : asks;
     filledAsks.slice(0, 5).forEach(([price, totalQuantity]) => {
-        const row = `<tr class="ask-row"><td>${price}</td><td>${totalQuantity !== '-' ? totalQuantity.toFixed(2) : '-'}</td></tr>`;
+        const row = `<tr class="ask-row"><td>${price !== '-' ? price : '-'}</td><td>${totalQuantity !== '-' ? totalQuantity.toFixed(2) : '-'}</td></tr>`;
         asksList.innerHTML += row;
     });
 }
@@ -443,16 +449,14 @@ function updateOrderbookDelta(deltaUpdate) {
     updateOrderbookDisplay(orderbook);
 }
 
-function updateSide(orderbookSide, price, quantity) {
-    if (quantity > 0) {
-        // 新增或更新指定價格的訂單數量
-        if (!orderbookSide[price]) {
-            orderbookSide[price] = 0;
-        }
-        orderbookSide[price] += quantity;
-    } else {
-        // 刪除指定價格的訂單
-        delete orderbookSide[price];
+function updateSide(orderbookSide, aggregatedPrice, parsedQuantity) {
+    if (!orderbookSide[aggregatedPrice]) {
+        orderbookSide[aggregatedPrice] = 0;
+    }
+    orderbookSide[aggregatedPrice] += parsedQuantity;
+
+    if (orderbookSide[aggregatedPrice] <= 0) {
+        delete orderbookSide[aggregatedPrice];
     }
 }
 

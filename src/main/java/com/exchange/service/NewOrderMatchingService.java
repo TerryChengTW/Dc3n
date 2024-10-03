@@ -94,17 +94,17 @@ public class NewOrderMatchingService {
                 if (p1.getUnfilledQuantity().compareTo(BigDecimal.ZERO) == 0) {
                     orderbookService.removeOrderFromRedis(p1, originalP1Json);
                 } else {
-//                    System.out.println("更新對手訂單: " + p1);
-//                    System.out.println("原始對手訂單: " + originalP1Json);
                     orderbookService.updateOrderInRedis(p1, originalP1Json);
-                    // 推送對手訂單增量數據
-                    orderBookDeltaProducer.sendDelta(
-                            p1.getSymbol(),
-                            p1.getSide().toString(),
-                            p1.getPrice().toString(),
-                            p1.getUnfilledQuantity().toString()
-                    );
                 }
+
+                // 推送對手訂單增量數據
+                orderBookDeltaProducer.sendDelta(
+                        p1.getSymbol(),
+                        p1.getSide().toString(),
+                        p1.getPrice().toString(),
+                        "-" + matchedQuantity // 本次成交的數量，以負值表示減少
+                );
+
             } else {
                 break;
             }
