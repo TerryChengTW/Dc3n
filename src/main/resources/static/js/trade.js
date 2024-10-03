@@ -435,6 +435,9 @@ function updateOrderbookDelta(deltaUpdate) {
 
 
 function updateSide(orderbookSide, aggregatedPrice, parsedQuantity) {
+    // 定義精度閾值
+    const precisionThreshold = 1e-8;
+
     // 如果該價格不存在，則新增
     if (!orderbookSide[aggregatedPrice]) {
         orderbookSide[aggregatedPrice] = 0;
@@ -442,11 +445,10 @@ function updateSide(orderbookSide, aggregatedPrice, parsedQuantity) {
     // 更新該價格的數量
     orderbookSide[aggregatedPrice] += parsedQuantity;
 
-    const precisionThreshold = 1e-8; // 可根據實際需求調整
-    if (Math.abs(orderbookSide[aggregatedPrice]) <= precisionThreshold) {
+    // 刪除數量為零、小於零，或精度小於閾值的價格
+    if (orderbookSide[aggregatedPrice] <= 0 || Math.abs(orderbookSide[aggregatedPrice]) <= precisionThreshold) {
         delete orderbookSide[aggregatedPrice];
     }
-
 }
 
 function updateOrderbookDisplay(orderbookUpdate) {
@@ -477,7 +479,7 @@ function updateOrderbookDisplay(orderbookUpdate) {
     const asksList = document.getElementById('asksList');
     asksList.innerHTML = '';
     const filledAsks = asks.length < 5 ? [...Array(5 - asks.length).fill(['-', '-']), ...asks] : asks; // 填充至頂部
-    filledAsks.slice(0, 5).forEach(([price, totalQuantity]) => {
+    filledAsks.slice(-5).forEach(([price, totalQuantity]) => {
         // 如果 interval 是 0.1，保留一位小數；否則保持整數
         const formattedPrice = price !== '-' && currentInterval === 0.1 ? price.toFixed(1) : price;
         const formattedQuantity = totalQuantity !== '-' ? totalQuantity.toFixed(2) : '-';
