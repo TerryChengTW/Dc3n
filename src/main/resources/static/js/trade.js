@@ -234,42 +234,6 @@ function showErrorPopup(message) {
     }
 }
 
-// 連接訂單簿 WebSocket
-let orderbookSocket;
-let currentSymbol;
-
-function connectOrderbookWebSocket(symbol) {
-    // 獲取選擇的價格間隔
-    const interval = document.getElementById('priceInterval').value;
-
-    if (orderbookSocket) {
-        orderbookSocket.close();
-    }
-
-    const token = localStorage.getItem('jwtToken');
-    currentSymbol = symbol;
-    // 將 interval 作為參數添加到 WebSocket URL 中
-    orderbookSocket = new WebSocket(`/ws/orderbook?symbol=${symbol}&interval=${interval}`);
-
-    orderbookSocket.onopen = function() {
-        console.log(`訂單簿 WebSocket 連接已建立，交易對：${symbol}，價格間隔：${interval}`);
-    };
-
-    orderbookSocket.onmessage = function(event) {
-        const orderbookUpdate = JSON.parse(event.data);
-        console.log(orderbookUpdate);
-        updateOrderbookDisplay(orderbookUpdate);
-    };
-
-    orderbookSocket.onclose = function() {
-        console.log(`訂單簿 WebSocket 連接已關閉，交易對：${symbol}`);
-    };
-
-    orderbookSocket.onerror = function(error) {
-        console.log(`訂單簿 WebSocket 錯誤: ${error.message}`);
-    };
-}
-
 let recentTradesSocket;
 
 function connectRecentTradesWebSocket(symbol) {
@@ -363,18 +327,73 @@ function updateSymbol() {
     }
 }
 
-function groupOrdersByPriceRange(orders, rangeSize) {
-    const groupedOrders = {};
 
-    orders.forEach(([price, quantity]) => {
-        const roundedPrice = Math.floor(price / rangeSize) * rangeSize;
-        if (!groupedOrders[roundedPrice]) {
-            groupedOrders[roundedPrice] = 0;
+let orderbook = {
+    buy: {},  // 儲存初始買單
+    sell: {}  // 儲存初始賣單
+};
+
+let currentInterval = 1; // 默認為 1
+
+// 連接訂單簿 WebSocket
+let orderbookSocket;
+let currentSymbol;
+
+function connectOrderbookWebSocket(symbol) {
+    // 獲取選擇的價格間隔
+    currentInterval = parseFloat(document.getElementById('priceInterval').value);
+
+    if (orderbookSocket) {
+        orderbookSocket.close();
+    }
+
+    const token = localStorage.getItem('jwtToken');
+    currentSymbol = symbol;
+    // 將 interval 作為參數添加到 WebSocket URL 中
+    orderbookSocket = new WebSocket(`/ws/orderbook?symbol=${symbol}&interval=${currentInterval}`);
+
+    orderbookSocket.onopen = function() {
+        console.log(`訂單簿 WebSocket 連接已建立，交易對：${symbol}，價格間隔：${currentInterval}`);
+    };
+
+    orderbookSocket.onmessage = function(event) {
+        const orderbookUpdate = JSON.parse(event.data);
+
+        // 根據消息內容區分快照或增量
+        if (orderbookUpdate.buy && orderbookUpdate.sell) {
+            // 快照更新
+            orderbook.buy = aggregateOrderbook(orderbookUpdate.buy, currentInterval);
+            orderbook.sell = aggregateOrderbook(orderbookUpdate.sell, currentInterval);
+            updateOrderbookDisplay(orderbook);
+        } else {
+            // 增量更新
+            updateOrderbookDelta(orderbookUpdate);
         }
-        groupedOrders[roundedPrice] = parseFloat((groupedOrders[roundedPrice] + parseFloat(quantity)).toFixed(2));
-    });
+    };
 
-    return Object.entries(groupedOrders).sort((a, b) => a[0] - b[0]);
+    orderbookSocket.onclose = function() {
+        console.log(`訂單簿 WebSocket 連接已關閉，交易對：${symbol}`);
+    };
+
+    orderbookSocket.onerror = function(error) {
+        console.log(`訂單簿 WebSocket 錯誤: ${error.message}`);
+    };
+}
+
+function aggregateOrderbook(orderbookSide, interval) {
+    const aggregated = {};
+
+    for (const [priceStr, quantity] of Object.entries(orderbookSide)) {
+        const price = parseFloat(priceStr);
+        const aggregatedPrice = Math.floor(price / interval) * interval;
+
+        if (!aggregated[aggregatedPrice]) {
+            aggregated[aggregatedPrice] = 0;
+        }
+        aggregated[aggregatedPrice] += quantity;
+    }
+
+    return aggregated;
 }
 
 function updateOrderbookDisplay(orderbookUpdate) {
@@ -403,6 +422,40 @@ function updateOrderbookDisplay(orderbookUpdate) {
         asksList.innerHTML += row;
     });
 }
+
+function updateOrderbookDelta(deltaUpdate) {
+    const { symbol, side, price, unfilledQuantity } = deltaUpdate;
+
+    // 將價格和未成交數量轉換為浮點數
+    const parsedPrice = parseFloat(price);
+    const parsedQuantity = parseFloat(unfilledQuantity);
+
+    // 聚合價格
+    const aggregatedPrice = Math.floor(parsedPrice / currentInterval) * currentInterval;
+
+    if (side === "BUY") {
+        updateSide(orderbook.buy, aggregatedPrice, parsedQuantity);
+    } else if (side === "SELL") {
+        updateSide(orderbook.sell, aggregatedPrice, parsedQuantity);
+    }
+
+    // 更新前端顯示
+    updateOrderbookDisplay(orderbook);
+}
+
+function updateSide(orderbookSide, price, quantity) {
+    if (quantity > 0) {
+        // 新增或更新指定價格的訂單數量
+        if (!orderbookSide[price]) {
+            orderbookSide[price] = 0;
+        }
+        orderbookSide[price] += quantity;
+    } else {
+        // 刪除指定價格的訂單
+        delete orderbookSide[price];
+    }
+}
+
 
 
 // 在頁面加載時連接 WebSocket
