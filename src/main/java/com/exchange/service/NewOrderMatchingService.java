@@ -3,6 +3,7 @@ package com.exchange.service;
 import com.exchange.model.Order;
 import com.exchange.model.Trade;
 import com.exchange.producer.OrderBookDeltaProducer;
+import com.exchange.producer.UserOrderProducer;
 import com.exchange.utils.SnowflakeIdGenerator;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -23,14 +24,21 @@ public class NewOrderMatchingService {
     private final OrderBookDeltaProducer orderBookDeltaProducer;
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final ObjectMapper objectMapper;
+    private final UserOrderProducer userOrderProducer;
 
     @Autowired
-    public NewOrderMatchingService(NewOrderbookService orderbookService, SnowflakeIdGenerator snowflakeIdGenerator, OrderBookDeltaProducer orderBookDeltaProducer, KafkaTemplate<String, String> kafkaTemplate, ObjectMapper objectMapper) {
+    public NewOrderMatchingService(NewOrderbookService orderbookService,
+                                   SnowflakeIdGenerator snowflakeIdGenerator,
+                                   OrderBookDeltaProducer orderBookDeltaProducer,
+                                   KafkaTemplate<String, String> kafkaTemplate,
+                                   ObjectMapper objectMapper,
+                                   UserOrderProducer userOrderProducer) {
         this.orderbookService = orderbookService;
         this.snowflakeIdGenerator = snowflakeIdGenerator;
         this.orderBookDeltaProducer = orderBookDeltaProducer;
         this.kafkaTemplate = kafkaTemplate;
         this.objectMapper = objectMapper;
+        this.userOrderProducer = userOrderProducer;
     }
 
     public void handleNewOrder(Order order) throws JsonProcessingException {
@@ -113,6 +121,8 @@ public class NewOrderMatchingService {
                         p1.getPrice().toString(),
                         "-" + matchedQuantity // 本次成交的數量，以負值表示減少
                 );
+
+                userOrderProducer.sendOrderUpdate(p1);
 
             } else {
                 break;
