@@ -4,7 +4,10 @@ import com.exchange.model.Order;
 import com.exchange.model.Trade;
 import com.exchange.producer.OrderBookDeltaProducer;
 import com.exchange.utils.SnowflakeIdGenerator;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -18,15 +21,19 @@ public class NewOrderMatchingService {
     private final NewOrderbookService orderbookService;
     private final SnowflakeIdGenerator snowflakeIdGenerator;
     private final OrderBookDeltaProducer orderBookDeltaProducer;
+    private final KafkaTemplate<String, String> kafkaTemplate;
+    private final ObjectMapper objectMapper;
 
     @Autowired
-    public NewOrderMatchingService(NewOrderbookService orderbookService, SnowflakeIdGenerator snowflakeIdGenerator, OrderBookDeltaProducer orderBookDeltaProducer) {
+    public NewOrderMatchingService(NewOrderbookService orderbookService, SnowflakeIdGenerator snowflakeIdGenerator, OrderBookDeltaProducer orderBookDeltaProducer, KafkaTemplate<String, String> kafkaTemplate, ObjectMapper objectMapper) {
         this.orderbookService = orderbookService;
         this.snowflakeIdGenerator = snowflakeIdGenerator;
         this.orderBookDeltaProducer = orderBookDeltaProducer;
+        this.kafkaTemplate = kafkaTemplate;
+        this.objectMapper = objectMapper;
     }
 
-    public void handleNewOrder(Order order) {
+    public void handleNewOrder(Order order) throws JsonProcessingException {
         // 在嘗試將新訂單存入 Redis 之前，先進行撮合
         matchOrders(order);
 
@@ -46,7 +53,7 @@ public class NewOrderMatchingService {
     }
 
     // 撮合邏輯
-    public void matchOrders(Order newOrder) {
+    public void matchOrders(Order newOrder) throws JsonProcessingException {
         // 保存所有匹配到的 `Trade`
         List<Trade> matchedTrades = new ArrayList<>();
 
@@ -89,7 +96,9 @@ public class NewOrderMatchingService {
 
                 // 將 `Trade` 加入列表中
                 matchedTrades.add(trade);
-
+                String tradeJson = objectMapper.writeValueAsString(trade);
+//                System.out.println("保存新交易到 Kafka: " + tradeJson);
+                kafkaTemplate.send("recent-trades", tradeJson);
                 // 更新 `p1` 在 Redis 中的狀態
                 if (p1.getUnfilledQuantity().compareTo(BigDecimal.ZERO) == 0) {
                     orderbookService.removeOrderFromRedis(p1, originalP1Json);
