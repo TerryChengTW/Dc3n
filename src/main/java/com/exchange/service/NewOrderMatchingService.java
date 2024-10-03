@@ -32,7 +32,7 @@ public class NewOrderMatchingService {
 
         // 未完全匹配的訂單才存入 Redis
         if (order.getUnfilledQuantity().compareTo(BigDecimal.ZERO) > 0) {
-            System.out.println("保存新訂單到 Redis: " + order);
+//            System.out.println("保存新訂單到 Redis: " + order);
             orderbookService.saveOrderToRedis(order);
             // 推送增量數據
             orderBookDeltaProducer.sendDelta(
@@ -94,8 +94,8 @@ public class NewOrderMatchingService {
                 if (p1.getUnfilledQuantity().compareTo(BigDecimal.ZERO) == 0) {
                     orderbookService.removeOrderFromRedis(p1, originalP1Json);
                 } else {
-                    System.out.println("更新對手訂單: " + p1);
-                    System.out.println("原始對手訂單: " + originalP1Json);
+//                    System.out.println("更新對手訂單: " + p1);
+//                    System.out.println("原始對手訂單: " + originalP1Json);
                     orderbookService.updateOrderInRedis(p1, originalP1Json);
                     // 推送對手訂單增量數據
                     orderBookDeltaProducer.sendDelta(

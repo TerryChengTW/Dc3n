@@ -22,6 +22,6 @@ public class OrderBookDeltaProducer {
                 symbol, side, price, unfilledQuantity);
 
         kafkaTemplate.send(topic, deltaMessage);
-        System.out.println("Sent delta message to topic " + topic + ": " + deltaMessage);
+//        System.out.println("Sent delta message to topic " + topic + ": " + deltaMessage);
     }
 }
