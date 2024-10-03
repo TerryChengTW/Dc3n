@@ -455,29 +455,33 @@ function updateOrderbookDisplay(orderbookUpdate) {
     // 將 buy 和 sell 轉換為 [price, quantity] 格式，並按價格排序
     const bids = Object.entries(buy)
         .map(([price, quantity]) => [parseFloat(price), quantity])
-        .sort((a, b) => b[0] - a[0]);
+        .sort((a, b) => b[0] - a[0]); // 買單從高到低排列
 
     const asks = Object.entries(sell)
         .map(([price, quantity]) => [parseFloat(price), quantity])
-        .sort((a, b) => b[0] - a[0]);
+        .sort((a, b) => b[0] - a[0]); // 賣單從高到低排列
 
-    // 更新顯示買單 (綠色)
+    // 顯示五檔買單 (綠色)
     const bidsList = document.getElementById('bidsList');
     bidsList.innerHTML = '';
-    bids.slice(0, 5).forEach(([price, totalQuantity]) => {
+    const filledBids = bids.length < 5 ? [...bids, ...Array(5 - bids.length).fill(['-', '-'])] : bids; // 填充至底部
+    filledBids.slice(0, 5).forEach(([price, totalQuantity]) => {
         // 如果 interval 是 0.1，保留一位小數；否則保持整數
-        const formattedPrice = currentInterval === 0.1 ? price.toFixed(1) : price;
-        const row = `<tr class="bid-row"><td>${formattedPrice}</td><td>${totalQuantity.toFixed(2)}</td></tr>`;
+        const formattedPrice = price !== '-' && currentInterval === 0.1 ? price.toFixed(1) : price;
+        const formattedQuantity = totalQuantity !== '-' ? totalQuantity.toFixed(2) : '-';
+        const row = `<tr class="bid-row"><td>${formattedPrice}</td><td>${formattedQuantity}</td></tr>`;
         bidsList.innerHTML += row;
     });
 
-    // 更新顯示賣單 (紅色)
+    // 顯示五檔賣單 (紅色)
     const asksList = document.getElementById('asksList');
     asksList.innerHTML = '';
-    asks.slice(-5).forEach(([price, totalQuantity]) => {
+    const filledAsks = asks.length < 5 ? [...Array(5 - asks.length).fill(['-', '-']), ...asks] : asks; // 填充至頂部
+    filledAsks.slice(0, 5).forEach(([price, totalQuantity]) => {
         // 如果 interval 是 0.1，保留一位小數；否則保持整數
-        const formattedPrice = currentInterval === 0.1 ? price.toFixed(1) : price;
-        const row = `<tr class="ask-row"><td>${formattedPrice}</td><td>${totalQuantity.toFixed(2)}</td></tr>`;
+        const formattedPrice = price !== '-' && currentInterval === 0.1 ? price.toFixed(1) : price;
+        const formattedQuantity = totalQuantity !== '-' ? totalQuantity.toFixed(2) : '-';
+        const row = `<tr class="ask-row"><td>${formattedPrice}</td><td>${formattedQuantity}</td></tr>`;
         asksList.innerHTML += row;
     });
 }
