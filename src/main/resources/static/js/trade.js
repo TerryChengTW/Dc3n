@@ -382,12 +382,16 @@ function connectOrderbookWebSocket(symbol) {
     };
 }
 
-function aggregateOrderbook(orderbookSide, interval) {
+function aggregateOrderbook(orderbookSide, interval, side) {
     const aggregated = {};
 
     for (const [priceStr, quantity] of Object.entries(orderbookSide)) {
         const price = parseFloat(priceStr);
-        const aggregatedPrice = Math.floor(price / interval) * interval;
+
+        // 根據買賣方向決定使用 Math.floor 或 Math.ceil
+        const aggregatedPrice = side === "BUY"
+            ? Math.floor(price / interval) * interval
+            : Math.ceil(price / interval) * interval;
 
         if (!aggregated[aggregatedPrice]) {
             aggregated[aggregatedPrice] = 0;
@@ -398,69 +402,75 @@ function aggregateOrderbook(orderbookSide, interval) {
     return aggregated;
 }
 
-function updateOrderbookDisplay(orderbookUpdate) {
-    const { buy, sell } = orderbookUpdate;
-
-    // 將 buy 和 sell 轉換為 [price, quantity] 格式，並按價格排序
-    const bids = Object.entries(buy)
-        .map(([price, quantity]) => [parseFloat(price), quantity])
-        .sort((a, b) => b[0] - a[0]); // 買單從高到低排列
-
-    const asks = Object.entries(sell)
-        .map(([price, quantity]) => [parseFloat(price), quantity])
-        .sort((a, b) => b[0] - a[0]); // 賣單從高到低排列
-
-    // 顯示五檔買單 (綠色)
-    const bidsList = document.getElementById('bidsList');
-    bidsList.innerHTML = '';
-    const filledBids = bids.length < 5 ? [...bids, ...Array(5 - bids.length).fill(['-', '-'])] : bids; // 填充至底部
-    filledBids.slice(0, 5).forEach(([price, totalQuantity]) => {
-        const row = `<tr class="bid-row"><td>${price !== '-' ? price : '-'}</td><td>${totalQuantity !== '-' ? totalQuantity.toFixed(2) : '-'}</td></tr>`;
-        bidsList.innerHTML += row;
-    });
-
-    // 顯示五檔賣單 (紅色)
-    const asksList = document.getElementById('asksList');
-    asksList.innerHTML = '';
-    const filledAsks = asks.length < 5 ? [...Array(5 - asks.length).fill(['-', '-']), ...asks] : asks;
-    filledAsks.slice(0, 5).forEach(([price, totalQuantity]) => {
-        const row = `<tr class="ask-row"><td>${price !== '-' ? price : '-'}</td><td>${totalQuantity !== '-' ? totalQuantity.toFixed(2) : '-'}</td></tr>`;
-        asksList.innerHTML += row;
-    });
-}
-
 function updateOrderbookDelta(deltaUpdate) {
-    const { symbol, side, price, unfilledQuantity } = deltaUpdate;
+    const { side, price, unfilledQuantity } = deltaUpdate;
 
     // 將價格和未成交數量轉換為浮點數
     const parsedPrice = parseFloat(price);
     const parsedQuantity = parseFloat(unfilledQuantity);
 
     // 聚合價格
-    const aggregatedPrice = Math.floor(parsedPrice / currentInterval) * currentInterval;
+    const aggregatedPrice = side === "BUY"
+        ? Math.floor(parsedPrice / currentInterval) * currentInterval
+        : Math.ceil(parsedPrice / currentInterval) * currentInterval;
 
+    console.log(`原始價格: ${parsedPrice}, 聚合後價格: ${aggregatedPrice}, 未成交數量: ${parsedQuantity}`);
+
+    // 根據買賣方向更新對應的訂單簿
     if (side === "BUY") {
         updateSide(orderbook.buy, aggregatedPrice, parsedQuantity);
     } else if (side === "SELL") {
         updateSide(orderbook.sell, aggregatedPrice, parsedQuantity);
     }
 
-    // 更新前端顯示
+    // 在增量更新時，動態檢查並更新訂單簿顯示範圍
     updateOrderbookDisplay(orderbook);
 }
 
+
 function updateSide(orderbookSide, aggregatedPrice, parsedQuantity) {
+    // 如果該價格不存在，則新增
     if (!orderbookSide[aggregatedPrice]) {
         orderbookSide[aggregatedPrice] = 0;
     }
+    // 更新該價格的數量
     orderbookSide[aggregatedPrice] += parsedQuantity;
 
-    if (orderbookSide[aggregatedPrice] <= 0) {
+    const precisionThreshold = 1e-8; // 可根據實際需求調整
+    if (Math.abs(orderbookSide[aggregatedPrice]) <= precisionThreshold) {
         delete orderbookSide[aggregatedPrice];
     }
+
 }
 
+function updateOrderbookDisplay(orderbookUpdate) {
+    const { buy, sell } = orderbookUpdate;
 
+    // 將 buy 和 sell 轉換為 [price, quantity] 格式，並按價格排序
+    const bids = Object.entries(buy)
+        .map(([price, quantity]) => [parseFloat(price), quantity])
+        .sort((a, b) => b[0] - a[0]);
+
+    const asks = Object.entries(sell)
+        .map(([price, quantity]) => [parseFloat(price), quantity])
+        .sort((a, b) => b[0] - a[0]);
+
+    // 更新顯示買單 (綠色)
+    const bidsList = document.getElementById('bidsList');
+    bidsList.innerHTML = '';
+    bids.slice(0, 5).forEach(([price, totalQuantity]) => {
+        const row = `<tr class="bid-row"><td>${price}</td><td>${totalQuantity.toFixed(2)}</td></tr>`;
+        bidsList.innerHTML += row;
+    });
+
+    // 更新顯示賣單 (紅色)
+    const asksList = document.getElementById('asksList');
+    asksList.innerHTML = '';
+    asks.slice(-5).forEach(([price, totalQuantity]) => {
+        const row = `<tr class="ask-row"><td>${price}</td><td>${totalQuantity.toFixed(2)}</td></tr>`;
+        asksList.innerHTML += row;
+    });
+}
 
 // 在頁面加載時連接 WebSocket
 window.onload = function() {

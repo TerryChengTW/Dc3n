@@ -76,8 +76,8 @@ public class OrderbookSnapshotService {
 
         // 組裝最終快照，取前50檔
         Map<String, Object> snapshot = new HashMap<>();
-        snapshot.put("buy", getTopNOrders(buySnapshot, 50, true));
-        snapshot.put("sell", getTopNOrders(sellSnapshot, 50, false));
+        snapshot.put("buy", getTopNOrders(buySnapshot, 50000, true));
+        snapshot.put("sell", getTopNOrders(sellSnapshot, 50000, false));
 
         long endTime = System.currentTimeMillis(); // 結束計時
         long duration = endTime - startTime; // 計算執行時間
@@ -119,7 +119,7 @@ public class OrderbookSnapshotService {
     }
 
     private double[] calculateScoreRange(BigDecimal price, BigDecimal priceInterval, boolean isBuy) {
-        double rangeMultiplier = 50; // 例如，擴大到 25 倍區間，兩邊加總50檔
+        double rangeMultiplier = 50000; // 例如，擴大到 25 倍區間，兩邊加總50檔
         double minScore = calculateScore(price.subtract(priceInterval.multiply(BigDecimal.valueOf(rangeMultiplier))), priceInterval, isBuy, true);
         double maxScore = calculateScore(price.add(priceInterval.multiply(BigDecimal.valueOf(rangeMultiplier))), priceInterval, isBuy, false);
         return new double[]{minScore, maxScore};
