@@ -2,7 +2,6 @@ package com.exchange.config;
 
 import com.exchange.websocket.*;
 import com.exchange.utils.JwtUtil;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.socket.config.annotation.EnableWebSocket;
 import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
@@ -12,18 +11,18 @@ import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry
 @EnableWebSocket
 public class WebSocketConfig implements WebSocketConfigurer {
 
-    private final WebSocketHandler webSocketHandler;
+    private final UserOrderWebSocketHandler userOrderWebSocketHandler;
     private final OrderbookWebSocketHandler orderbookWebSocketHandler;
     private final JwtUtil jwtUtil;
     private final RecentTradesWebSocketHandler recentTradesWebSocketHandler;
     private final KlineWebSocketHandler klineWebSocketHandler;
 
-    public WebSocketConfig(WebSocketHandler webSocketHandler,
+    public WebSocketConfig(UserOrderWebSocketHandler userOrderWebSocketHandler,
                            OrderbookWebSocketHandler orderbookWebSocketHandler,
                            JwtUtil jwtUtil,
                            RecentTradesWebSocketHandler recentTradesWebSocketHandler,
                            KlineWebSocketHandler klineWebSocketHandler) {
-        this.webSocketHandler = webSocketHandler;
+        this.userOrderWebSocketHandler = userOrderWebSocketHandler;
         this.orderbookWebSocketHandler = orderbookWebSocketHandler;
         this.jwtUtil = jwtUtil;
         this.recentTradesWebSocketHandler = recentTradesWebSocketHandler;
@@ -32,7 +31,7 @@ public class WebSocketConfig implements WebSocketConfigurer {
 
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
-        registry.addHandler(new JwtWebSocketHandlerDecorator(webSocketHandler, jwtUtil), "/ws")
+        registry.addHandler(new JwtWebSocketHandlerDecorator(userOrderWebSocketHandler, jwtUtil), "/ws")
                 .setAllowedOrigins("*");
         registry.addHandler(orderbookWebSocketHandler, "/ws/orderbook")
                 .setAllowedOrigins("*");

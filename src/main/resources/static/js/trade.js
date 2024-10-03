@@ -1,35 +1,48 @@
-let socket;
+let userOrderSocket;
 let selectedSide = '';
 let selectedOrderType = '';
 
-function connectWebSocket() {
+function connectUserOrderWebSocket() {
     const token = localStorage.getItem('jwtToken');
 
-    // 直接使用相對路徑來建立 WebSocket 連接
-    socket = new WebSocket(`/ws?token=${token}`);
+    userOrderSocket = new WebSocket(`/ws?token=${token}`);
 
-    socket.onopen = function() {
-        console.log("WebSocket 連接已建立");
+    userOrderSocket.onopen = function() {
+        console.log("UserOrderWebSocket 連接已建立");
     };
 
-    socket.onmessage = function(event) {
-        const notification = JSON.parse(event.data);
-        console.log(notification);
-        handleOrderNotification(notification);
-    };
-
-    socket.onclose = function(event) {
-        if (event.wasClean) {
-            console.log(`WebSocket 連接已關閉，代碼=${event.code} 原因=${event.reason}`);
+    userOrderSocket.onmessage = function(event) {
+        const message = JSON.parse(event.data);
+        console.log(message);
+        if (message.type === 'snapshot') {
+            handleOrderSnapshot(message.data);
         } else {
-            console.log('WebSocket 連接已中斷');
+            handleOrderNotification(message);
         }
     };
 
-    socket.onerror = function(error) {
-        console.log(`WebSocket 錯誤: ${error.message}`);
+    userOrderSocket.onclose = function(event) {
+        if (event.wasClean) {
+            console.log(`UserOrderWebSocket 連接已關閉，代碼=${event.code} 原因=${event.reason}`);
+        } else {
+            console.log('UserOrderWebSocket 連接已中斷');
+        }
+    };
+
+    userOrderSocket.onerror = function(error) {
+        console.log(`UserOrderWebSocket 錯誤: ${error.message}`);
     };
 }
+
+function handleOrderSnapshot(orders) {
+    // 清空現有訂單表格
+    const orderTableBody = document.querySelector('#orderTable tbody');
+    orderTableBody.innerHTML = '';
+
+    // 添加快照中的所有訂單
+    orders.forEach(order => addOrUpdateOrderRow(order));
+}
+
 
 function handleOrderNotification(notification) {
     const order = notification.data;
@@ -490,7 +503,7 @@ function updateOrderbookDisplay(orderbookUpdate) {
 
 // 在頁面加載時連接 WebSocket
 window.onload = function() {
-    connectWebSocket();
+    connectUserOrderWebSocket();
     const initialSymbol = document.getElementById('symbol').value;
     connectOrderbookWebSocket(initialSymbol);
     connectRecentTradesWebSocket(initialSymbol);
