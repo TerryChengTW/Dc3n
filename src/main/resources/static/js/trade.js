@@ -388,10 +388,13 @@ function aggregateOrderbook(orderbookSide, interval, side) {
     for (const [priceStr, quantity] of Object.entries(orderbookSide)) {
         const price = parseFloat(priceStr);
 
-        // 根據買賣方向決定使用 Math.floor 或 Math.ceil
-        const aggregatedPrice = side === "BUY"
-            ? Math.floor(price / interval) * interval
-            : Math.ceil(price / interval) * interval;
+        // 將價格調整到合適的精度來避免浮點數問題
+        let aggregatedPrice = side === "BUY"
+            ? Math.floor(price / interval + 1e-10) * interval // 加入微小數字避免浮點數誤差
+            : Math.ceil(price / interval - 1e-10) * interval; // 減去微小數字避免浮點數誤差
+
+        // 如果 interval 是 0.1，保留一位小數；否則保持整數
+        aggregatedPrice = interval === 0.1 ? parseFloat(aggregatedPrice.toFixed(1)) : aggregatedPrice;
 
         if (!aggregated[aggregatedPrice]) {
             aggregated[aggregatedPrice] = 0;
@@ -409,10 +412,13 @@ function updateOrderbookDelta(deltaUpdate) {
     const parsedPrice = parseFloat(price);
     const parsedQuantity = parseFloat(unfilledQuantity);
 
-    // 聚合價格
-    const aggregatedPrice = side === "BUY"
-        ? Math.floor(parsedPrice / currentInterval) * currentInterval
-        : Math.ceil(parsedPrice / currentInterval) * currentInterval;
+    // 將價格調整到合適的精度來避免浮點數問題
+    let aggregatedPrice = side === "BUY"
+        ? Math.floor(parsedPrice / currentInterval + 1e-10) * currentInterval // 加入微小數字避免浮點數誤差
+        : Math.ceil(parsedPrice / currentInterval - 1e-10) * currentInterval; // 減去微小數字避免浮點數誤差
+
+    // 如果 interval 是 0.1，保留一位小數；否則保持整數
+    aggregatedPrice = currentInterval === 0.1 ? parseFloat(aggregatedPrice.toFixed(1)) : aggregatedPrice;
 
     console.log(`原始價格: ${parsedPrice}, 聚合後價格: ${aggregatedPrice}, 未成交數量: ${parsedQuantity}`);
 
@@ -459,7 +465,9 @@ function updateOrderbookDisplay(orderbookUpdate) {
     const bidsList = document.getElementById('bidsList');
     bidsList.innerHTML = '';
     bids.slice(0, 5).forEach(([price, totalQuantity]) => {
-        const row = `<tr class="bid-row"><td>${price}</td><td>${totalQuantity.toFixed(2)}</td></tr>`;
+        // 如果 interval 是 0.1，保留一位小數；否則保持整數
+        const formattedPrice = currentInterval === 0.1 ? price.toFixed(1) : price;
+        const row = `<tr class="bid-row"><td>${formattedPrice}</td><td>${totalQuantity.toFixed(2)}</td></tr>`;
         bidsList.innerHTML += row;
     });
 
@@ -467,7 +475,9 @@ function updateOrderbookDisplay(orderbookUpdate) {
     const asksList = document.getElementById('asksList');
     asksList.innerHTML = '';
     asks.slice(-5).forEach(([price, totalQuantity]) => {
-        const row = `<tr class="ask-row"><td>${price}</td><td>${totalQuantity.toFixed(2)}</td></tr>`;
+        // 如果 interval 是 0.1，保留一位小數；否則保持整數
+        const formattedPrice = currentInterval === 0.1 ? price.toFixed(1) : price;
+        const row = `<tr class="ask-row"><td>${formattedPrice}</td><td>${totalQuantity.toFixed(2)}</td></tr>`;
         asksList.innerHTML += row;
     });
 }
