@@ -13,7 +13,7 @@ function connectUserOrderWebSocket() {
 
     userOrderSocket.onmessage = function(event) {
         const message = JSON.parse(event.data);
-        console.log(message);
+        console.log("UserOrderWebSocket 收到消息：", message);
         if (message.type === 'snapshot') {
             handleOrderSnapshot(message.data);
         } else {
@@ -48,12 +48,8 @@ function handleOrderNotification(notification) {
     const order = notification.data;
 
     switch (notification.eventType) {
-        case 'ORDER_CREATED':
         case 'ORDER_UPDATED':
             addOrUpdateOrderRow(order);
-            break;
-        case 'ORDER_COMPLETED':
-            removeOrderRow(order.id);
             break;
     }
 }
@@ -89,7 +85,7 @@ function addOrUpdateOrderRow(order) {
     `;
 
     if (order.status === 'COMPLETED') {
-        setTimeout(() => removeOrderRow(order.id), 5000);
+        setTimeout(() => removeOrderRow(order.id), 3000);
     }
 }
 

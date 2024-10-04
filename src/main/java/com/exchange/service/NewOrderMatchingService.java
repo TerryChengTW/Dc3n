@@ -58,6 +58,9 @@ public class NewOrderMatchingService {
             );
         }
 
+        // 推送訂單更新到 Kafka
+        userOrderProducer.sendOrderUpdate(order);
+
     }
 
     // 撮合邏輯
