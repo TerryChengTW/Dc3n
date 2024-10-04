@@ -36,48 +36,73 @@ public class OrderbookSnapshotService {
         ZSetOperations.TypedTuple<String> firstBuyOrder = fetchFirstOrder(symbol, ":BUY", true);
         ZSetOperations.TypedTuple<String> firstSellOrder = fetchFirstOrder(symbol, ":SELL", false);
 
-        if (firstBuyOrder == null || firstSellOrder == null) {
-            // 如果任何一方的訂單為空，返回空快照
+        // 初始化快照
+        Map<String, Object> snapshot = new HashMap<>();
+
+        // 如果買單和賣單都為空，返回空快照
+        if (firstBuyOrder == null && firstSellOrder == null) {
             return Collections.emptyMap();
         }
 
-        // 根據第一檔訂單解析價格
-        BigDecimal buyPrice = parseOrderPrice(firstBuyOrder).orElse(BigDecimal.ZERO);
-        BigDecimal sellPrice = parseOrderPrice(firstSellOrder).orElse(BigDecimal.ZERO);
-
-        // 確定 score 範圍
-        double[] buyScoreRange = calculateScoreRange(buyPrice, priceInterval, true);
-        double[] sellScoreRange = calculateScoreRange(sellPrice, priceInterval, false);
-
-        // Lua腳本查詢
+        // Lua腳本查詢構建
         String luaScript =
                 "local buyOrders = redis.call('ZRANGEBYSCORE', KEYS[1], ARGV[1], ARGV[2], 'WITHSCORES') " +
                         "local sellOrders = redis.call('ZRANGEBYSCORE', KEYS[2], ARGV[3], ARGV[4], 'WITHSCORES') " +
                         "return {buyOrders, sellOrders}";
 
-        // 構建參數
-        List<String> keys = Arrays.asList(symbol + ":BUY", symbol + ":SELL");
-        List<String> args = Arrays.asList(
-                String.valueOf(buyScoreRange[0]), String.valueOf(buyScoreRange[1]),
-                String.valueOf(sellScoreRange[0]), String.valueOf(sellScoreRange[1])
-        );
+        List<String> keys = new ArrayList<>();
+        List<String> args = new ArrayList<>();
 
-        // 執行Lua腳本
+        // 如果買單有資料，處理買單部分
+        if (firstBuyOrder != null) {
+            BigDecimal buyPrice = parseOrderPrice(firstBuyOrder).orElse(BigDecimal.ZERO);
+            double[] buyScoreRange = calculateScoreRange(buyPrice, priceInterval, true);
+
+            // 添加買單的 key 和參數
+            keys.add(symbol + ":BUY");
+            args.add(String.valueOf(buyScoreRange[0]));
+            args.add(String.valueOf(buyScoreRange[1]));
+        } else {
+            // 如果買單為空，添加佔位 key 和參數
+            keys.add("dummy:BUY"); // 確保 Lua 腳本正確執行
+            args.add("0");
+            args.add("0");
+        }
+
+        // 如果賣單有資料，處理賣單部分
+        if (firstSellOrder != null) {
+            BigDecimal sellPrice = parseOrderPrice(firstSellOrder).orElse(BigDecimal.ZERO);
+            double[] sellScoreRange = calculateScoreRange(sellPrice, priceInterval, false);
+
+            // 添加賣單的 key 和參數
+            keys.add(symbol + ":SELL");
+            args.add(String.valueOf(sellScoreRange[0]));
+            args.add(String.valueOf(sellScoreRange[1]));
+        } else {
+            // 如果賣單為空，添加佔位 key 和參數
+            keys.add("dummy:SELL"); // 確保 Lua 腳本正確執行
+            args.add("0");
+            args.add("0");
+        }
+
+        // 執行 Lua 腳本
         DefaultRedisScript<List> redisScript = new DefaultRedisScript<>(luaScript, List.class);
-        List<Object> result = redisTemplate.execute(redisScript, keys, args.toArray());
+        List result = redisTemplate.execute(redisScript, keys, args.toArray());
 
         // 解析買單和賣單的結果
-        Set<ZSetOperations.TypedTuple<String>> buyOrders = parseRedisResult((List<Object>) result.get(0));
-        Set<ZSetOperations.TypedTuple<String>> sellOrders = parseRedisResult((List<Object>) result.get(1));
+        Set<ZSetOperations.TypedTuple<String>> buyOrders = firstBuyOrder != null ? parseRedisResult((List<Object>) result.get(0)) : Collections.emptySet();
+        Set<ZSetOperations.TypedTuple<String>> sellOrders = firstSellOrder != null ? parseRedisResult((List<Object>) result.get(1)) : Collections.emptySet();
 
         // 聚合買單和賣單快照
-        Map<BigDecimal, BigDecimal> buySnapshot = aggregateOrderSnapshot(buyOrders, priceInterval, true);
-        Map<BigDecimal, BigDecimal> sellSnapshot = aggregateOrderSnapshot(sellOrders, priceInterval, false);
+        if (!buyOrders.isEmpty()) {
+            Map<BigDecimal, BigDecimal> buySnapshot = aggregateOrderSnapshot(buyOrders, priceInterval, true);
+            snapshot.put("buy", getTopNOrders(buySnapshot, 50000, true));
+        }
 
-        // 組裝最終快照，取前50檔
-        Map<String, Object> snapshot = new HashMap<>();
-        snapshot.put("buy", getTopNOrders(buySnapshot, 50000, true));
-        snapshot.put("sell", getTopNOrders(sellSnapshot, 50000, false));
+        if (!sellOrders.isEmpty()) {
+            Map<BigDecimal, BigDecimal> sellSnapshot = aggregateOrderSnapshot(sellOrders, priceInterval, false);
+            snapshot.put("sell", getTopNOrders(sellSnapshot, 50000, false));
+        }
 
         long endTime = System.currentTimeMillis(); // 結束計時
         long duration = endTime - startTime; // 計算執行時間

@@ -368,16 +368,22 @@ function connectOrderbookWebSocket(symbol) {
     orderbookSocket.onmessage = function(event) {
         const orderbookUpdate = JSON.parse(event.data);
 
-        // 根據消息內容區分快照或增量
-        if (orderbookUpdate.buy && orderbookUpdate.sell) {
-            // 快照更新
-            orderbook.buy = aggregateOrderbook(orderbookUpdate.buy, currentInterval);
-            orderbook.sell = aggregateOrderbook(orderbookUpdate.sell, currentInterval);
-            console.log("訂單簿快照：", orderbook);
+        // 如果是完整快照（包含 `buy` 或 `sell`）
+        if (orderbookUpdate.buy || orderbookUpdate.sell) {
+            if (orderbookUpdate.buy) {
+                orderbook.buy = aggregateOrderbook(orderbookUpdate.buy, currentInterval, "BUY");
+            }
+
+            if (orderbookUpdate.sell) {
+                orderbook.sell = aggregateOrderbook(orderbookUpdate.sell, currentInterval, "SELL");
+            }
+
+            // 更新訂單簿顯示
+            console.log("訂單簿快照更新：", orderbook);
             updateOrderbookDisplay(orderbook);
         } else {
-            console.log("訂單簿增量：", orderbookUpdate);
             // 增量更新
+            console.log("訂單簿增量：", orderbookUpdate);
             updateOrderbookDelta(orderbookUpdate);
         }
     };

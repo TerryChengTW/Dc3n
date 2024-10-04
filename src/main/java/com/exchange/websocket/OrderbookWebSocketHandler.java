@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -45,7 +46,7 @@ public class OrderbookWebSocketHandler extends TextWebSocketHandler {
 
             // 訂閱該 symbol 的 Kafka Topic，並推送增量消息給 WebSocket 用戶
             subscriptionManager.subscribeToSymbol(symbol, record -> {
-                String deltaMessage = (String) record.value();
+                String deltaMessage = record.value();
                 sendDeltaToWebSocket(symbol, deltaMessage);
             });
 
@@ -87,7 +88,7 @@ public class OrderbookWebSocketHandler extends TextWebSocketHandler {
 
     private Map<String, String> extractQueryParams(WebSocketSession session) {
         Map<String, String> queryParams = new HashMap<>();
-        String query = session.getUri().getQuery();
+        String query = Objects.requireNonNull(session.getUri()).getQuery();
         if (query != null) {
             for (String param : query.split("&")) {
                 String[] keyValue = param.split("=");

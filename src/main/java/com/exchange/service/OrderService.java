@@ -1,6 +1,7 @@
 package com.exchange.service;
 
 import com.exchange.model.Order;
+import com.exchange.producer.OrderBookDeltaProducer;
 import com.exchange.producer.OrderProducer;
 import com.exchange.repository.OrderRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,17 +17,24 @@ import java.util.Set;
 @Service
 public class OrderService {
 
-    @Autowired
-    private OrderProducer orderProducer;
+    private final OrderProducer orderProducer;
 
-    @Autowired
-    private OrderRepository orderRepository;
+    private final OrderRepository orderRepository;
 
-    @Autowired
-    private RedisTemplate<String, String> redisTemplate;
+    private final RedisTemplate<String, String> redisTemplate;
 
-    @Autowired
-    private ObjectMapper objectMapper;
+    private final ObjectMapper objectMapper;
+
+    private final OrderBookDeltaProducer orderBookDeltaProducer;
+
+    public OrderService(OrderProducer orderProducer, OrderRepository orderRepository, RedisTemplate<String, String> redisTemplate, ObjectMapper objectMapper, OrderBookDeltaProducer orderBookDeltaProducer) {
+        this.orderProducer = orderProducer;
+        this.orderRepository = orderRepository;
+        this.redisTemplate = redisTemplate;
+        this.objectMapper = objectMapper;
+        this.orderBookDeltaProducer = orderBookDeltaProducer;
+    }
+
 
     // 保存新訂單，並將其發送到 Kafka
     public void saveOrder(Order order) {
@@ -82,7 +90,7 @@ public class OrderService {
 
         if (order.getStatus() == Order.OrderStatus.PENDING || order.getStatus() == Order.OrderStatus.PARTIALLY_FILLED) {
             // 檢查新數量是否大於成交數量
-            if (newQuantity.compareTo(filledQuantity) < 0) {
+            if (newQuantity.compareTo(filledQuantity) <= 0) {
                 throw new IllegalArgumentException("更新的數量不能小於已成交的數量");
             }
 
@@ -127,6 +135,12 @@ public class OrderService {
             }
             if (orderJsonToRemove != null) {
                 redisTemplate.opsForZSet().remove(key, orderJsonToRemove);
+                orderBookDeltaProducer.sendDelta(
+                        order.getSymbol(),
+                        order.getSide().toString(),
+                        order.getPrice().toString(),
+                        "-" + order.getUnfilledQuantity().toString()
+                );
             } else {
                 throw new RuntimeException("Redis ZSet 中未找到該訂單");
             }
@@ -143,6 +157,12 @@ public class OrderService {
             // 計算 score，根據您的需求，可以使用價格或其他策略
             double score = calculateScore(order);
             redisTemplate.opsForZSet().add(key, orderJson, score);
+            orderBookDeltaProducer.sendDelta(
+                    order.getSymbol(),
+                    order.getSide().toString(),
+                    order.getPrice().toString(),
+                    order.getUnfilledQuantity().toString()
+            );
         } catch (Exception e) {
             throw new RuntimeException("訂單序列化失敗", e);
         }
