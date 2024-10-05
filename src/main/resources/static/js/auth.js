@@ -26,36 +26,62 @@ function renderUserStatus() {
 
     if (token) {
         try {
-            // 顯示用戶名和登出按鈕
             const payloadBase64 = token.split('.')[1];
             const decodedPayload = JSON.parse(atob(payloadBase64));
             const username = decodedPayload.username;
 
             userStatusDiv.innerHTML = `
                 <span style="margin-right: 20px;">歡迎，${username}</span>
-                <button onclick="logout()" style="background-color: #000000; color: #00dfb6; border: none; padding: 5px 10px; cursor: pointer;">登出</button>
+                <button onclick="logout()" class="auth-button">登出</button>
             `;
         } catch (error) {
             console.error('無效的 JWT token:', error);
-            userStatusDiv.innerHTML = `
-                <a href="/login" style="color: #000000; margin-right: 10px;">登入</a> / 
-                <a href="/register" style="color: #000000;">註冊</a>
-            `;
+            renderLoginRegisterButtons(userStatusDiv);
         }
     } else {
-        // 顯示登入/註冊按鈕
-        userStatusDiv.innerHTML = `
-            <a href="/login" style="color: #000000; margin-right: 10px;">登入</a> / 
-            <a href="/register" style="color: #000000;">註冊</a>
-        `;
+        renderLoginRegisterButtons(userStatusDiv);
     }
+}
+
+function renderLoginRegisterButtons(container) {
+    container.innerHTML = `
+        <a href="/login" class="auth-link">登入</a> / 
+        <a href="/register" class="auth-link">註冊</a>
+    `;
 }
 
 // 登出功能
 function logout() {
-    localStorage.removeItem('jwtToken');  // 清除 JWT token
-    renderUserStatus();  // 更新頁面內容，顯示登入/註冊
+    localStorage.removeItem('jwtToken');
+    renderUserStatus();
 }
 
-// 在頁面加載時渲染用戶狀態
-document.addEventListener("DOMContentLoaded", renderUserStatus);
+// 主題切換功能
+function toggleTheme() {
+    document.body.classList.toggle('light-mode');
+    const isLightMode = document.body.classList.contains('light-mode');
+    localStorage.setItem('theme', isLightMode ? 'light' : 'dark');
+    updateThemeButtonText();
+}
+
+function updateThemeButtonText() {
+    const themeToggle = document.getElementById('themeToggle');
+    const isLightMode = document.body.classList.contains('light-mode');
+    themeToggle.textContent = isLightMode ? '切換深色模式' : '切換淺色模式';
+}
+
+// 在頁面加載時執行
+document.addEventListener("DOMContentLoaded", function() {
+    renderUserStatus();
+
+    // 設置主題
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'light') {
+        document.body.classList.add('light-mode');
+    }
+    updateThemeButtonText();
+
+    // 綁定主題切換按鈕事件
+    const themeToggle = document.getElementById('themeToggle');
+    themeToggle.addEventListener('click', toggleTheme);
+});

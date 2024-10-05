@@ -1,12 +1,25 @@
-<!-- topbar.html -->
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DC3N Trading Platform</title>
+  <link rel="stylesheet" th:href="@{/css/styles.css}">
+</head>
+<body>
 <div th:fragment="topbar">
-  <div id="topbar" style="display: flex; justify-content: space-between; align-items: center; background-color: #00dfb6; color: #000000; padding: 10px;">
-    <div id="logo">
+  <div id="topbar">
+    <div class="logo">
       <a href="/">
-        <img th:src="@{/images/dc3n.png}" alt="Logo" style="height: 40px;">
+        <img th:src="@{/images/dc3n.png}" alt="DC3N Logo">
       </a>
     </div>
-    <div id="userStatus"></div>
+    <div class="user-controls">
+      <button id="themeToggle">切換主題</button>
+      <div id="userStatus"></div>
+    </div>
   </div>
-  <script th:src="@{/js/auth.js}"></script> <!-- 這裡包含了 JavaScript -->
+  <script th:src="@{/js/auth.js}"></script>
 </div>
+</body>
+</html>
