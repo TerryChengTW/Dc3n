@@ -568,12 +568,6 @@ window.onclick = function(event) {
     }
 };
 
-// 點擊關閉按鈕隱藏彈窗
-document.querySelector(".close").addEventListener("click", function() {
-    document.getElementById("editOrderModal").style.display = "none";
-});
-
-
 // 當交易對變更時重新連接訂單簿 WebSocket
 document.getElementById('symbol').addEventListener('change', updateSymbol);
 
