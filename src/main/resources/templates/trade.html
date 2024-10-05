@@ -101,26 +101,65 @@
     </div>
 </div>
 
-<!-- 用戶訂單列表 -->
-<div id="orderTableContainer">
-    <h3>訂單列表</h3>
-    <table id="orderTable">
-        <thead>
-        <tr>
-            <th>訂單ID</th>
-            <th>用戶ID</th>
-            <th>交易對</th>
-            <th>價格</th>
-            <th>數量</th>
-            <th>已成交數量</th>
-            <th>方向</th>
-            <th>訂單類型</th>
-            <th>狀態</th>
-        </tr>
-        </thead>
-        <tbody>
-        </tbody>
-    </table>
+<div class="order-history-container">
+    <!-- 訂單相關選項 -->
+    <div class="order-options">
+        <button class="order-option active" data-option="current-orders">目前委託</button>
+        <button class="order-option" data-option="order-history">歷史委託</button>
+        <button class="order-option" data-option="trade-history">歷史成交</button>
+        <button class="order-option" data-option="asset-management">資產管理</button>
+    </div>
+
+    <!-- 時間範圍選擇 -->
+    <div class="time-range-selector">
+        <button class="time-option active" data-time="1d">最近1天</button>
+        <button class="time-option" data-time="7d">最近1週</button>
+        <button class="time-option" data-time="1m">一個月</button>
+    </div>
+
+    <!-- 訂單列表容器 -->
+    <div id="orderTableContainer">
+        <table id="orderTable">
+            <thead>
+            <tr class="current-orders-header">
+                <th>訂單ID</th>
+                <th>交易對</th>
+                <th>價格</th>
+                <th>數量</th>
+                <th>已成交數量</th>
+                <th>方向</th>
+                <th>訂單類型</th>
+                <th>狀態</th>
+            </tr>
+            <tr class="order-history-header" style="display: none;">
+                <th>下單時間</th>
+                <th>交易對</th>
+                <th>類型</th>
+                <th>方向</th>
+                <th>平均價格</th>
+                <th>價格</th>
+                <th>成交數量</th>
+                <th>數量</th>
+                <th>成交額</th>
+                <th>狀態</th>
+            </tr>
+            <tr class="trade-history-header" style="display: none;">
+                <th>訂單號碼</th>
+                <th>日期</th>
+                <th>交易對</th>
+                <th>方向</th>
+                <th>成交均價</th>
+                <th>成交數量</th>
+                <th>手續費</th>
+                <th>角色</th>
+                <th>成交金額</th>
+            </tr>
+            </thead>
+            <tbody>
+            <!-- 這裡的內容將由JavaScript動態填充 -->
+            </tbody>
+        </table>
+    </div>
 </div>
 
 <div id="editOrderModal" class="modal">
