@@ -104,6 +104,7 @@ public class NewOrderMatchingService {
                 trade.setQuantity(matchedQuantity);
                 trade.setTradeTime(Instant.now());
                 trade.setDirection(newOrder.getSide() == Order.Side.BUY ? "buy" : "sell");
+                trade.setTakerOrderId(newOrder.getId());  // 設置 taker 訂單 ID
 
                 // 將 `Trade` 加入列表中
                 matchedTrades.add(trade);

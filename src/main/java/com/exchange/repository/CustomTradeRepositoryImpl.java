@@ -56,8 +56,8 @@ public class CustomTradeRepositoryImpl implements CustomTradeRepository {
         }
 
         // 批量插入 Trade
-        String tradeInsertQuery = "INSERT INTO trades (id, symbol, price, quantity, buy_order_id, sell_order_id, trade_time, direction) " +
-                "VALUES (:id, :symbol, :price, :quantity, :buyOrderId, :sellOrderId, :tradeTime, :direction)";
+        String tradeInsertQuery = "INSERT INTO trades (id, symbol, price, quantity, buy_order_id, sell_order_id, trade_time, direction, taker_order_id) " +
+                "VALUES (:id, :symbol, :price, :quantity, :buyOrderId, :sellOrderId, :tradeTime, :direction, :takerOrderId)";
 
         for (Trade trade : trades) {
             entityManager.createNativeQuery(tradeInsertQuery)
@@ -69,6 +69,7 @@ public class CustomTradeRepositoryImpl implements CustomTradeRepository {
                     .setParameter("sellOrderId", trade.getSellOrder().getId())
                     .setParameter("tradeTime", trade.getTradeTime())
                     .setParameter("direction", trade.getDirection())
+                    .setParameter("takerOrderId", trade.getTakerOrderId())
                     .executeUpdate();
         }
 

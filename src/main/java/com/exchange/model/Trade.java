@@ -10,7 +10,8 @@ import java.time.Instant;
 @Table(name = "trades", indexes = {
         @Index(name = "idx_buy_order_id", columnList = "buy_order_id"),
         @Index(name = "idx_sell_order_id", columnList = "sell_order_id"),
-        @Index(name = "idx_trade_time", columnList = "trade_time")
+        @Index(name = "idx_trade_time", columnList = "trade_time"),
+        @Index(name = "idx_taker_order_id", columnList = "taker_order_id")
 })
 @Data
 @NoArgsConstructor
@@ -42,4 +43,7 @@ public class Trade {
 
     @Column(length = 4, nullable = false)
     private String direction; // 新增字段："buy" 或 "sell"
+
+    @Column(name = "taker_order_id", length = 20, nullable = false)  // 新增欄位
+    private String takerOrderId;  // 吃單方（taker）的訂單ID
 }
