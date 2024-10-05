@@ -657,3 +657,9 @@ th {
 .custom-button:hover {
     background-color: #333333;
 }
+
+input:disabled {
+    background-color: #e9ecef;
+    color: #6c757d;
+    cursor: not-allowed;
+}

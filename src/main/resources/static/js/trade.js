@@ -177,12 +177,20 @@ function selectSide(side) {
 function selectOrderType(orderType) {
     selectedOrderType = orderType;
 
+    // 移除 active 樣式
     document.getElementById('limitButton').classList.remove('active');
     document.getElementById('marketButton').classList.remove('active');
+
+    // 添加 active 樣式
     if (orderType === 'LIMIT') {
         document.getElementById('limitButton').classList.add('active');
-    } else {
+        // 啟用價格欄位
+        document.getElementById('price').disabled = false;
+    } else if (orderType === 'MARKET') {
         document.getElementById('marketButton').classList.add('active');
+        // 禁用價格欄位
+        document.getElementById('price').disabled = true;
+        document.getElementById('price').value = ''; // 清空價格欄位
     }
 }
 
