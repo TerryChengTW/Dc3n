@@ -36,7 +36,7 @@ function connectUserOrderWebSocket() {
 
 function handleOrderSnapshot(orders) {
     // 清空現有訂單表格
-    const orderTableBody = document.querySelector('#orderTable tbody');
+    const orderTableBody = document.querySelector('#currentOrdersTable tbody');
     orderTableBody.innerHTML = '';
 
     // 添加快照中的所有訂單
@@ -65,7 +65,7 @@ function addOrUpdateOrderRow(order) {
         } else if (order.side === 'SELL') {
             orderRow.classList.add('ask-row');
         }
-        document.querySelector('#orderTable tbody').appendChild(orderRow);
+        document.querySelector('#currentOrdersTable tbody').appendChild(orderRow);
     }
 
     orderRow.innerHTML = `
@@ -356,6 +356,9 @@ function connectOrderbookWebSocket(symbol) {
         orderbookSocket.close();
     }
 
+    orderbook = { buy: {}, sell: {} };
+    updateOrderbookDisplay(orderbook);
+
     const token = localStorage.getItem('jwtToken');
     currentSymbol = symbol;
     // 將 interval 作為參數添加到 WebSocket URL 中
@@ -572,53 +575,6 @@ document.getElementById('symbol').addEventListener('change', updateSymbol);
 document.getElementById('priceInterval').addEventListener('change', function() {
     connectOrderbookWebSocket(currentSymbol);
 });
-
-// ... (保持原有的 JS 代碼) ...
-
-// 修改訂單表格的 ID
-function handleOrderSnapshot(orders) {
-    // 清空現有訂單表格
-    const orderTableBody = document.querySelector('#currentOrdersTable tbody');
-    orderTableBody.innerHTML = '';
-
-    // 添加快照中的所有訂單
-    orders.forEach(order => addOrUpdateOrderRow(order));
-}
-
-function addOrUpdateOrderRow(order) {
-    let orderRow = document.getElementById(`order-${order.id}`);
-
-    if (!orderRow) {
-        orderRow = document.createElement('tr');
-        orderRow.id = `order-${order.id}`;
-        if (order.side === 'BUY') {
-            orderRow.classList.add('bid-row');
-        } else if (order.side === 'SELL') {
-            orderRow.classList.add('ask-row');
-        }
-        document.querySelector('#currentOrdersTable tbody').appendChild(orderRow);
-    }
-
-    orderRow.innerHTML = `
-        <td>${order.id}</td>
-        <td>${order.userId}</td>
-        <td>${order.symbol}</td>
-        <td>${order.price}</td>
-        <td>${order.quantity}</td>
-        <td>${order.filledQuantity}</td>
-        <td>${order.side}</td>
-        <td>${order.orderType}</td>
-        <td>${order.status}</td>
-        <td>
-            <button onclick="editOrder('${order.id}')">編輯</button>
-            <button onclick="deleteOrder('${order.id}')">刪除</button>
-        </td>
-    `;
-
-    if (order.status === 'COMPLETED') {
-        setTimeout(() => removeOrderRow(order.id), 3000);
-    }
-}
 
 // Tab 切換功能
 document.querySelectorAll('.tab-button').forEach(button => {
@@ -872,5 +828,3 @@ function simulateAssetManagementData() {
         tbody.appendChild(row);
     });
 }
-
-// ... (保持原有的其他 JS 代碼，如連接 WebSocket 等) ...
