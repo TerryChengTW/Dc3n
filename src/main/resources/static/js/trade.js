@@ -605,7 +605,7 @@ document.querySelectorAll('.tab-button').forEach(button => {
         if (tab === 'assetManagement') {
             simulateAssetManagementData();
         } else if (tab === 'historicalOrders') {
-            simulateHistoricalOrdersData();
+            fetchHistoricalTradesData();
         } else if (tab === 'historicalTrades') {
             simulateHistoricalTradesData();
         }
@@ -680,7 +680,7 @@ function renderFilters(tab) {
         filters.appendChild(searchButton);
 
         // 綁定查詢按鈕事件
-        searchButton.addEventListener('click', simulateHistoricalOrdersData);
+        searchButton.addEventListener('click', fetchHistoricalTradesData);
 
     } else if (tab === 'historicalTrades') {
         // 方向
@@ -700,59 +700,75 @@ function renderFilters(tab) {
         filters.appendChild(searchButton);
 
         // 綁定查詢按鈕事件
-        searchButton.addEventListener('click', simulateHistoricalTradesData);
+        searchButton.addEventListener('click', fetchHistoricalTradesData);
     }
 }
 
 // 模擬獲取歷史委託數據
-function simulateHistoricalOrdersData() {
-    // 獲取篩選器的值
+
+async function fetchHistoricalTradesData() {
     const timeRange = document.getElementById('timeRange').value;
-    const orderType = document.getElementById('orderType').value;
-    const side = document.getElementById('orderSide').value;
-    const status = document.getElementById('orderStatus').value;
+    const token = localStorage.getItem('jwtToken');
 
-    // 模擬 API 調用和數據
-    const simulatedData = [
-        {
-            orderTime: '2023-09-01 12:00:00',
-            currency: 'BTCUSDT',
-            type: 'LIMIT',
-            side: 'BUY',
-            avgPrice: '50000.00',
-            price: '50500.00',
-            filledQuantity: '0.5',
-            quantity: '1',
-            status: 'COMPLETED'
-        },
-        // 添加更多模擬數據
-    ];
+    try {
+        // 發送請求到後端 API，只帶有 timeRange 作為查詢參數
+        const response = await fetch(`/api/v1/orders/history?timeRange=${timeRange}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            }
+        });
 
-    // 根據篩選器篩選數據（此處簡化處理，返回所有數據）
-    const filteredData = simulatedData.filter(order => {
-        return true;
-    });
+        // 檢查 HTTP 狀態
+        if (!response.ok) {
+            console.error('Failed to fetch order history', response.status);
+            return;
+        }
 
-    // 顯示數據到表格
-    const tbody = document.getElementById('historicalOrdersTable').getElementsByTagName('tbody')[0];
-    tbody.innerHTML = '';
+        // 解析返回的數據
+        const orderHistory = await response.json();
+        console.log('Historical trades:', orderHistory); // 調試用
 
-    filteredData.forEach(order => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${order.orderTime}</td>
-            <td>${order.currency}</td>
-            <td>${order.type}</td>
-            <td>${order.side}</td>
-            <td>${order.avgPrice}</td>
-            <td>${order.price}</td>
-            <td>${order.filledQuantity}</td>
-            <td>${order.quantity}</td>
-            <td>${order.status}</td>
+        // 更新表格
+        const tbody = document.getElementById('historicalOrdersTable').getElementsByTagName('tbody')[0];
+
+        // 檢查 tbody 是否正確獲取
+        if (!tbody) {
+            console.error('Table body not found.');
+            return;
+        }
+
+        // 清空表格
+        tbody.innerHTML = '';
+
+        // 迭代每個 orderHistory 條目，並將其渲染到表格中
+        orderHistory.forEach(entry => {
+            const order = entry.order;
+
+            // 渲染行
+            const row = document.createElement('tr');
+            row.innerHTML = `
+            <td>${new Date(order.createdAt).toLocaleString()}</td> <!-- 訂單時間 -->
+            <td>${order.symbol}</td> <!-- 幣種 -->
+            <td>${order.orderType}</td> <!-- 類型 -->
+            <td>${order.side}</td> <!-- 方向 -->
+            <td>${parseFloat(order.price).toFixed(2)}</td> <!-- 平均價格 -->
+            <td>${parseFloat(order.price).toFixed(2)}</td> <!-- 價格 -->
+            <td>${parseFloat(order.filledQuantity).toFixed(2)}</td> <!-- 成交數量 -->
+            <td>${parseFloat(order.quantity).toFixed(2)}</td> <!-- 數量 -->
+            <td>${order.status}</td> <!-- 狀態 -->
         `;
-        tbody.appendChild(row);
-    });
+            tbody.appendChild(row);
+        });
+
+        console.log('Table updated successfully'); // 調試用
+
+    } catch (error) {
+        console.error('Error fetching historical trades:', error);
+    }
 }
+
 
 // 模擬獲取歷史成交數據
 function simulateHistoricalTradesData() {
