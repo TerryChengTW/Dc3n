@@ -704,15 +704,26 @@ function renderFilters(tab) {
     }
 }
 
-// 模擬獲取歷史委託數據
-
+// 獲取歷史委託數據
 async function fetchHistoricalTradesData() {
     const timeRange = document.getElementById('timeRange').value;
+    const orderType = document.getElementById('orderType').value; // 類型
+    const side = document.getElementById('orderSide').value; // 方向
+    const status = document.getElementById('orderStatus').value; // 狀態
     const token = localStorage.getItem('jwtToken');
 
     try {
-        // 發送請求到後端 API，只帶有 timeRange 作為查詢參數
-        const response = await fetch(`/api/v1/orders/history?timeRange=${timeRange}`, {
+        // 建立查詢參數，只加入非空值
+        const queryParams = new URLSearchParams();
+        queryParams.append('timeRange', timeRange);
+
+        // 僅在有值的情況下加入查詢參數
+        if (orderType) queryParams.append('orderType', orderType);
+        if (side) queryParams.append('side', side);
+        if (status) queryParams.append('status', status);
+
+        // 發送請求到後端 API，包含篩選參數
+        const response = await fetch(`/api/v1/orders/history?${queryParams.toString()}`, {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
@@ -733,33 +744,84 @@ async function fetchHistoricalTradesData() {
         // 更新表格
         const tbody = document.getElementById('historicalOrdersTable').getElementsByTagName('tbody')[0];
 
-        // 檢查 tbody 是否正確獲取
         if (!tbody) {
             console.error('Table body not found.');
             return;
         }
 
-        // 清空表格
         tbody.innerHTML = '';
 
         // 迭代每個 orderHistory 條目，並將其渲染到表格中
         orderHistory.forEach(entry => {
             const order = entry.order;
+            const trades = entry.trades; // 獲取對應的 trades
 
-            // 渲染行
+            // 渲染 order 行
             const row = document.createElement('tr');
+            row.classList.add('order-row'); // 添加 `hover` 效果
             row.innerHTML = `
-            <td>${new Date(order.createdAt).toLocaleString()}</td> <!-- 訂單時間 -->
-            <td>${order.symbol}</td> <!-- 幣種 -->
-            <td>${order.orderType}</td> <!-- 類型 -->
-            <td>${order.side}</td> <!-- 方向 -->
-            <td>${parseFloat(order.price).toFixed(2)}</td> <!-- 平均價格 -->
-            <td>${parseFloat(order.price).toFixed(2)}</td> <!-- 價格 -->
-            <td>${parseFloat(order.filledQuantity).toFixed(2)}</td> <!-- 成交數量 -->
-            <td>${parseFloat(order.quantity).toFixed(2)}</td> <!-- 數量 -->
-            <td>${order.status}</td> <!-- 狀態 -->
-        `;
+                <td>
+                    <span class="arrow down" data-order-id="${order.id}">▼</span>
+                    ${new Date(order.createdAt).toLocaleString()}
+                </td>
+                <td>${order.symbol}</td>
+                <td>${order.orderType}</td>
+                <td>${order.side}</td>
+                <td>${parseFloat(order.price).toFixed(2)}</td>
+                <td>${parseFloat(order.price).toFixed(2)}</td>
+                <td>${parseFloat(order.filledQuantity).toFixed(2)}</td>
+                <td>${parseFloat(order.quantity).toFixed(2)}</td>
+                <td>${order.status}</td>
+            `;
             tbody.appendChild(row);
+
+            // 隱藏的詳細內容行
+            const detailsRow = document.createElement('tr');
+            detailsRow.classList.add('order-details');
+            detailsRow.style.display = 'none'; // 默認隱藏
+            detailsRow.innerHTML = `
+                <td colspan="9">
+                    <div class="details-container" id="details-${order.id}">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>成交時間</th>
+                                    <th>成交價格</th>
+                                    <th>成交數量</th>
+                                    <th>角色</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${trades.map(trade => `
+                                    <tr>
+                                        <td>${new Date(trade.tradeTime).toLocaleString()}</td>
+                                        <td>${parseFloat(trade.price).toFixed(2)}</td>
+                                        <td>${parseFloat(trade.quantity).toFixed(2)}</td>
+                                        <td>${trade.role}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </td>
+            `;
+            tbody.appendChild(detailsRow);
+        });
+
+        // 設置箭頭的事件
+        tbody.querySelectorAll('.arrow').forEach(arrow => {
+            arrow.addEventListener('click', (event) => {
+                const orderId = event.target.getAttribute('data-order-id');
+                const detailsRow = document.querySelector(`#details-${orderId}`).closest('tr');
+                const isExpanded = detailsRow.style.display === 'table-row';
+
+                // 切換顯示/隱藏詳細信息
+                detailsRow.style.display = isExpanded ? 'none' : 'table-row';
+
+                // 切換箭頭方向
+                arrow.classList.toggle('up', !isExpanded);
+                arrow.classList.toggle('down', isExpanded);
+            });
         });
 
         console.log('Table updated successfully'); // 調試用
@@ -768,6 +830,7 @@ async function fetchHistoricalTradesData() {
         console.error('Error fetching historical trades:', error);
     }
 }
+
 
 
 // 模擬獲取歷史成交數據

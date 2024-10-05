@@ -50,10 +50,10 @@ public class OrderHistoryController {
 
     private Instant getStartTime(String timeRange, Instant endTime) {
         switch (timeRange) {
-            case "7d":
+            case "7":
                 return endTime.minus(7, ChronoUnit.DAYS);
-            case "1m":
-                return endTime.minus(30, ChronoUnit.DAYS);
+            case "3":
+                return endTime.minus(3, ChronoUnit.DAYS);
             default:
                 return endTime.minus(1, ChronoUnit.DAYS);
         }

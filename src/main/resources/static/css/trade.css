@@ -578,3 +578,33 @@ th {
     background-color: #dc3545; /* 紅色 */
     color: white;
 }
+
+.order-row {
+     cursor: pointer;
+     transition: background-color 0.3s;
+}
+
+.order-row:hover {
+    background-color: #f0f0f0; /* 懸停時的背景顏色 */
+}
+
+.arrow {
+    cursor: pointer;
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    margin-right: 8px;
+    transition: transform 0.3s;
+}
+
+.arrow.down {
+    transform: rotate(0deg);
+}
+
+.arrow.up {
+    transform: rotate(180deg);
+}
+
+.details-container {
+    background-color: #fafafa;
+}
