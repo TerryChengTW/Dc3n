@@ -5,79 +5,27 @@
     box-sizing: border-box;
 }
 
-/* 全局滾動條樣式設置，應用於 html 和 body */
-body {
+/* 確保 html 和 body 保持可滾動但隱藏滾動條 */
+html, body {
     font-family: Arial, sans-serif;
     background-color: #f4f4f9;
     padding: 0;
+    margin: 0;
 
-    /* 保留垂直滾動功能 */
+    /* 保留滾動功能 */
     overflow-y: scroll;
-    overflow-x: hidden;
+    overflow-x: hidden; /* 如果不需要水平滾動條，可以設置 hidden */
+
+    /* 隱藏滾動條（適用於 Firefox） */
+    scrollbar-width: none;
 }
 
-/* 全局滾動條（適用於 Webkit 瀏覽器：Chrome、Safari、Edge、Brave） */
+/* 隱藏滾動條（適用於 Chrome、Safari、Edge、Brave） */
 html::-webkit-scrollbar,
 body::-webkit-scrollbar {
-    width: 10px; /* 滾動條寬度 */
-    height: 10px; /* 滾動條高度（水平滾動條） */
+    width: 0; /* 隱藏滾動條 */
+    background: transparent; /* 設置背景為透明 */
 }
-
-/* 滾動條軌道樣式 */
-html::-webkit-scrollbar-track,
-body::-webkit-scrollbar-track {
-    background: #f1f1f1; /* 軌道背景色 */
-    border-radius: 5px; /* 圓角 */
-}
-
-/* 滾動條滑塊樣式 */
-html::-webkit-scrollbar-thumb,
-body::-webkit-scrollbar-thumb {
-    background-color: #888; /* 滑塊顏色 */
-    border-radius: 5px; /* 圓角 */
-    border: 2px solid #f1f1f1; /* 增加內邊框，使滑塊不會太貼近軌道 */
-}
-
-/* 滑塊懸停時的顏色 */
-html::-webkit-scrollbar-thumb:hover,
-body::-webkit-scrollbar-thumb:hover {
-    background-color: #555; /* 滑塊懸停時的顏色 */
-}
-
-/* 針對 Firefox 設置滾動條樣式 */
-html, body {
-    scrollbar-width: thin; /* 設置滾動條寬度 */
-    scrollbar-color: #888 #f1f1f1; /* 設置滑塊和軌道顏色 */
-}
-
-/* 保持表格容器滾動條樣式一致 */
-.table-container {
-    height: 300px; /* 限制表格高度 */
-    overflow-y: scroll;
-    padding: 0;
-}
-
-/* 表格容器的滾動條樣式 */
-.table-container::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
-}
-
-.table-container::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 5px;
-}
-
-.table-container::-webkit-scrollbar-thumb {
-    background-color: #888;
-    border-radius: 5px;
-    border: 2px solid #f1f1f1;
-}
-
-.table-container::-webkit-scrollbar-thumb:hover {
-    background-color: #555;
-}
-
 
 /* 主容器：Flexbox布局 */
 .main-content {
@@ -542,33 +490,15 @@ th {
 /* 表格容器樣式 */
 .table-container {
     height: 300px; /* 限制表格高度 */
-    overflow-y: scroll;
-    padding: 0;
-
+    overflow-y: scroll; /* 保持垂直滾動功能 */
+    overflow-x: hidden; /* 隱藏水平滾動條 */
+    scrollbar-width: none; /* 隱藏滾動條（適用於 Firefox） */
 }
 
-/* 針對 Webkit 瀏覽器（Chrome、Safari、Edge 等） */
+/* 隱藏滾動條（適用於 Chrome、Safari、Edge、Brave） */
 .table-container::-webkit-scrollbar {
-    width: 10px; /* 滾動條寬度 */
-    height: 10px; /* 滾動條高度 */
-}
-
-/* 滾動條軌道 */
-.table-container::-webkit-scrollbar-track {
-    background: #f1f1f1; /* 軌道背景色 */
-    border-radius: 5px; /* 圓角 */
-}
-
-/* 滾動條滑塊 */
-.table-container::-webkit-scrollbar-thumb {
-    background-color: #888; /* 滾動塊顏色 */
-    border-radius: 5px; /* 圓角 */
-    border: 2px solid #f1f1f1; /* 增加內邊框，使滑塊不會太貼近軌道 */
-}
-
-/* 滾動塊在鼠標懸停時的顏色 */
-.table-container::-webkit-scrollbar-thumb:hover {
-    background-color: #555; /* 滑塊懸停時的顏色 */
+    width: 0; /* 隱藏滾動條 */
+    background: transparent; /* 設置背景為透明 */
 }
 
 /* 調整表格樣式 */
