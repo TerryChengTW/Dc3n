@@ -539,3 +539,42 @@ th {
 #currentOrdersTable th, #historicalOrdersTable th, #historicalTradesTable th, #assetManagementTable th {
     box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.1); /* 添加表頭陰影 */
 }
+
+/* 與 confirmBox 保持一致的樣式 */
+.confirm-box {
+    display: none; /* 預設隱藏 */
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: #fefefe;
+    padding: 20px;
+    border-radius: 5px;
+    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.3);
+    z-index: 1000; /* 保持彈出視窗在最上層 */
+    max-width: 300px; /* 根據需要調整大小 */
+    text-align: center;
+}
+
+/* 與 confirmBox 按鈕樣式一致 */
+.confirm-buttons {
+    margin-top: 20px;
+}
+
+.confirm-btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    margin: 5px;
+}
+
+.confirm-btn-yes {
+    background-color: #28a745; /* 綠色 */
+    color: white;
+}
+
+.confirm-btn-no {
+    background-color: #dc3545; /* 紅色 */
+    color: white;
+}

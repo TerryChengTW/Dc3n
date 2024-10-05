@@ -79,8 +79,8 @@ function addOrUpdateOrderRow(order) {
         <td>${order.orderType}</td>
         <td>${order.status}</td>
         <td>
-            <button onclick="editOrder('${order.id}')">編輯</button>
-            <button onclick="deleteOrder('${order.id}')">刪除</button>
+            <button onclick="editOrder('${order.id}')" style="font-family: Arial,sans-serif; background-color: #000000; color: #00dfb6; border: none; padding: 5px 10px; cursor: pointer;">編輯</button>
+            <button onclick="deleteOrder('${order.id}')" style="font-family: Arial,sans-serif; background-color: #000000; color: #00dfb6; border: none; padding: 5px 10px; cursor: pointer;">刪除</button>
         </td>
     `;
 
@@ -98,12 +98,18 @@ function editOrder(orderId) {
     const quantity = orderRow.children[4].textContent;
 
     // 顯示彈出視窗
-    const modal = document.getElementById("editOrderModal");
-    modal.style.display = "block";
+    const editBox = document.getElementById("editOrderBox");
+    editBox.style.display = "block";
 
     // 預填訂單的價格和數量
     document.getElementById("editPrice").value = price;
     document.getElementById("editQuantity").value = quantity;
+}
+
+function closeEditBox() {
+    // 隱藏彈出視窗
+    const editBox = document.getElementById("editOrderBox");
+    editBox.style.display = "none";
 }
 
 
@@ -538,7 +544,7 @@ document.getElementById("confirmEditButton").addEventListener("click", function 
                     // 更新前端表格
                     addOrUpdateOrderRow(data.data);
                     // 隱藏彈出視窗
-                    document.getElementById("editOrderModal").style.display = "none";
+                    document.getElementById("editOrderBox").style.display = "none";
                 } else {
                     throw new Error(data.error || '訂單修改失敗');
                 }

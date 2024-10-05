@@ -212,16 +212,19 @@
     </div>
 </div>
 
-<div id="editOrderModal" class="modal">
-    <div class="modal-content">
-        <span class="close">&times;</span>
-        <h2>編輯訂單</h2>
+<div id="editOrderBox" class="confirm-box">
+    <h2>編輯訂單</h2>
+    <div>
         <label for="editPrice">價格:</label>
         <input type="number" id="editPrice" step="0.01" />
+    </div>
+    <div>
         <label for="editQuantity">數量:</label>
         <input type="number" id="editQuantity" step="0.01" />
-        <button id="confirmEditButton">確定</button>
-        <button id="cancelEditButton">取消</button>
+    </div>
+    <div class="confirm-buttons">
+        <button id="confirmEditButton" class="confirm-btn confirm-btn-yes">確定</button>
+        <button id="cancelEditButton" class="confirm-btn confirm-btn-no" onclick="closeEditBox()">取消</button>
     </div>
 </div>
 
