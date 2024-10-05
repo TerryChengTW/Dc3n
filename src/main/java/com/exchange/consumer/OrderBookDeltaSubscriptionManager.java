@@ -1,9 +1,12 @@
 package com.exchange.consumer;
 
-import org.springframework.kafka.listener.MessageListener;
-import org.springframework.kafka.listener.KafkaMessageListenerContainer;
-import org.springframework.kafka.listener.ContainerProperties;
 import org.springframework.kafka.core.ConsumerFactory;
+import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.OffsetResetStrategy;
+import org.springframework.kafka.listener.ContainerProperties;
+import org.springframework.kafka.listener.KafkaMessageListenerContainer;
+import org.springframework.kafka.listener.MessageListener;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
@@ -16,7 +19,10 @@ public class OrderBookDeltaSubscriptionManager {
     private final Map<String, KafkaMessageListenerContainer<String, String>> topicContainers = new HashMap<>();
 
     public OrderBookDeltaSubscriptionManager(ConsumerFactory<String, String> consumerFactory) {
-        this.consumerFactory = consumerFactory;
+        // 使用帶有 "latest" offset 策略的 ConsumerFactory
+        Map<String, Object> config = new HashMap<>(consumerFactory.getConfigurationProperties());
+        config.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, OffsetResetStrategy.LATEST.name().toLowerCase());
+        this.consumerFactory = new DefaultKafkaConsumerFactory<>(config);
     }
 
     public void subscribeToSymbol(String symbol, MessageListener<String, String> messageListener) {

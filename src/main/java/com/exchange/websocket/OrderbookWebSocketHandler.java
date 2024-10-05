@@ -31,6 +31,21 @@ public class OrderbookWebSocketHandler extends TextWebSocketHandler {
         this.objectMapper = objectMapper;
         this.orderbookService = orderbookService;
         this.subscriptionManager = subscriptionManager;
+
+        // 預先初始化 Kafka 消費者，訂閱所有需要的 symbol topic
+        initializeKafkaSubscriptions();
+    }
+
+    private void initializeKafkaSubscriptions() {
+        // 訂閱所需的 symbol 列表
+        String[] symbols = {"BTCUSDT", "ETHUSDT"};
+
+        for (String symbol : symbols) {
+            subscriptionManager.subscribeToSymbol(symbol, record -> {
+                String deltaMessage = record.value();
+                sendDeltaToWebSocket(symbol, deltaMessage);
+            });
+        }
     }
 
     @Override
@@ -44,13 +59,8 @@ public class OrderbookWebSocketHandler extends TextWebSocketHandler {
             session.getAttributes().put("interval", interval); // 將 interval 設置到 session 屬性中
             symbolSessions.computeIfAbsent(symbol, k -> ConcurrentHashMap.newKeySet()).add(session);
 
-            // 訂閱該 symbol 的 Kafka Topic，並推送增量消息給 WebSocket 用戶
-            subscriptionManager.subscribeToSymbol(symbol, record -> {
-                String deltaMessage = record.value();
-                sendDeltaToWebSocket(symbol, deltaMessage);
-            });
-
-            sendOrderbookSnapshot(session, symbol, interval); // 發送訂單簿快照
+            // 發送訂單簿快照
+            sendOrderbookSnapshot(session, symbol, interval);
         } else {
             session.close(CloseStatus.POLICY_VIOLATION); // 如果沒有 symbol，則關閉連接
         }
@@ -65,9 +75,6 @@ public class OrderbookWebSocketHandler extends TextWebSocketHandler {
                 sessions.remove(session);
                 if (sessions.isEmpty()) {
                     symbolSessions.remove(symbol);
-
-                    // 如果沒有用戶訂閱該 symbol，取消對 Kafka Topic 的訂閱
-                    subscriptionManager.unsubscribeFromSymbol(symbol);
                 }
             }
         }
@@ -75,16 +82,24 @@ public class OrderbookWebSocketHandler extends TextWebSocketHandler {
 
     private void sendDeltaToWebSocket(String symbol, String deltaMessage) {
         Set<WebSocketSession> sessions = symbolSessions.get(symbol);
-        if (sessions != null) {
+
+        // 添加日誌以查看增量消息內容和符號
+//        System.out.println("Sending delta to symbol: " + symbol + ", message: " + deltaMessage);
+
+        if (sessions != null && !sessions.isEmpty()) {
             for (WebSocketSession session : sessions) {
                 try {
                     session.sendMessage(new TextMessage(deltaMessage));
+//                    System.out.println("Message sent to session: " + session.getId());
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
             }
+        } else {
+//            System.out.println("No WebSocket sessions available for symbol: " + symbol);
         }
     }
+
 
     private Map<String, String> extractQueryParams(WebSocketSession session) {
         Map<String, String> queryParams = new HashMap<>();
