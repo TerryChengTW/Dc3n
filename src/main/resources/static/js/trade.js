@@ -672,7 +672,7 @@ function renderFilters(tab) {
         statusSelect.innerHTML = `
             <option value="">全部</option>
             <option value="COMPLETED">已完成</option>
-            <option value="CANCELED">已取消</option>
+            <option value="CANCELLED">已取消</option>
             <!-- 添加更多狀態 -->
         `;
         filters.appendChild(statusLabel);
