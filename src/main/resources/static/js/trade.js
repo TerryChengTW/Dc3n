@@ -572,3 +572,305 @@ document.getElementById('symbol').addEventListener('change', updateSymbol);
 document.getElementById('priceInterval').addEventListener('change', function() {
     connectOrderbookWebSocket(currentSymbol);
 });
+
+// ... (保持原有的 JS 代碼) ...
+
+// 修改訂單表格的 ID
+function handleOrderSnapshot(orders) {
+    // 清空現有訂單表格
+    const orderTableBody = document.querySelector('#currentOrdersTable tbody');
+    orderTableBody.innerHTML = '';
+
+    // 添加快照中的所有訂單
+    orders.forEach(order => addOrUpdateOrderRow(order));
+}
+
+function addOrUpdateOrderRow(order) {
+    let orderRow = document.getElementById(`order-${order.id}`);
+
+    if (!orderRow) {
+        orderRow = document.createElement('tr');
+        orderRow.id = `order-${order.id}`;
+        if (order.side === 'BUY') {
+            orderRow.classList.add('bid-row');
+        } else if (order.side === 'SELL') {
+            orderRow.classList.add('ask-row');
+        }
+        document.querySelector('#currentOrdersTable tbody').appendChild(orderRow);
+    }
+
+    orderRow.innerHTML = `
+        <td>${order.id}</td>
+        <td>${order.userId}</td>
+        <td>${order.symbol}</td>
+        <td>${order.price}</td>
+        <td>${order.quantity}</td>
+        <td>${order.filledQuantity}</td>
+        <td>${order.side}</td>
+        <td>${order.orderType}</td>
+        <td>${order.status}</td>
+        <td>
+            <button onclick="editOrder('${order.id}')">編輯</button>
+            <button onclick="deleteOrder('${order.id}')">刪除</button>
+        </td>
+    `;
+
+    if (order.status === 'COMPLETED') {
+        setTimeout(() => removeOrderRow(order.id), 3000);
+    }
+}
+
+// Tab 切換功能
+document.querySelectorAll('.tab-button').forEach(button => {
+    button.addEventListener('click', () => {
+        const tab = button.getAttribute('data-tab');
+
+        // 移除所有按鈕的 active 類
+        document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+        // 給點擊的按鈕添加 active 類
+        button.classList.add('active');
+
+        // 隱藏所有內容
+        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+        // 顯示對應的內容
+        document.getElementById(tab).classList.add('active');
+
+        // 顯示或隱藏篩選器
+        const filters = document.getElementById('filters');
+        if (tab === 'historicalOrders' || tab === 'historicalTrades') {
+            filters.classList.add('active');
+            renderFilters(tab);
+        } else {
+            filters.classList.remove('active');
+            filters.innerHTML = ''; // 清空篩選器內容
+        }
+
+        // 如果是資產管理，模擬獲取數據
+        if (tab === 'assetManagement') {
+            simulateAssetManagementData();
+        } else if (tab === 'historicalOrders') {
+            simulateHistoricalOrdersData();
+        } else if (tab === 'historicalTrades') {
+            simulateHistoricalTradesData();
+        }
+    });
+});
+
+// 渲染篩選器
+function renderFilters(tab) {
+    const filters = document.getElementById('filters');
+    filters.innerHTML = ''; // 清空篩選器內容
+
+    // 時間範圍
+    const timeRangeLabel = document.createElement('label');
+    timeRangeLabel.textContent = '時間範圍:';
+    const timeRangeSelect = document.createElement('select');
+    timeRangeSelect.id = 'timeRange';
+    timeRangeSelect.innerHTML = `
+        <option value="1">1天</option>
+        <option value="3">3天</option>
+        <option value="7">7天</option>
+    `;
+    filters.appendChild(timeRangeLabel);
+    filters.appendChild(timeRangeSelect);
+
+    // 公共的查詢按鈕
+    const searchButton = document.createElement('button');
+    searchButton.id = 'searchButton';
+    searchButton.textContent = '查詢';
+
+    if (tab === 'historicalOrders') {
+        // 類型
+        const typeLabel = document.createElement('label');
+        typeLabel.textContent = '類型:';
+        const typeSelect = document.createElement('select');
+        typeSelect.id = 'orderType';
+        typeSelect.innerHTML = `
+            <option value="">全部</option>
+            <option value="LIMIT">LIMIT</option>
+            <option value="MARKET">MARKET</option>
+        `;
+        filters.appendChild(typeLabel);
+        filters.appendChild(typeSelect);
+
+        // 方向
+        const sideLabel = document.createElement('label');
+        sideLabel.textContent = '方向:';
+        const sideSelect = document.createElement('select');
+        sideSelect.id = 'orderSide';
+        sideSelect.innerHTML = `
+            <option value="">全部</option>
+            <option value="BUY">買入</option>
+            <option value="SELL">賣出</option>
+        `;
+        filters.appendChild(sideLabel);
+        filters.appendChild(sideSelect);
+
+        // 狀態
+        const statusLabel = document.createElement('label');
+        statusLabel.textContent = '狀態:';
+        const statusSelect = document.createElement('select');
+        statusSelect.id = 'orderStatus';
+        statusSelect.innerHTML = `
+            <option value="">全部</option>
+            <option value="COMPLETED">已完成</option>
+            <option value="CANCELED">已取消</option>
+            <!-- 添加更多狀態 -->
+        `;
+        filters.appendChild(statusLabel);
+        filters.appendChild(statusSelect);
+
+        // 添加查詢按鈕
+        filters.appendChild(searchButton);
+
+        // 綁定查詢按鈕事件
+        searchButton.addEventListener('click', simulateHistoricalOrdersData);
+
+    } else if (tab === 'historicalTrades') {
+        // 方向
+        const sideLabel = document.createElement('label');
+        sideLabel.textContent = '方向:';
+        const sideSelect = document.createElement('select');
+        sideSelect.id = 'tradeSide';
+        sideSelect.innerHTML = `
+            <option value="">全部</option>
+            <option value="BUY">買入</option>
+            <option value="SELL">賣出</option>
+        `;
+        filters.appendChild(sideLabel);
+        filters.appendChild(sideSelect);
+
+        // 添加查詢按鈕
+        filters.appendChild(searchButton);
+
+        // 綁定查詢按鈕事件
+        searchButton.addEventListener('click', simulateHistoricalTradesData);
+    }
+}
+
+// 模擬獲取歷史委託數據
+function simulateHistoricalOrdersData() {
+    // 獲取篩選器的值
+    const timeRange = document.getElementById('timeRange').value;
+    const orderType = document.getElementById('orderType').value;
+    const side = document.getElementById('orderSide').value;
+    const status = document.getElementById('orderStatus').value;
+
+    // 模擬 API 調用和數據
+    const simulatedData = [
+        {
+            orderTime: '2023-09-01 12:00:00',
+            currency: 'BTCUSDT',
+            type: 'LIMIT',
+            side: 'BUY',
+            avgPrice: '50000.00',
+            price: '50500.00',
+            filledQuantity: '0.5',
+            quantity: '1',
+            status: 'COMPLETED'
+        },
+        // 添加更多模擬數據
+    ];
+
+    // 根據篩選器篩選數據（此處簡化處理，返回所有數據）
+    const filteredData = simulatedData.filter(order => {
+        return true;
+    });
+
+    // 顯示數據到表格
+    const tbody = document.getElementById('historicalOrdersTable').getElementsByTagName('tbody')[0];
+    tbody.innerHTML = '';
+
+    filteredData.forEach(order => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${order.orderTime}</td>
+            <td>${order.currency}</td>
+            <td>${order.type}</td>
+            <td>${order.side}</td>
+            <td>${order.avgPrice}</td>
+            <td>${order.price}</td>
+            <td>${order.filledQuantity}</td>
+            <td>${order.quantity}</td>
+            <td>${order.status}</td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+// 模擬獲取歷史成交數據
+function simulateHistoricalTradesData() {
+    const timeRange = document.getElementById('timeRange').value;
+    const side = document.getElementById('tradeSide').value;
+
+    const simulatedData = [
+        {
+            orderNumber: '123456',
+            time: '2023-09-01 12:00:00',
+            symbol: 'BTCUSDT',
+            side: 'BUY',
+            avgPrice: '50000.00',
+            quantity: '0.5',
+            role: 'Maker',
+            amount: '25000.00'
+        },
+        // 添加更多模擬數據
+    ];
+
+    const filteredData = simulatedData.filter(trade => {
+        return true;
+    });
+
+    const tbody = document.getElementById('historicalTradesTable').getElementsByTagName('tbody')[0];
+    tbody.innerHTML = '';
+
+    filteredData.forEach(trade => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${trade.orderNumber}</td>
+            <td>${trade.time}</td>
+            <td>${trade.symbol}</td>
+            <td>${trade.side}</td>
+            <td>${trade.avgPrice}</td>
+            <td>${trade.quantity}</td>
+            <td>${trade.role}</td>
+            <td>${trade.amount}</td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+// 模擬獲取資產管理數據
+function simulateAssetManagementData() {
+    const simulatedData = [
+        {
+            currency: 'BTC',
+            total: '1.5',
+            available: '1.0',
+            locked: '0.5'
+        },
+        {
+            currency: 'USDT',
+            total: '5000.00',
+            available: '4500.00',
+            locked: '500.00'
+        },
+        // 添加更多模擬數據
+    ];
+
+    const tbody = document.getElementById('assetManagementTable').getElementsByTagName('tbody')[0];
+    tbody.innerHTML = '';
+
+    simulatedData.forEach(asset => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${asset.currency}</td>
+            <td>${asset.total}</td>
+            <td>${asset.available}</td>
+            <td>${asset.locked}</td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+// ... (保持原有的其他 JS 代碼，如連接 WebSocket 等) ...
