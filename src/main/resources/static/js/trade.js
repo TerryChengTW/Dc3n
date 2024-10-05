@@ -79,9 +79,9 @@ function addOrUpdateOrderRow(order) {
         <td>${order.orderType}</td>
         <td>${order.status}</td>
         <td>
-            <button onclick="editOrder('${order.id}')" style="font-family: Arial,sans-serif; background-color: #000000; color: #00dfb6; border: none; padding: 5px 10px; cursor: pointer;">編輯</button>
-            <button onclick="deleteOrder('${order.id}')" style="font-family: Arial,sans-serif; background-color: #000000; color: #00dfb6; border: none; padding: 5px 10px; cursor: pointer;">刪除</button>
-        </td>
+            <button onclick="editOrder('${order.id}')" class="custom-button">編輯</button>
+            <button onclick="deleteOrder('${order.id}')" class="custom-button">刪除</button>
+        </td>        
     `;
 
     if (order.status === 'COMPLETED') {
@@ -612,7 +612,6 @@ document.querySelectorAll('.tab-button').forEach(button => {
     });
 });
 
-// 渲染篩選器
 function renderFilters(tab) {
     const filters = document.getElementById('filters');
     filters.innerHTML = ''; // 清空篩選器內容
@@ -629,11 +628,6 @@ function renderFilters(tab) {
     `;
     filters.appendChild(timeRangeLabel);
     filters.appendChild(timeRangeSelect);
-
-    // 公共的查詢按鈕
-    const searchButton = document.createElement('button');
-    searchButton.id = 'searchButton';
-    searchButton.textContent = '查詢';
 
     if (tab === 'historicalOrders') {
         // 類型
@@ -675,13 +669,6 @@ function renderFilters(tab) {
         `;
         filters.appendChild(statusLabel);
         filters.appendChild(statusSelect);
-
-        // 添加查詢按鈕
-        filters.appendChild(searchButton);
-
-        // 綁定查詢按鈕事件
-        searchButton.addEventListener('click', fetchHistoricalTradesData);
-
     } else if (tab === 'historicalTrades') {
         // 方向
         const sideLabel = document.createElement('label');
@@ -695,13 +682,16 @@ function renderFilters(tab) {
         `;
         filters.appendChild(sideLabel);
         filters.appendChild(sideSelect);
-
-        // 添加查詢按鈕
-        filters.appendChild(searchButton);
-
-        // 綁定查詢按鈕事件
-        searchButton.addEventListener('click', fetchHistoricalTradesData);
     }
+
+    // 添加查詢按鈕
+    const searchButton = document.createElement('button');
+    searchButton.id = 'searchButton';
+    searchButton.textContent = '查詢';
+    filters.appendChild(searchButton);
+
+    // 綁定查詢按鈕事件
+    searchButton.addEventListener('click', fetchHistoricalTradesData);
 }
 
 // 獲取歷史委託數據

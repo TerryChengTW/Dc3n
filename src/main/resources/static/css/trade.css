@@ -608,3 +608,52 @@ th {
 .details-container {
     background-color: #fafafa;
 }
+
+/* 外部容器 */
+#filters {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+/* 標籤樣式 */
+#filters label {
+    font-weight: bold;
+    margin-right: 5px;
+}
+
+/* 選擇框和按鈕樣式 */
+#filters select, #searchButton {
+    padding: 5px 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+#searchButton {
+    background-color: #000000;
+    color: #00dfb6;
+    cursor: pointer;
+    border: none;
+    transition: background-color 0.3s ease;
+}
+
+#searchButton:hover {
+    background-color: #333333;
+}
+
+.custom-button {
+    background-color: #000000;
+    color: #00dfb6;
+    border: none;
+    padding: 5px 10px;
+    cursor: pointer;
+    border-radius: 5px;
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+    transition: background-color 0.3s ease;
+    font-family: Arial, sans-serif;
+}
+
+.custom-button:hover {
+    background-color: #333333;
+}

@@ -33,7 +33,7 @@ function renderUserStatus() {
 
             userStatusDiv.innerHTML = `
                 <span style="margin-right: 20px;">歡迎，${username}</span>
-                <button onclick="logout()" style="background-color: #000000; color: #00dfb6; border: none; padding: 5px 10px; cursor: pointer;">登出</button>
+                <button onclick="logout()" style="background-color: #000000; color: #00dfb6; border: none; padding: 5px 10px; cursor: pointer; border-radius: 5px; box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1); transition: background-color 0.3s ease;">登出</button>
             `;
         } catch (error) {
             console.error('無效的 JWT token:', error);
