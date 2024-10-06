@@ -26,15 +26,7 @@ public class OrderConsumer {
         try {
             // 將接收到的 JSON 訂單轉換為 Order 對象
             Order order = objectMapper.readValue(orderJson, Order.class);
-
-            // 根據訂單類型進行不同處理
-            if (order.getOrderType() == Order.OrderType.MARKET) {
-                // 市場單立即送至撮合服務處理
-//                newMatchingService.processMarketOrder(order);
-            } else if (order.getOrderType() == Order.OrderType.LIMIT) {
-                // 限價單：通過 NewOrderMatchingService 處理
-                newMatchingService.handleNewOrder(order);
-            }
+            newMatchingService.handleNewOrder(order);
 
         } catch (Exception e) {
             e.printStackTrace();

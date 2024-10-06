@@ -30,7 +30,7 @@ public class OrderHistoryDTO {
         Map<String, Object> formattedOrder = new HashMap<>();
         formattedOrder.put("id", order.getId());
         formattedOrder.put("symbol", order.getSymbol());
-        formattedOrder.put("price", order.getPrice().setScale(8, RoundingMode.HALF_UP).toPlainString());
+        formattedOrder.put("price", order.getPrice() != null ? order.getPrice().setScale(8, RoundingMode.HALF_UP).toPlainString() : null);
         formattedOrder.put("quantity", order.getQuantity().setScale(8, RoundingMode.HALF_UP).toPlainString());
         formattedOrder.put("filledQuantity", order.getFilledQuantity().setScale(8, RoundingMode.HALF_UP).toPlainString());
         formattedOrder.put("side", order.getSide().toString());

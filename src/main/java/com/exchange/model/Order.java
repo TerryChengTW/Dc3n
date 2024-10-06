@@ -1,6 +1,7 @@
 package com.exchange.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -29,6 +30,7 @@ public class Order {
     @Column(length = 10, nullable = false)
     private String symbol;   // 交易對，如 BTC/USDT
 
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     @Column(precision = 18, scale = 8)
     private BigDecimal price;
 
