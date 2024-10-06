@@ -37,12 +37,64 @@ function connectUserOrderWebSocket() {
 function handleOrderSnapshot(orders) {
     // 清空現有訂單表格
     const orderTableBody = document.querySelector('#currentOrdersTable tbody');
-    orderTableBody.innerHTML = '';
+    orderTableBody.innerHTML = ''; // 清空原有內容
 
-    // 添加快照中的所有訂單
-    orders.forEach(order => addOrUpdateOrderRow(order));
+    // 初始化索引
+    let index = 0;
+
+    // 每次渲染的批量數量（根據情況調整）
+    const batchSize = 20;
+
+    function renderBatch() {
+        // 使用 DocumentFragment 批量更新 DOM
+        const fragment = document.createDocumentFragment();
+
+        // 渲染一批訂單
+        for (let i = 0; i < batchSize && index < orders.length; i++, index++) {
+            const order = orders[index];
+            const row = createOrderRow(order);
+            fragment.appendChild(row);
+        }
+
+        // 插入到表格中
+        orderTableBody.appendChild(fragment);
+
+        // 如果還有未渲染的訂單，繼續下一批
+        if (index < orders.length) {
+            requestAnimationFrame(renderBatch); // 使用 requestAnimationFrame 非阻塞地渲染下一批
+        }
+    }
+
+    // 開始渲染
+    requestAnimationFrame(renderBatch);
 }
 
+function createOrderRow(order) {
+    const row = document.createElement('tr');
+    row.id = `order-${order.id}`;
+    if (order.side === 'BUY') {
+        row.classList.add('bid-row');
+    } else if (order.side === 'SELL') {
+        row.classList.add('ask-row');
+    }
+
+    row.innerHTML = `
+        <td>${order.id}</td>
+        <td>${order.userId}</td>
+        <td>${order.symbol}</td>
+        <td>${order.price}</td>
+        <td>${order.quantity}</td>
+        <td>${order.filledQuantity}</td>
+        <td>${order.side}</td>
+        <td>${order.orderType}</td>
+        <td>${order.status}</td>
+        <td>
+            <button onclick="editOrder('${order.id}')" class="custom-button">編輯</button>
+            <button onclick="deleteOrder('${order.id}')" class="custom-button">刪除</button>
+        </td>        
+    `;
+    return row;
+}
 
 function handleOrderNotification(notification) {
     const order = notification.data;
@@ -599,7 +651,7 @@ document.getElementById('priceInterval').addEventListener('change', function() {
 
 // Tab 切換功能
 document.querySelectorAll('.tab-button').forEach(button => {
-    button.addEventListener('click', () => {
+    button.addEventListener('click', async () => {
         const tab = button.getAttribute('data-tab');
 
         // 移除所有按鈕的 active 類
@@ -627,9 +679,9 @@ document.querySelectorAll('.tab-button').forEach(button => {
         if (tab === 'assetManagement') {
             simulateAssetManagementData();
         } else if (tab === 'historicalOrders') {
-            fetchHistoricalDelegatesData();
+            await fetchHistoricalDelegatesData(); // 使用 await 進行異步操作
         } else if (tab === 'historicalTrades') {
-            fetchHistoricalTradesData();
+            await fetchHistoricalTradesData(); // 使用 await 進行異步操作
         }
     });
 });
