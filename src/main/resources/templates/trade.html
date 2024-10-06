@@ -145,48 +145,54 @@
 
         <!-- 歷史委託內容 -->
         <div id="historicalOrders" class="tab-content">
-            <div class="table-container">
-                <table id="historicalOrdersTable">
-                    <thead>
-                    <tr>
-                        <th>訂單時間</th>
-                        <th>幣種</th>
-                        <th>類型</th>
-                        <th>方向</th>
-                        <th>平均價格</th>
-                        <th>價格</th>
-                        <th>成交數量</th>
-                        <th>數量</th>
-                        <th>狀態</th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    <!-- 歷史委託數據 -->
-                    </tbody>
-                </table>
+            <div class="loading-container">
+                <div id="orders-loading-spinner" class="loading-spinner" style="display: none;"></div>
+                <div class="table-container">
+                    <table id="historicalOrdersTable">
+                        <thead>
+                        <tr>
+                            <th>訂單時間</th>
+                            <th>幣種</th>
+                            <th>類型</th>
+                            <th>方向</th>
+                            <th>平均價格</th>
+                            <th>價格</th>
+                            <th>成交數量</th>
+                            <th>數量</th>
+                            <th>狀態</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <!-- 歷史委託數據 -->
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
         <!-- 歷史成交內容 -->
         <div id="historicalTrades" class="tab-content">
-            <div class="table-container">
-                <table id="historicalTradesTable">
-                    <thead>
-                    <tr>
-                        <th>訂單號碼</th>
-                        <th>時間</th>
-                        <th>交易對</th>
-                        <th>方向</th>
-                        <th>成交均價</th>
-                        <th>成交數量</th>
-                        <th>角色</th>
-                        <th>成交金額</th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    <!-- 歷史成交數據 -->
-                    </tbody>
-                </table>
+            <div class="loading-container">
+                <div id="trades-loading-spinner" class="loading-spinner" style="display: none;"></div>
+                <div class="table-container">
+                    <table id="historicalTradesTable">
+                        <thead>
+                        <tr>
+                            <th>訂單號碼</th>
+                            <th>時間</th>
+                            <th>交易對</th>
+                            <th>方向</th>
+                            <th>成交均價</th>
+                            <th>成交數量</th>
+                            <th>角色</th>
+                            <th>成交金額</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <!-- 歷史成交數據 -->
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
@@ -241,6 +247,10 @@
         <button id="confirmYes" class="confirm-btn confirm-btn-yes">確定</button>
         <button id="confirmNo" class="confirm-btn confirm-btn-no">取消</button>
     </div>
+</div>
+
+<div id="loading-overlay" style="display: none;">
+    <div class="loading-spinner"></div>
 </div>
 
 <script src="/js/trade.js"></script>

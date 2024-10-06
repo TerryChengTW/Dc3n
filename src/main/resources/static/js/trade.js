@@ -706,8 +706,19 @@ function renderFilters(tab) {
     }
 }
 
+// 顯示指定區域的加載動畫
+function showLoadingSpinner(spinnerId) {
+    document.getElementById(spinnerId).style.display = 'block';
+}
+
+// 隱藏指定區域的加載動畫
+function hideLoadingSpinner(spinnerId) {
+    document.getElementById(spinnerId).style.display = 'none';
+}
+
 // 獲取歷史委託數據
 async function fetchHistoricalDelegatesData() {
+    showLoadingSpinner('orders-loading-spinner');
     const timeRange = document.getElementById('timeRange').value;
     const orderType = document.getElementById('orderType').value; // 類型
     const side = document.getElementById('orderSide').value; // 方向
@@ -842,11 +853,14 @@ async function fetchHistoricalDelegatesData() {
 
     } catch (error) {
         console.error('Error fetching historical trades:', error);
+    } finally {
+        hideLoadingSpinner('orders-loading-spinner'); // 確保無論成功或失敗都隱藏動畫
     }
 }
 
 
 async function fetchHistoricalTradesData() {
+    showLoadingSpinner('trades-loading-spinner');
     const timeRange = document.getElementById('timeRange').value;
     const side = document.getElementById('tradeSide').value;
 
@@ -883,6 +897,8 @@ async function fetchHistoricalTradesData() {
         renderTradeHistory(tradeData);
     } catch (error) {
         console.error('Error fetching trade history:', error);
+    } finally {
+        hideLoadingSpinner('trades-loading-spinner'); // 確保無論成功或失敗都隱藏動畫
     }
 }
 
