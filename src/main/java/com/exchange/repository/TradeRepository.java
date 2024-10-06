@@ -22,4 +22,6 @@ public interface TradeRepository extends JpaRepository<Trade, String>, CustomTra
             "FROM Trade t WHERE t.buyOrder.id = :orderId OR t.sellOrder.id = :orderId " +
             "ORDER BY t.tradeTime")
     List<SimpleTradeInfo> findSimpleTradeInfoByOrderId(@Param("orderId") String orderId);
+
+    List<Trade> findByBuyOrderIdOrSellOrderId(String buyOrderId, String sellOrderId);
 }

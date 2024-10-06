@@ -25,4 +25,7 @@ public interface OrderRepository extends JpaRepository<Order, String> {
                                  Order.OrderType orderType,
                                  Order.Side side,
                                  Order.OrderStatus status);
+
+    List<Order> findByUserIdAndUpdatedAtBetween(String userId, Instant startTime, Instant endTime);
+
 }
