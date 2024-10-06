@@ -908,11 +908,13 @@ function renderTradeHistory(tradeData) {
 
     tradeData.forEach(trade => {
         const row = document.createElement('tr');
+        const directionColor = trade.direction === 'BUY' ? '#28a745' : '#dc3545';
+
         row.innerHTML = `
             <td>${trade.tradeId}</td>
             <td>${new Date(trade.tradeTime).toLocaleString()}</td>
             <td>${trade.symbol}</td>
-            <td>${trade.direction}</td>
+            <td style="color: ${directionColor};">${trade.direction}</td>
             <td>${trade.avgPrice}</td>
             <td>${trade.quantity}</td>
             <td>${trade.role}</td>
