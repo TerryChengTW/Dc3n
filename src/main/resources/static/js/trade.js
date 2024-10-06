@@ -280,17 +280,30 @@ function connectRecentTradesWebSocket(symbol) {
         const tradesList = document.getElementById('recentTradesList');
         const tradesData = JSON.parse(event.data);
         console.log("最新成交：", tradesData);
-        if (isFirstMessage) {
-            // 確認資料是否為陣列且不為空
-            if (Array.isArray(tradesData) && tradesData.length > 0) {
-                // 清空默認的空白行
-                tradesList.innerHTML = '';
 
+        if (isFirstMessage) {
+            // 清空默認的空白行
+            tradesList.innerHTML = '';
+
+            // 如果收到的是空陣列，填充 5 個佔位符
+            if (Array.isArray(tradesData) && tradesData.length === 0) {
+                for (let i = 0; i < 5; i++) {
+                    const placeholderRow = document.createElement('tr');
+                    placeholderRow.innerHTML = `
+                    <td>-</td>
+                    <td>-</td>
+                    <td>-</td>
+                `;
+                    tradesList.appendChild(placeholderRow);
+                }
+            } else if (Array.isArray(tradesData)) {
                 // 處理所有的交易資料
                 tradesData.forEach(trade => {
                     addRecentTrade(trade);
                 });
-            } isFirstMessage = false;
+            }
+
+            isFirstMessage = false;
         } else {
             // 後續收到的是單筆交易資料
             if (Array.isArray(tradesData)) {

@@ -437,7 +437,7 @@ th {
 }
 
 .tab-button.active {
-    border-bottom: 2px solid #007bff;
+    border-bottom: 2px solid #00dfb6;
     font-weight: bold;
 }
 
@@ -448,6 +448,12 @@ th {
 .tab-content.active {
     display: block;
 }
+
+/* 滑鼠懸停時的樣式 */
+.tab-button:hover {
+    color: #00dfb6; /* 改變文字顏色 */
+}
+
 
 /* 內容區域樣式 */
 .collapsible-content {
