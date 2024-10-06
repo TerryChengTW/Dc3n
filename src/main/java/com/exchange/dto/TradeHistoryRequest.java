@@ -2,16 +2,13 @@ package com.exchange.dto;
 
 import lombok.Data;
 
+import java.time.Instant;
+
 @Data
 public class TradeHistoryRequest {
-    private TimeRange timeRange;
+    private Instant startTime;
+    private Instant endTime;
     private TradeDirection direction;
-
-    public enum TimeRange {
-        ONE_DAY,
-        THREE_DAYS,
-        SEVEN_DAYS
-    }
 
     public enum TradeDirection {
         BUY,

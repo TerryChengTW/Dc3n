@@ -613,9 +613,9 @@ document.querySelectorAll('.tab-button').forEach(button => {
         if (tab === 'assetManagement') {
             simulateAssetManagementData();
         } else if (tab === 'historicalOrders') {
-            fetchHistoricalTradesData();
+            fetchHistoricalDelegatesData();
         } else if (tab === 'historicalTrades') {
-            simulateHistoricalTradesData();
+            fetchHistoricalTradesData();
         }
     });
 });
@@ -637,6 +637,7 @@ function renderFilters(tab) {
     filters.appendChild(timeRangeLabel);
     filters.appendChild(timeRangeSelect);
 
+    // 不同 tab 顯示不同的篩選條件
     if (tab === 'historicalOrders') {
         // 類型
         const typeLabel = document.createElement('label');
@@ -698,12 +699,16 @@ function renderFilters(tab) {
     searchButton.textContent = '查詢';
     filters.appendChild(searchButton);
 
-    // 綁定查詢按鈕事件
-    searchButton.addEventListener('click', fetchHistoricalTradesData);
+    // 根據 tab 綁定不同的查詢按鈕事件
+    if (tab === 'historicalOrders') {
+        searchButton.addEventListener('click', fetchHistoricalDelegatesData);
+    } else if (tab === 'historicalTrades') {
+        searchButton.addEventListener('click', fetchHistoricalTradesData);
+    }
 }
 
 // 獲取歷史委託數據
-async function fetchHistoricalTradesData() {
+async function fetchHistoricalDelegatesData() {
     const timeRange = document.getElementById('timeRange').value;
     const orderType = document.getElementById('orderType').value; // 類型
     const side = document.getElementById('orderSide').value; // 方向
@@ -830,44 +835,61 @@ async function fetchHistoricalTradesData() {
 }
 
 
-
-// 模擬獲取歷史成交數據
-function simulateHistoricalTradesData() {
+async function fetchHistoricalTradesData() {
     const timeRange = document.getElementById('timeRange').value;
     const side = document.getElementById('tradeSide').value;
 
-    const simulatedData = [
-        {
-            orderNumber: '123456',
-            time: '2023-09-01 12:00:00',
-            symbol: 'BTCUSDT',
-            side: 'BUY',
-            avgPrice: '50000.00',
-            quantity: '0.5',
-            role: 'Maker',
-            amount: '25000.00'
-        },
-        // 添加更多模擬數據
-    ];
+    let tradeHistoryUrl = `/api/trade-history?`;
 
-    const filteredData = simulatedData.filter(trade => {
-        return true;
-    });
+    // 根據篩選條件構建查詢參數
+    if (timeRange) {
+        tradeHistoryUrl += `timeRange=${timeRange}&`;
+    }
+    if (side) {
+        tradeHistoryUrl += `direction=${side}`;
+    }
 
+    try {
+        // 你需要在這裡加入你自己的 JWT token
+        const jwtToken = localStorage.getItem('jwtToken');
+
+        // 發送請求
+        const response = await fetch(tradeHistoryUrl, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${jwtToken}`,
+                'Content-Type': 'application/json',
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const tradeData = await response.json();
+
+        // 渲染數據
+        renderTradeHistory(tradeData);
+    } catch (error) {
+        console.error('Error fetching trade history:', error);
+    }
+}
+
+function renderTradeHistory(tradeData) {
     const tbody = document.getElementById('historicalTradesTable').getElementsByTagName('tbody')[0];
     tbody.innerHTML = '';
 
-    filteredData.forEach(trade => {
+    tradeData.forEach(trade => {
         const row = document.createElement('tr');
         row.innerHTML = `
-            <td>${trade.orderNumber}</td>
-            <td>${trade.time}</td>
+            <td>${trade.tradeId}</td>
+            <td>${new Date(trade.tradeTime).toLocaleString()}</td>
             <td>${trade.symbol}</td>
-            <td>${trade.side}</td>
+            <td>${trade.direction}</td>
             <td>${trade.avgPrice}</td>
             <td>${trade.quantity}</td>
             <td>${trade.role}</td>
-            <td>${trade.amount}</td>
+            <td>${trade.totalAmount}</td>
         `;
         tbody.appendChild(row);
     });
