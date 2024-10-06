@@ -420,8 +420,6 @@ th {
     background-color: #e41e1e;
 }
 
-/* ... (保持原有的 CSS 內容) ... */
-
 /* Tabs 樣式 */
 .tab-container {
     display: flex;
@@ -453,7 +451,7 @@ th {
 
 /* 內容區域樣式 */
 .collapsible-content {
-    height: 320px; /* 設定最大高度 */
+    height: 500px; /* 設定最大高度 */
     overflow-y: auto; /* 當內容超出時出現滾動條 */
     background-color: #fff;
     padding: 0;
@@ -489,7 +487,7 @@ th {
 
 /* 表格容器樣式 */
 .table-container {
-    height: 300px; /* 限制表格高度 */
+    height: 500px; /* 限制表格高度 */
     overflow-y: scroll; /* 保持垂直滾動功能 */
     overflow-x: hidden; /* 隱藏水平滾動條 */
     scrollbar-width: none; /* 隱藏滾動條（適用於 Firefox） */
@@ -662,4 +660,37 @@ input:disabled {
     background-color: #e9ecef;
     color: #6c757d;
     cursor: not-allowed;
+}
+
+/* 為 filters 設定固定高度 */
+#filters {
+    height: 30px; /* 設定你所需的高度 */
+    padding: 10px; /* 移除內距 */
+    margin: 5px; /* 移除外距 */
+    overflow: hidden; /* 防止內容溢出 */
+    display: flex; /* 使用 flexbox 排列內容 */
+    align-items: center; /* 垂直置中 */
+}
+
+/* 重設篩選器區域內部元素的 margin 和 padding */
+#filters label, #filters select, #filters button {
+    margin: 0; /* 移除 margin */
+    padding: 5px; /* 設定適當的內距 */
+}
+
+/* 統一選單的樣式 */
+#filters select {
+    background-color: #f0f0f0; /* 設定選單的背景色 */
+    color: #333; /* 設定選單文字的顏色 */
+    border: 1px solid #ccc; /* 設定選單的邊框 */
+    border-radius: 4px; /* 設定圓角 */
+    padding: 5px 10px; /* 增加內距，讓選單更好看 */
+    margin-right: 10px; /* 為選單間增加間距 */
+    outline: none; /* 移除選中時的外框 */
+    transition: background-color 0.3s ease; /* 添加過渡效果 */
+}
+
+/* 選單 hover 效果 */
+#filters select:hover {
+    background-color: #e6e6e6; /* 更改 hover 時的背景色 */
 }

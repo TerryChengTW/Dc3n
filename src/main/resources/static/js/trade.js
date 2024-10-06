@@ -599,17 +599,18 @@ document.querySelectorAll('.tab-button').forEach(button => {
         // 顯示對應的內容
         document.getElementById(tab).classList.add('active');
 
-        // 顯示或隱藏篩選器
+        // 顯示篩選器容器並渲染特定篩選條件或保持空白
         const filters = document.getElementById('filters');
+
         if (tab === 'historicalOrders' || tab === 'historicalTrades') {
-            filters.classList.add('active');
+            // 如果是歷史委託或歷史成交，渲染篩選條件
             renderFilters(tab);
         } else {
-            filters.classList.remove('active');
+            // 保留空的篩選器區域，但不渲染任何條件
             filters.innerHTML = ''; // 清空篩選器內容
         }
 
-        // 如果是資產管理，模擬獲取數據
+        // 根據 tab 模擬獲取數據
         if (tab === 'assetManagement') {
             simulateAssetManagementData();
         } else if (tab === 'historicalOrders') {
@@ -637,61 +638,45 @@ function renderFilters(tab) {
     filters.appendChild(timeRangeLabel);
     filters.appendChild(timeRangeSelect);
 
-    // 不同 tab 顯示不同的篩選條件
-    if (tab === 'historicalOrders') {
-        // 類型
-        const typeLabel = document.createElement('label');
-        typeLabel.textContent = '類型:';
-        const typeSelect = document.createElement('select');
-        typeSelect.id = 'orderType';
-        typeSelect.innerHTML = `
-            <option value="">全部</option>
-            <option value="LIMIT">LIMIT</option>
-            <option value="MARKET">MARKET</option>
-        `;
-        filters.appendChild(typeLabel);
-        filters.appendChild(typeSelect);
+    // 類型（預設隱藏）
+    const typeLabel = document.createElement('label');
+    typeLabel.textContent = '類型:';
+    const typeSelect = document.createElement('select');
+    typeSelect.id = 'orderType';
+    typeSelect.innerHTML = `
+        <option value="">全部</option>
+        <option value="LIMIT">LIMIT</option>
+        <option value="MARKET">MARKET</option>
+    `;
+    filters.appendChild(typeLabel);
+    filters.appendChild(typeSelect);
 
-        // 方向
-        const sideLabel = document.createElement('label');
-        sideLabel.textContent = '方向:';
-        const sideSelect = document.createElement('select');
-        sideSelect.id = 'orderSide';
-        sideSelect.innerHTML = `
-            <option value="">全部</option>
-            <option value="BUY">買入</option>
-            <option value="SELL">賣出</option>
-        `;
-        filters.appendChild(sideLabel);
-        filters.appendChild(sideSelect);
+    // 方向
+    const sideLabel = document.createElement('label');
+    sideLabel.textContent = '方向:';
+    const sideSelect = document.createElement('select');
+    sideSelect.id = tab === 'historicalOrders' ? 'orderSide' : 'tradeSide';
+    sideSelect.innerHTML = `
+        <option value="">全部</option>
+        <option value="BUY">買入</option>
+        <option value="SELL">賣出</option>
+    `;
+    filters.appendChild(sideLabel);
+    filters.appendChild(sideSelect);
 
-        // 狀態
-        const statusLabel = document.createElement('label');
-        statusLabel.textContent = '狀態:';
-        const statusSelect = document.createElement('select');
-        statusSelect.id = 'orderStatus';
-        statusSelect.innerHTML = `
-            <option value="">全部</option>
-            <option value="COMPLETED">已完成</option>
-            <option value="CANCELLED">已取消</option>
-            <!-- 添加更多狀態 -->
-        `;
-        filters.appendChild(statusLabel);
-        filters.appendChild(statusSelect);
-    } else if (tab === 'historicalTrades') {
-        // 方向
-        const sideLabel = document.createElement('label');
-        sideLabel.textContent = '方向:';
-        const sideSelect = document.createElement('select');
-        sideSelect.id = 'tradeSide';
-        sideSelect.innerHTML = `
-            <option value="">全部</option>
-            <option value="BUY">買入</option>
-            <option value="SELL">賣出</option>
-        `;
-        filters.appendChild(sideLabel);
-        filters.appendChild(sideSelect);
-    }
+    // 狀態（預設隱藏）
+    const statusLabel = document.createElement('label');
+    statusLabel.textContent = '狀態:';
+    const statusSelect = document.createElement('select');
+    statusSelect.id = 'orderStatus';
+    statusSelect.innerHTML = `
+        <option value="">全部</option>
+        <option value="COMPLETED">已完成</option>
+        <option value="CANCELLED">已取消</option>
+        <!-- 添加更多狀態 -->
+    `;
+    filters.appendChild(statusLabel);
+    filters.appendChild(statusSelect);
 
     // 添加查詢按鈕
     const searchButton = document.createElement('button');
@@ -699,11 +684,25 @@ function renderFilters(tab) {
     searchButton.textContent = '查詢';
     filters.appendChild(searchButton);
 
-    // 根據 tab 綁定不同的查詢按鈕事件
+    // 根據 tab 來控制篩選項目的顯示或隱藏
     if (tab === 'historicalOrders') {
+        typeLabel.style.display = 'block';
+        typeSelect.style.display = 'block';
+        statusLabel.style.display = 'block';
+        statusSelect.style.display = 'block';
         searchButton.addEventListener('click', fetchHistoricalDelegatesData);
     } else if (tab === 'historicalTrades') {
+        typeLabel.style.display = 'none';
+        typeSelect.style.display = 'none';
+        statusLabel.style.display = 'none';
+        statusSelect.style.display = 'none';
         searchButton.addEventListener('click', fetchHistoricalTradesData);
+    } else {
+        // 如果有其他 tab，需要確保所有篩選條件隱藏
+        typeLabel.style.display = 'none';
+        typeSelect.style.display = 'none';
+        statusLabel.style.display = 'none';
+        statusSelect.style.display = 'none';
     }
 }
 
@@ -757,11 +756,23 @@ async function fetchHistoricalDelegatesData() {
         // 迭代每個 orderHistory 條目，並將其渲染到表格中
         orderHistory.forEach(entry => {
             const order = entry.order;
-            const trades = entry.trades; // 獲取對應的 trades
+            const trades = entry.trades;
 
             // 渲染 order 行
             const row = document.createElement('tr');
             row.classList.add('order-row'); // 添加 `hover` 效果
+            // 計算平均價格
+            const totalQuantity = trades.reduce((sum, trade) => sum + parseFloat(trade.quantity), 0);
+            const totalWeightedPrice = trades.reduce((sum, trade) => sum + (parseFloat(trade.price) * parseFloat(trade.quantity)), 0);
+            const averagePrice = totalQuantity ? (totalWeightedPrice / totalQuantity).toFixed(2) : '-';
+
+            // 設置狀態顏色
+            const statusColor = order.status === 'COMPLETED' ? 'green' : order.status === 'CANCELLED' ? 'gray' : '';
+
+            // 設置方向顏色
+            const sideColor = order.side === 'BUY' ? '#008000' : order.side === 'SELL' ? '#d10000' : '';
+
+            // 修改 order 行，使用計算出的平均價格
             row.innerHTML = `
                 <td>
                     <span class="arrow down" data-order-id="${order.id}">▼</span>
@@ -769,12 +780,12 @@ async function fetchHistoricalDelegatesData() {
                 </td>
                 <td>${order.symbol}</td>
                 <td>${order.orderType}</td>
-                <td>${order.side}</td>
-                <td>${parseFloat(order.price).toFixed(2)}</td>
-                <td>${parseFloat(order.price).toFixed(2)}</td>
+                <td style="color: ${sideColor};">${order.side}</td>
+                <td>${averagePrice}</td>
+                <td>${order.price === null ? '-' : parseFloat(order.price).toFixed(2)}</td>
                 <td>${parseFloat(order.filledQuantity).toFixed(2)}</td>
                 <td>${parseFloat(order.quantity).toFixed(2)}</td>
-                <td>${order.status}</td>
+                <td style="color: ${statusColor};">${order.status}</td>
             `;
             tbody.appendChild(row);
 
