@@ -108,10 +108,9 @@ public class MatchedOrderConsumer {
 
     // 自定義合併 Order 的邏輯
     private Order mergeOrders(Order existingOrder, Order newOrder) {
-        // 更新 filledQuantity 等需要累積的屬性
-        existingOrder.setFilledQuantity(existingOrder.getFilledQuantity().add(newOrder.getFilledQuantity()));
-        existingOrder.setUnfilledQuantity(newOrder.getUnfilledQuantity()); // 或者其他累積邏輯
-        existingOrder.setUpdatedAt(newOrder.getUpdatedAt()); // 更新時間戳等其他必要屬性
+        existingOrder.setFilledQuantity(newOrder.getFilledQuantity());
+        existingOrder.setUnfilledQuantity(newOrder.getUnfilledQuantity());
+        existingOrder.setUpdatedAt(newOrder.getUpdatedAt());
         return existingOrder;
     }
 }
