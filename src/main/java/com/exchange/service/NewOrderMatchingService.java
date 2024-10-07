@@ -15,6 +15,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class NewOrderMatchingService {
@@ -117,6 +118,10 @@ public class NewOrderMatchingService {
                 String tradeJson = objectMapper.writeValueAsString(trade);
 //                System.out.println("保存新交易到 Kafka: " + tradeJson);
                 kafkaTemplate.send("recent-trades", tradeJson);
+
+                // 推送K線更新數據到 Kafka
+                sendKlineUpdateToKafka(trade);
+
                 // 更新 `p1` 在 Redis 中的狀態
                 if (p1.getUnfilledQuantity().compareTo(BigDecimal.ZERO) == 0) {
                     orderbookService.removeOrderFromRedis(p1, originalP1Json);
@@ -194,6 +199,9 @@ public class NewOrderMatchingService {
             String tradeJson = objectMapper.writeValueAsString(trade);
             kafkaTemplate.send("recent-trades", tradeJson);
 
+            // 推送K線更新數據到 Kafka
+            sendKlineUpdateToKafka(trade);
+
             // 更新 `p1` 在 Redis 中的狀態
             if (p1.getUnfilledQuantity().compareTo(BigDecimal.ZERO) == 0) {
                 orderbookService.removeOrderFromRedis(p1, originalP1Json);
@@ -235,5 +243,17 @@ public class NewOrderMatchingService {
         }
     }
 
+    // 發送 K-line 更新到 Kafka 的方法
+    private void sendKlineUpdateToKafka(Trade trade) throws JsonProcessingException {
+        // 構建消息
+        String klineUpdateMessage = objectMapper.writeValueAsString(Map.of(
+                "symbol", trade.getSymbol(),
+                "price", trade.getPrice().toString(),
+                "tradeTime", trade.getTradeTime().getEpochSecond()
+        ));
+
+        // 發送到 Kafka 的 kline-updates topic
+        kafkaTemplate.send("kline-updates", klineUpdateMessage);
+    }
 
 }

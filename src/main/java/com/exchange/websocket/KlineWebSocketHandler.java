@@ -174,6 +174,7 @@ public class KlineWebSocketHandler extends TextWebSocketHandler {
                 // 構建實時成交數據的消息，包含時間戳
                 String message = "{\"type\": \"trade\", \"symbol\": \"" + symbol + "\", \"price\": " + price + ", \"time\": " + tradeTime.getEpochSecond() + "}";
                 session.sendMessage(new TextMessage(message));
+                System.out.println("Broadcasted message: " + message);
             } catch (Exception e) {
                 e.printStackTrace();
             }
