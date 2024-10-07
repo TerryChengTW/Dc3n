@@ -318,9 +318,8 @@ function connectRecentTradesWebSocket(symbol) {
         tradesList.innerHTML = '';
     }
 
-    const token = localStorage.getItem('jwtToken');
     currentSymbol = symbol;
-    recentTradesSocket = new WebSocket(`/ws/recent-trades/${symbol}?token=${token}`);
+    recentTradesSocket = new WebSocket(`/ws/recent-trades/${symbol}`);
 
     recentTradesSocket.onopen = function() {
         console.log(`最新成交 WebSocket 連接已建立，交易對：${symbol}`);
@@ -438,7 +437,6 @@ function connectOrderbookWebSocket(symbol) {
     orderbook = { buy: {}, sell: {} };
     updateOrderbookDisplay(orderbook);
 
-    const token = localStorage.getItem('jwtToken');
     currentSymbol = symbol;
     // 將 interval 作為參數添加到 WebSocket URL 中
     orderbookSocket = new WebSocket(`/ws/orderbook?symbol=${symbol}&interval=${currentInterval}`);
@@ -1020,4 +1018,26 @@ function simulateAssetManagementData() {
         `;
         tbody.appendChild(row);
     });
+}
+
+
+document.addEventListener('DOMContentLoaded', function() {
+    const token = localStorage.getItem('jwtToken');
+    console.log('JWT Token:', token); // 除錯用
+    if (token) {
+        console.log('Token found, showing submit button.');
+        document.getElementById('submitButton').style.display = 'block';
+        document.getElementById('loginButton').style.display = 'none';
+    } else {
+        console.log('No token found, showing login button.');
+        document.getElementById('submitButton').style.display = 'none';
+        document.getElementById('loginButton').style.display = 'block';
+    }
+});
+
+
+// 轉到登入頁面的函式
+function redirectToLogin() {
+    // 這裡處理轉到登入頁面的邏輯
+    window.location.href = '/login';
 }

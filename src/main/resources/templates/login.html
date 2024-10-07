@@ -9,27 +9,156 @@
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            font-family: 'Arial', sans-serif;
+        }
+
+        body {
+            background-color: #f5f5f5;
+            color: #333;
+            min-height: 100vh;
+        }
+
+        #topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #00dfb6;
+            color: #000;
+            padding: 10px;
+        }
+
+        main {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: calc(100vh - 60px); /* 頂部留出 topbar 高度 */
+            padding: 20px;
+        }
+
+        h2 {
+            color: #00dfb6;
+            margin-bottom: 20px;
+        }
+
+        form {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+
+        input[type="text"],
+        input[type="password"] {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            outline: none;
+        }
+
+        input[type="text"]:focus,
+        input[type="password"]:focus {
+            border-color: #00dfb6;
+            box-shadow: 0px 0px 5px rgba(0, 223, 182, 0.4);
+        }
+
+        .custom-button {
+            background-color: #000000;
+            color: #00dfb6;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            border-radius: 5px;
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+            transition: background-color 0.3s ease;
+        }
+
+        .custom-button:hover {
+            background-color: #333;
+        }
+
+        p {
+            margin-top: 15px;
+        }
+
+        a {
+            color: #00dfb6;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .notification {
+            position: relative; /* 改為相對位置 */
+            margin-bottom: 15px; /* 與表單之間的間距 */
+            background-color: #00dfb6;
+            color: #000;
+            padding: 10px 20px;
+            border-radius: 5px;
+            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+            opacity: 0;
+            transition: opacity 0.5s ease;
+            z-index: 1000;
+            text-align: center; /* 置中訊息 */
+        }
+
+        .notification.show {
+            opacity: 1;
         }
     </style>
 </head>
 <body>
 
+<!-- Topbar section -->
 <div th:replace="~{topbar.html :: topbar}"></div>
 
-<h2>登入頁面</h2>
-<form id="loginForm">
-    <label for="loginUsername">Username:</label><br>
-    <input type="text" id="loginUsername" name="username"><br>
+<!-- Main content section -->
+<main>
+    <h2>登入頁面</h2>
 
-    <label for="loginPassword">Password:</label><br>
-    <input type="password" id="loginPassword" name="password"><br>
+    <!-- 通知區域 -->
+    <div id="notification" class="notification"></div>
 
-    <button type="button" onclick="loginUser()">登入</button>
-</form>
+    <form id="loginForm">
+        <label for="loginUsername">Username:</label>
+        <input type="text" id="loginUsername" name="username">
 
-<p>還沒有帳戶？<a href="/register">註冊</a></p>
+        <label for="loginPassword">Password:</label>
+        <input type="password" id="loginPassword" name="password">
+
+        <button type="button" class="custom-button" onclick="loginUser()">登入</button>
+    </form>
+
+    <p>還沒有帳戶？<a href="/register">註冊</a></p>
+</main>
 
 <script>
+    function showNotification(message, redirectUrl) {
+        const notification = document.getElementById('notification');
+        notification.textContent = message;
+        notification.classList.add('show');
+
+        setTimeout(() => {
+            notification.classList.remove('show');
+            if (redirectUrl) {
+                window.location.href = redirectUrl;
+            }
+        }, 1500);
+    }
+
     function loginUser() {
         const loginData = {
             username: document.getElementById("loginUsername").value,
@@ -47,15 +176,14 @@
                 return response.json().then(data => {
                     if (response.ok) {
                         localStorage.setItem('jwtToken', data.token);  // 保存 token 到 localStorage
-                        alert('登入成功');
-                        window.location.href = '/';  // 登入成功後跳轉到首頁
+                        showNotification('登入成功！', '/');  // 顯示通知並跳轉到首頁
                     } else {
                         throw new Error(data.message || '登入失敗');
                     }
                 });
             })
             .catch((error) => {
-                alert('登入失敗: ' + error.message);
+                showNotification('登入失敗：' + error.message);  // 顯示錯誤通知
             });
     }
 </script>

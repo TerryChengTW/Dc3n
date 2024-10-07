@@ -96,7 +96,9 @@
                     <button type="button" id="marketButton" onclick="selectOrderType('MARKET')">MARKET</button>
                 </div>
             </div>
-            <button type="button" class="submit-btn" onclick="submitOrder()">下單</button>
+            <!-- 下單按鈕，根據是否存在 jwtToken 來決定顯示內容 -->
+            <button type="button" id="submitButton" class="submit-btn" onclick="submitOrder()">下單</button>
+            <button type="button" id="loginButton" class="submit-btn" style="display: none;" onclick="redirectToLogin()">立即登入</button>
         </form>
     </div>
 </div>

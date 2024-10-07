@@ -55,7 +55,21 @@ function renderUserStatus() {
 function logout() {
     localStorage.removeItem('jwtToken');  // 清除 JWT token
     renderUserStatus();  // 更新頁面內容，顯示登入/註冊
+    updateAuthButtons();  // 更新trade.html頁面的按鈕顯示
 }
 
 // 在頁面加載時渲染用戶狀態
 document.addEventListener("DOMContentLoaded", renderUserStatus);
+
+function updateAuthButtons() {
+    const token = localStorage.getItem('jwtToken');
+    if (token) {
+        // 如果有 jwtToken，顯示下單按鈕
+        document.getElementById('submitButton').style.display = 'block';
+        document.getElementById('loginButton').style.display = 'none';
+    } else {
+        // 如果沒有 jwtToken，顯示登入/註冊按鈕
+        document.getElementById('submitButton').style.display = 'none';
+        document.getElementById('loginButton').style.display = 'block';
+    }
+}
