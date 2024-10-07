@@ -46,9 +46,7 @@ public class NewOrderMatchingService {
         // 檢查訂單類型，根據類型選擇匹配邏輯
         if (order.getOrderType() == Order.OrderType.MARKET) {
             // 如果是市價單，執行市價單匹配
-            System.out.println("市價單匹配中...");
             matchMarketOrder(order);
-            System.out.println("市價單匹配完成");
         } else {
             // 如果是限價單，執行限價單匹配
             matchOrders(order);
