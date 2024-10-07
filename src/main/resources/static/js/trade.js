@@ -1,9 +1,12 @@
 let userOrderSocket;
-let selectedSide = '';
-let selectedOrderType = '';
 
 function connectUserOrderWebSocket() {
     const token = localStorage.getItem('jwtToken');
+
+    if (!token) {
+        console.log("未找到 jwtToken，不建立 WebSocket 連線");
+        return;
+    }
 
     userOrderSocket = new WebSocket(`/ws?token=${token}`);
 
@@ -214,6 +217,25 @@ function removeOrderRow(orderId) {
     }
 }
 
+let selectedSide = null;
+let selectedOrderType = null;
+
+// 新增一個函數來檢查按鈕狀態
+function updateSubmitButtonState() {
+    const price = document.getElementById('price').value;
+    const quantity = document.getElementById('quantity').value;
+    const submitButton = document.getElementById('submitButton');
+
+    // 依據 orderType 檢查條件：如果是 LIMIT，price 和 quantity 必填；如果是 MARKET，quantity 必填
+    if (selectedSide && selectedOrderType && quantity &&
+        (selectedOrderType === 'MARKET' || (selectedOrderType === 'LIMIT' && price))) {
+        submitButton.disabled = false; // 啟用按鈕
+    } else {
+        submitButton.disabled = true; // 禁用按鈕
+    }
+}
+
+// 更新的 selectSide 函數
 function selectSide(side) {
     selectedSide = side;
 
@@ -224,8 +246,12 @@ function selectSide(side) {
     } else {
         document.getElementById('sellButton').classList.add('active');
     }
+
+    // 更新按鈕狀態
+    updateSubmitButtonState();
 }
 
+// 更新的 selectOrderType 函數
 function selectOrderType(orderType) {
     selectedOrderType = orderType;
 
@@ -244,7 +270,15 @@ function selectOrderType(orderType) {
         document.getElementById('price').disabled = true;
         document.getElementById('price').value = ''; // 清空價格欄位
     }
+
+    // 更新按鈕狀態
+    updateSubmitButtonState();
 }
+
+// 每當 price 或 quantity 改變時更新按鈕狀態
+document.getElementById('price').addEventListener('input', updateSubmitButtonState);
+document.getElementById('quantity').addEventListener('input', updateSubmitButtonState);
+
 
 function submitOrder() {
     const data = {
@@ -647,42 +681,85 @@ document.getElementById('priceInterval').addEventListener('change', function() {
     connectOrderbookWebSocket(currentSymbol);
 });
 
-// Tab 切換功能
-document.querySelectorAll('.tab-button').forEach(button => {
-    button.addEventListener('click', async () => {
-        const tab = button.getAttribute('data-tab');
+function checkAuthAndRender() {
+    const jwtToken = localStorage.getItem('jwtToken');
 
-        // 移除所有按鈕的 active 類
-        document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
-        // 給點擊的按鈕添加 active 類
-        button.classList.add('active');
+    // 設置 Tab 切換
+    setupTabs();
 
-        // 隱藏所有內容
-        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-        // 顯示對應的內容
-        document.getElementById(tab).classList.add('active');
+    // 如果沒有 jwtToken，渲染所有表格內容為登入按鈕
+    if (!jwtToken) {
+        // 清空所有內容（如果登出）
+        document.querySelectorAll('.tab-content').forEach(content => content.innerHTML = '');
+        renderLoginButtonInAllTabs();
+    } else {
+        // 如果有 jwtToken，渲染對應的內容
+        document.querySelectorAll('.tab-button').forEach(button => {
+            // 自動點擊當前選中的 tab，觸發渲染
+            if (button.classList.contains('active')) {
+                button.click();
+            }
+        });
+    }
+}
 
-        // 顯示篩選器容器並渲染特定篩選條件或保持空白
-        const filters = document.getElementById('filters');
 
-        if (tab === 'historicalOrders' || tab === 'historicalTrades') {
-            // 如果是歷史委託或歷史成交，渲染篩選條件
-            renderFilters(tab);
-        } else {
-            // 保留空的篩選器區域，但不渲染任何條件
-            filters.innerHTML = ''; // 清空篩選器內容
-        }
+function renderLoginButtonInAllTabs() {
+    // 獲取所有 tab-content 元素
+    const tabContents = document.querySelectorAll('.tab-content');
 
-        // 根據 tab 模擬獲取數據
-        if (tab === 'assetManagement') {
-            simulateAssetManagementData();
-        } else if (tab === 'historicalOrders') {
-            await fetchHistoricalDelegatesData(); // 使用 await 進行異步操作
-        } else if (tab === 'historicalTrades') {
-            await fetchHistoricalTradesData(); // 使用 await 進行異步操作
-        }
+    // 將每個 tab-content 的內容替換為登入按鈕
+    tabContents.forEach(content => {
+        content.innerHTML = ''; // 清空內容
+
+        const loginButtonContainer = document.createElement('div');
+        loginButtonContainer.style.textAlign = 'center'; // 置中按鈕
+
+        const loginButton = document.createElement('button');
+        loginButton.className = 'login-button';
+        loginButton.textContent = '立即登入';
+        loginButton.onclick = () => {
+            window.location.href = '/login'; // 跳轉到登入頁面
+        };
+
+        loginButtonContainer.appendChild(loginButton);
+        content.appendChild(loginButtonContainer);
     });
-});
+}
+
+function setupTabs() {
+    // Tab 切換功能
+    document.querySelectorAll('.tab-button').forEach(button => {
+        button.addEventListener('click', async () => {
+            const tab = button.getAttribute('data-tab');
+
+            // 移除所有按鈕的 active 類
+            document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+            // 給點擊的按鈕添加 active 類
+            button.classList.add('active');
+
+            // 隱藏所有內容
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            // 顯示對應的內容
+            document.getElementById(tab).classList.add('active');
+
+            // 渲染篩選條件
+            renderFilters(tab);
+
+            // 根據 tab 進行首次查詢
+            if (tab === 'assetManagement') {
+                simulateAssetManagementData();
+            } else if (tab === 'historicalOrders') {
+                await fetchHistoricalDelegatesData(); // 使用 await 進行異步操作
+            } else if (tab === 'historicalTrades') {
+                await fetchHistoricalTradesData(); // 使用 await 進行異步操作
+            }
+        });
+    });
+}
+
+// 初始檢查並渲染
+checkAuthAndRender();
 
 function renderFilters(tab) {
     const filters = document.getElementById('filters');
@@ -766,6 +843,11 @@ function renderFilters(tab) {
         typeSelect.style.display = 'none';
         statusLabel.style.display = 'none';
         statusSelect.style.display = 'none';
+        searchButton.style.display = 'none';
+        timeRangeLabel.style.display = 'none';
+        sideLabel.style.display = 'none';
+        timeRangeSelect.style.display = 'none';
+        sideSelect.style.display = 'none';
     }
 }
 

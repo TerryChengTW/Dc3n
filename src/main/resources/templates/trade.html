@@ -69,18 +69,18 @@
         <form id="orderForm">
             <div class="form-group">
                 <label for="symbol">Symbol:</label>
-                <select id="symbol" name="symbol" onchange="updateSymbol()">
+                <select id="symbol" name="symbol" onchange="updateFormState()">
                     <option value="BTCUSDT">BTCUSDT</option>
                     <option value="ETHUSDT">ETHUSDT</option>
                 </select>
             </div>
             <div class="form-group">
                 <label for="price">Price:</label>
-                <input type="number" id="price" name="price" step="0.01">
+                <input type="number" id="price" name="price" step="0.01" oninput="updateFormState()">
             </div>
             <div class="form-group">
                 <label for="quantity">Quantity:</label>
-                <input type="number" id="quantity" name="quantity" value="1">
+                <input type="number" id="quantity" name="quantity" value="1" oninput="updateFormState()">
             </div>
             <div class="form-group">
                 <label>Side:</label>
@@ -96,8 +96,9 @@
                     <button type="button" id="marketButton" onclick="selectOrderType('MARKET')">MARKET</button>
                 </div>
             </div>
-            <!-- 下單按鈕，根據是否存在 jwtToken 來決定顯示內容 -->
-            <button type="button" id="submitButton" class="submit-btn" onclick="submitOrder()">下單</button>
+            <!-- 下單按鈕，保持原有 submit-btn 樣式 -->
+            <button type="button" id="submitButton" class="submit-btn" onclick="submitOrder()" disabled>下單</button>
+            <!-- 立即登入按鈕，使用 #loginButton 樣式 -->
             <button type="button" id="loginButton" class="submit-btn" style="display: none;" onclick="redirectToLogin()">立即登入</button>
         </form>
     </div>

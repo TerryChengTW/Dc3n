@@ -263,6 +263,11 @@ th {
     background-color: #1e7e34;
 }
 
+.submit-btn:disabled {
+    background-color: #ddd;
+    cursor: not-allowed;
+    color: #888;
+}
 
 /* 訂單列表樣式 */
 #orderTableContainer {
@@ -739,4 +744,41 @@ input:disabled {
 @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
+}
+
+.login-button {
+    background-color: #00dfb6;
+    color: #000;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+    transition: background-color 0.3s ease;
+    font-family: Arial, sans-serif;
+    margin-top: 20px;
+}
+
+.login-button:hover {
+    background-color: #333;
+    color: #00dfb6;
+}
+
+#loginButton {
+    width: 100%;
+    padding: 10px; /* 與 submit-btn 保持一致 */
+    background-color: #00dfb6; /* 使用主色 */
+    color: #000;
+    border: none;
+    border-radius: 4px; /* 與 submit-btn 保持一致 */
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+    margin-top: 10px; /* 與其他元素保持距離 */
+}
+
+#loginButton:hover {
+    background-color: #333;
+    color: #00dfb6;
 }

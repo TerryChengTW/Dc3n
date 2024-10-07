@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,19 +9,79 @@
       margin: 0;
       padding: 0;
       box-sizing: border-box;
+      font-family: 'Arial', sans-serif;
+    }
+
+    body {
+      background-color: #f5f5f5;
+      color: #333;
+      margin: 0;
+      padding: 0;
+    }
+
+    #topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background-color: #00dfb6;
+      color: #000000;
+      padding: 10px;
+      width: 100%;
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 1000; /* 確保 topbar 在最上層 */
+    }
+
+    main {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding-top: 80px; /* 確保 main 不會被 topbar 遮住 */
+    }
+
+    h1 {
+      color: #00dfb6;
+      margin-bottom: 20px;
+    }
+
+    button {
+      background-color: #00dfb6;
+      color: #000;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+      transition: background-color 0.3s ease;
+      font-family: Arial, sans-serif;
+    }
+
+    button:hover {
+      background-color: #333;
+      color: #00dfb6;
+    }
+
+    #content {
+      margin-top: 20px;
     }
   </style>
 </head>
 <body>
 
+<!-- Topbar section -->
 <div th:replace="~{topbar.html :: topbar}"></div>
 
-<h1>首頁</h1>
+<!-- Main content section -->
+<main>
 
-<div id="content">
-  <!-- 這裡是頁面主要內容 -->
-  <button onclick="location.href='/trade'">前往訂單頁面</button>
-</div>
+  <div id="content">
+    <!-- 這裡是頁面主要內容 -->
+    <button onclick="location.href='/trade'">前往訂單頁面</button>
+  </div>
+</main>
 
 </body>
 </html>

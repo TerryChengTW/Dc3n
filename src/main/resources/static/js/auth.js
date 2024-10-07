@@ -55,7 +55,8 @@ function renderUserStatus() {
 function logout() {
     localStorage.removeItem('jwtToken');  // 清除 JWT token
     renderUserStatus();  // 更新頁面內容，顯示登入/註冊
-    updateAuthButtons();  // 更新trade.html頁面的按鈕顯示
+    updateAuthButtons();  // 更新 trade.html 頁面的按鈕顯示
+    checkAuthAndRender();  // 更新所有選項卡狀態和內容
 }
 
 // 在頁面加載時渲染用戶狀態
@@ -71,5 +72,10 @@ function updateAuthButtons() {
         // 如果沒有 jwtToken，顯示登入/註冊按鈕
         document.getElementById('submitButton').style.display = 'none';
         document.getElementById('loginButton').style.display = 'block';
+
+        // 移除篩選器
+        const filters = document.getElementById('filters');
+        if (filters) filters.innerHTML = ''; // 清空篩選器內容
     }
 }
+
