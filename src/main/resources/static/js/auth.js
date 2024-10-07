@@ -38,15 +38,15 @@ function renderUserStatus() {
         } catch (error) {
             console.error('無效的 JWT token:', error);
             userStatusDiv.innerHTML = `
-                <a href="/login" style="color: #000000; margin-right: 10px;">登入</a> / 
-                <a href="/register" style="color: #000000;">註冊</a>
+                <a href="/login" style="color: #000000; margin-right: 20px; padding: 5px 10px; text-decoration: none; background-color: #000000; color: #00dfb6; border: none; cursor: pointer; border-radius: 5px; box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1); transition: background-color 0.3s ease;">登入</a>
+                <a href="/register" style="color: #000000; padding: 5px 10px; text-decoration: none; background-color: #000000; color: #00dfb6; border: none; cursor: pointer; border-radius: 5px; box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1); transition: background-color 0.3s ease;">註冊</a>
             `;
         }
     } else {
         // 顯示登入/註冊按鈕
         userStatusDiv.innerHTML = `
-            <a href="/login" style="color: #000000; margin-right: 10px;">登入</a> / 
-            <a href="/register" style="color: #000000;">註冊</a>
+            <a href="/login" style="color: #000000; margin-right: 20px; padding: 5px 10px; text-decoration: none; background-color: #000000; color: #00dfb6; border: none; cursor: pointer; border-radius: 5px; box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1); transition: background-color 0.3s ease;">登入</a>
+            <a href="/register" style="color: #000000; padding: 5px 10px; text-decoration: none; background-color: #000000; color: #00dfb6; border: none; cursor: pointer; border-radius: 5px; box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1); transition: background-color 0.3s ease;">註冊</a>
         `;
     }
 }
