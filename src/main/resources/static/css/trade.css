@@ -202,9 +202,9 @@ th {
 
 /* 調整按鈕組樣式讓按鈕更好對齊 */
 .btn-group button {
+    font-size: 12px;
     width: 48%; /* 確保按鈕各占一半空間並對齊 */
     padding: 8px; /* 減少按鈕 padding */
-    font-size: 14px;
     border: 1px solid #ccc;
     border-radius: 4px;
     cursor: pointer;
