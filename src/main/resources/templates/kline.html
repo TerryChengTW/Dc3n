@@ -14,10 +14,10 @@
 
 </head>
 <body>
-<div id="kline-container" style="width: 100%; display: flex; flex-direction: column; gap: 10px;">
+<div id="kline-container" style="width: 70%; display: flex; flex-direction: column; gap: 10px;">
 
     <!-- K 線數據顯示橫欄 -->
-    <div id="kline-bar" style="width: 100%; height: 40px; background-color: #f1f1f1; display: flex; align-items: center; justify-content: space-between; padding: 0 10px; box-sizing: border-box;">
+    <div id="kline-bar" style="width: 100%; height: 40px; background-color: #f4f4f9; display: flex; align-items: center; justify-content: space-between; padding: 0 10px; box-sizing: border-box;">
         <div>
             <span>時間: <span id="info-time">-</span></span>
             <span style="margin-left: 20px;">開: <span id="info-open">-</span></span>
@@ -43,7 +43,7 @@
 <script>
     // 創建圖表
     const chart = LightweightCharts.createChart(document.getElementById('chart'), {
-        width: document.body.clientWidth/1.4,
+        width: document.body.clientWidth*0.7,
         height: 500,
         layout: {
             backgroundColor: '#FFFFFF',
@@ -265,7 +265,7 @@
         console.log('加載更多本地的歷史數據...');
 
         // 計算還能顯示的數據量，這裡每次顯示30筆
-        visibleCandles = Math.min(visibleCandles + 30, originalData.length);
+        visibleCandles = Math.min(visibleCandles + 100, originalData.length);
 
         // 加載本地數據到圖表中
         loadChart();
@@ -291,7 +291,7 @@
                         originalData = newData.concat(originalData);
                         console.log('合併後的 originalData:', originalData);
                         originalData.sort((a, b) => a.time - b.time);
-                        visibleCandles = Math.min(visibleCandles + 30, originalData.length);
+                        visibleCandles = Math.min(visibleCandles + 100, originalData.length);
                         loadChart();  // 更新圖表
                         console.log('圖表已更新，當前 visibleCandles:', visibleCandles);
                     } else {

@@ -38,8 +38,8 @@ body::-webkit-scrollbar {
 
 /* K 線圖區域 */
 .chart-container {
-    flex-grow: 2; /* 讓 K 線圖佔用更多空間 */
-    min-width: 600px; /* 確保最小寬度 */
+    flex: 4; /* 讓 K 線圖佔用更多空間 */
+    max-width: 60%;
     background-color: #fff;
     padding: 20px;
     border-radius: 10px;
@@ -48,8 +48,9 @@ body::-webkit-scrollbar {
 
 /* 中間部分：訂單簿 + 最新成交 */
 .middle-section {
+    flex: 1; /* 佔 1 份 */
     display: flex;
-    flex-direction: column; /* 橫向排列訂單簿和最新成交 */
+    flex-direction: column; /* 上下排列訂單簿和最新成交 */
     gap: 20px; /* 保持區域間隔 */
     max-width: 500px; /* 限制訂單簿和最新成交的總寬度 */
 }
@@ -137,12 +138,12 @@ th {
 
 /* 下單窗口樣式 */
 .trade-window {
-    flex-grow: 2;
+    flex: 1; /* 佔 1 份 */
     background-color: #fff;
     padding: 10px;
     border-radius: 8px;
     box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
-    width: 20%;
+    width: 100%; /* 保持寬度 100% */
     max-height: 46vh; /* 限制高度為畫面的一半 */
     overflow-y: auto; /* 當內容超出高度時顯示滾動條 */
 }
@@ -161,7 +162,7 @@ th {
     margin-bottom: 15px;
     border: 1px solid #ddd;
     border-radius: 4px;
-    font-size: 14px;
+    font-size: 12px;
 }
 
 /* 調整 form-group 讓 label 和輸入框更好對齊 */
