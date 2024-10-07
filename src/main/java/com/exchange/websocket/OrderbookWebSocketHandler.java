@@ -54,7 +54,7 @@ public class OrderbookWebSocketHandler extends TextWebSocketHandler {
         BigDecimal interval = extractIntervalFromUrl(session);
 
         if (symbol != null) {
-            System.out.println("WebSocket connection established for symbol: " + symbol + ", sessionId: " + session.getId());
+//            System.out.println("OrderbookWebSocket connection established for symbol: " + symbol + ", sessionId: " + session.getId());
             session.getAttributes().put("symbol", symbol); // 將 symbol 設置到 session 屬性中
             session.getAttributes().put("interval", interval); // 將 interval 設置到 session 屬性中
             symbolSessions.computeIfAbsent(symbol, k -> ConcurrentHashMap.newKeySet()).add(session);
@@ -133,7 +133,7 @@ public class OrderbookWebSocketHandler extends TextWebSocketHandler {
 
     private void sendOrderbookSnapshot(WebSocketSession session, String symbol, BigDecimal Interval) throws IOException {
         Map<String, Object> snapshot = orderbookService.getOrderbookSnapshot(symbol, Interval);
-        System.out.println("Sending orderbook snapshot: " + snapshot);
+//        System.out.println("Sending orderbook snapshot: " + snapshot);
         String snapshotJson = objectMapper.writeValueAsString(snapshot);
         session.sendMessage(new TextMessage(snapshotJson));
     }

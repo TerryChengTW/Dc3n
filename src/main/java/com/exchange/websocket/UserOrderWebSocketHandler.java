@@ -32,7 +32,7 @@ public class UserOrderWebSocketHandler extends TextWebSocketHandler {
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws IOException {
         String userId = getUserIdFromSession(session);
-        System.out.println("UserOrderWebSocket connection established for user: " + userId + ", sessionId: " + session.getId());
+//        System.out.println("UserOrderWebSocket connection established for user: " + userId + ", sessionId: " + session.getId());
         userSessions.put(userId, session);
 
         // 發送快照
@@ -47,7 +47,7 @@ public class UserOrderWebSocketHandler extends TextWebSocketHandler {
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
         String userId = getUserIdFromSession(session);
-        System.out.println("UserOrderWebSocket connection closed for user: " + userId);
+//        System.out.println("UserOrderWebSocket connection closed for user: " + userId);
         userSessions.remove(userId);
     }
 

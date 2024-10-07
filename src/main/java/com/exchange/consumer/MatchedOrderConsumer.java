@@ -110,6 +110,7 @@ public class MatchedOrderConsumer {
     private Order mergeOrders(Order existingOrder, Order newOrder) {
         existingOrder.setFilledQuantity(newOrder.getFilledQuantity());
         existingOrder.setUnfilledQuantity(newOrder.getUnfilledQuantity());
+        existingOrder.setStatus(newOrder.getStatus());
         existingOrder.setUpdatedAt(newOrder.getUpdatedAt());
         return existingOrder;
     }
