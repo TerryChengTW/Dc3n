@@ -5,7 +5,7 @@ import time
 import numpy as np
 
 # 配置參數
-BASE_URL = 'http://localhost:8081'
+BASE_URL = 'https://terry987.xyz'
 SYMBOLS = {
     'ETHUSDT': {'initial_price': 3000, 'price_range': (1000, 5000), 'stddev': 50, 'volatility': 0.01},
     'BTCUSDT': {'initial_price': 50000, 'price_range': (30000, 70000), 'stddev': 500, 'volatility': 0.01}
@@ -16,7 +16,7 @@ CONCURRENCY = 100  # 控制同時提交訂單的數量
 
 # JWT 令牌
 JWT_TOKENS = [
-    'eyJhbGciOiJIUzI1NiJ9.eyJ1c2VybmFtZSI6IjMiLCJ1c2VySWQiOiIxODM4MDI5MDA0NjE2MTEwMDgwIiwiaWF0IjoxNzI3MDU1NjA5LCJleHAiOjE3NjMwNTU2MDl9.DU31c_NFobpFS8VfjlMCaV5kSVgBvPst6K7DcaanMWc',
+    'eyJhbGciOiJIUzI1NiJ9.eyJ1c2VybmFtZSI6IjEiLCJ1c2VySWQiOiIxODM4ODU2Njg4NjgyMjc0ODE2IiwiaWF0IjoxNzI4MzMzNjk4LCJleHAiOjE3NjQzMzM2OTh9.yVWk0K-uAc8p3Wr9bzLXSEQ5idSxKOsVGXUWOJgGHAM',
     'eyJhbGciOiJIUzI1NiJ9.eyJ1c2VybmFtZSI6IjQiLCJ1c2VySWQiOiIxODM4MDI5MDQzMjQ5ODQ0MjI0IiwiaWF0IjoxNzI3MDU1MzE5LCJleHAiOjE3NjMwNTUzMTl9.jqyeE6C1N6XDRsYU4uOlvuQG4H46EDBwPzbcQ5ip3Js'
 ]
 
