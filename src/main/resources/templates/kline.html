@@ -73,7 +73,7 @@
     const candleSeries = chart.addCandlestickSeries();
     let visibleCandles = 20; // 初始顯示50根K線
     const minCandles = 10;   // 最少顯示10根
-    const maxCandles = 10000;  // 最多顯示300根
+    const maxCandles = 100;  // 最多顯示300根
     let originalData = []; // 用來儲存K線數據
     let lastCandle = null; // 用來儲存最新的未結束K棒
 
@@ -316,8 +316,13 @@
     // 更新圖表數據
     function loadChart() {
         const dataToShow = originalData.slice(-visibleCandles);  // 顯示最近的 visibleCandles 根K棒
-        candleSeries.setData(dataToShow);
+        if (lastCandle) {
+            // 如果存在未完成的當前K棒，將它添加到數據中
+            dataToShow.push(lastCandle);
+        }
+        candleSeries.setData(dataToShow);  // 更新圖表
     }
+
 
     chart.subscribeCrosshairMove(function(param) {
         if (!param || !param.time || !param.seriesData.get(candleSeries)) {
