@@ -64,8 +64,10 @@ public class NewOrderMatchingService {
             );
         }
 
-        // 推送訂單更新到 Kafka
-        userOrderProducer.sendOrderUpdate(order);
+        // 只有非市價單才推送訂單更新到 Kafka
+        if (order.getOrderType() != Order.OrderType.MARKET) {
+            userOrderProducer.sendOrderUpdate(order);
+        }
     }
 
     // 撮合邏輯

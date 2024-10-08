@@ -69,18 +69,18 @@
         <form id="orderForm">
             <div class="form-group">
                 <label for="symbol">Symbol:</label>
-                <select id="symbol" name="symbol" onchange="updateFormState()">
+                <select id="symbol" name="symbol">
                     <option value="BTCUSDT">BTCUSDT</option>
                     <option value="ETHUSDT">ETHUSDT</option>
                 </select>
             </div>
             <div class="form-group">
                 <label for="price">Price:</label>
-                <input type="number" id="price" name="price" step="0.01" oninput="updateFormState()">
+                <input type="number" id="price" name="price" step="0.01">
             </div>
             <div class="form-group">
                 <label for="quantity">Quantity:</label>
-                <input type="number" id="quantity" name="quantity" value="1" oninput="updateFormState()">
+                <input type="number" id="quantity" name="quantity" value="1">
             </div>
             <div class="form-group">
                 <label>Side:</label>
