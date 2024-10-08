@@ -444,6 +444,7 @@ function updateSymbol() {
     if (symbol !== currentSymbol) {
         connectOrderbookWebSocket(symbol);
         connectRecentTradesWebSocket(symbol);
+        loadKlineData(symbol, selectedTimeFrame);
         currentSymbol = symbol;
     }
 }

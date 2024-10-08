@@ -34,17 +34,23 @@ public class MarketDataInitializationService {
 
     @PostConstruct
     public void initializeMarketData() {
-        String symbol = "BTCUSDT";
+        initializeSymbolMarketData("BTCUSDT");
+        initializeSymbolMarketData("ETHUSDT");  // 加入 ETHUSDT 的初始化邏輯
+    }
+
+    public void initializeSymbolMarketData(String symbol) {
         Instant endTime = Instant.now().truncatedTo(ChronoUnit.MINUTES);
         Instant lastDataTime = getLastDataTime(symbol);
         Instant startTime = lastDataTime != null ? lastDataTime.plus(1, ChronoUnit.MINUTES) : endTime.minus(300, ChronoUnit.HOURS);
 
         if (startTime.isAfter(endTime)) {
-            System.out.println("數據已經是最新的，無需初始化。");
+            System.out.println(symbol + " 的數據已經是最新的，無需初始化。");
             return;
         }
 
-        BigDecimal lastPrice = lastDataTime != null ? getLastPrice(symbol, lastDataTime) : BigDecimal.valueOf(50000);
+        // 根據不同幣種設置初始價格範圍
+        BigDecimal lastPrice = lastDataTime != null ? getLastPrice(symbol, lastDataTime) :
+                (symbol.equals("BTCUSDT") ? BigDecimal.valueOf(50000) : BigDecimal.valueOf(4000));  // ETHUSDT 設置初始為4000
 
         long totalMinutes = ChronoUnit.MINUTES.between(startTime, endTime);
         long minutesPerThread = totalMinutes / THREADS;
@@ -61,7 +67,7 @@ public class MarketDataInitializationService {
 
         CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
 
-        System.out.println("市場數據初始化完成，從 " + startTime + " 到 " + endTime);
+        System.out.println(symbol + " 市場數據初始化完成，從 " + startTime + " 到 " + endTime);
 
         // 在所有1分鐘數據生成後，手動觸發5分鐘和1小時聚合
         aggregateData(symbol, startTime, endTime, "5m", 5);
@@ -213,9 +219,25 @@ public class MarketDataInitializationService {
         BigDecimal change = maxChange.multiply(BigDecimal.valueOf(random.nextDouble() * 2 - 1));
 
         BigDecimal open = lastPrice;
-        BigDecimal close = lastPrice.add(change).max(BigDecimal.valueOf(30000)).min(BigDecimal.valueOf(70000));
-        BigDecimal high = open.max(close).add(maxChange.multiply(BigDecimal.valueOf(random.nextDouble())));
-        BigDecimal low = open.min(close).subtract(maxChange.multiply(BigDecimal.valueOf(random.nextDouble())));
+        BigDecimal close, high, low;
+
+        if (symbol.equals("BTCUSDT")) {
+            // BTCUSDT 的價格範圍設置在 30000 到 70000 之間
+            close = lastPrice.add(change).max(BigDecimal.valueOf(30000)).min(BigDecimal.valueOf(70000));
+            high = open.max(close).add(maxChange.multiply(BigDecimal.valueOf(random.nextDouble())));
+            low = open.min(close).subtract(maxChange.multiply(BigDecimal.valueOf(random.nextDouble())));
+        } else if (symbol.equals("ETHUSDT")) {
+            // ETHUSDT 的價格範圍設置在 2000 到 6000 之間
+            close = lastPrice.add(change).max(BigDecimal.valueOf(2000)).min(BigDecimal.valueOf(6000));
+            high = open.max(close).add(maxChange.multiply(BigDecimal.valueOf(random.nextDouble())));
+            low = open.min(close).subtract(maxChange.multiply(BigDecimal.valueOf(random.nextDouble())));
+        } else {
+            // 其他幣種的價格範圍可以根據需求設置
+            close = lastPrice.add(change);
+            high = open.max(close).add(maxChange.multiply(BigDecimal.valueOf(random.nextDouble())));
+            low = open.min(close).subtract(maxChange.multiply(BigDecimal.valueOf(random.nextDouble())));
+        }
+
         BigDecimal volume = BigDecimal.valueOf(random.nextDouble() * 100);
 
         MarketData data = new MarketData();
