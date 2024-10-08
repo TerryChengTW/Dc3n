@@ -136,12 +136,6 @@
                 const currentInterval = calculateCurrentIntervalTime(message.time, timeFrame);
 
                 if (!lastCandle || lastCandle.time !== currentInterval) {
-                    if (lastCandle) {
-                        // 將上根K棒視為完成並加入數據
-                        originalData.push(lastCandle);
-                        updateChart();
-                    }
-
                     // 創建新K棒
                     lastCandle = {
                         time: currentInterval,
@@ -151,7 +145,6 @@
                         close: message.close
                     };
                 } else {
-                    // 更新當前K棒的數據
                     lastCandle.high = Math.max(lastCandle.high, message.high);
                     lastCandle.low = Math.min(lastCandle.low, message.low);
                     lastCandle.close = message.close;
@@ -174,9 +167,7 @@
                     // 更新圖表
                     candleSeries.update(lastCandle);
                 } else if (lastCandle) {
-                    // 新時間段，將當前K棒視為完成
-                    originalData.push(lastCandle);
-                    loadChart();
+                    console.log('新時間段，將當前K棒視為完成');
 
                     // 創建新K棒
                     lastCandle = {
