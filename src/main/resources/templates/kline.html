@@ -211,7 +211,7 @@
         loadKlineData(selectedSymbol, selectedTimeFrame);
     }
 
-    let minCandles = 10;   // 最少顯示10根K線
+    let minCandles = 20;   // 最少顯示10根K線
     let maxCandles = 100;  // 最多顯示100根K線
 
     // 更新圖表數據並控制可見範圍內的K線數量
@@ -235,7 +235,7 @@
             // 如果顯示的K線數量大於最大值，縮小顯示範圍
             const logicalRange = chart.timeScale().getVisibleLogicalRange();
             const newRange = {
-                from: Math.min(logicalRange.from + (visibleBars - maxCandles), logicalRange.to - 1),
+                from: logicalRange.from + (visibleBars - maxCandles),
                 to: logicalRange.to,
             };
             chart.timeScale().setVisibleLogicalRange(newRange);  // 設置新的顯示範圍
