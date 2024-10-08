@@ -72,8 +72,6 @@
 
     const candleSeries = chart.addCandlestickSeries();
     let visibleCandles = 20; // 初始顯示50根K線
-    const minCandles = 10;   // 最少顯示10根
-    const maxCandles = 100;  // 最多顯示300根
     let originalData = []; // 用來儲存K線數據
     let lastCandle = null; // 用來儲存最新的未結束K棒
 
@@ -213,38 +211,50 @@
         loadKlineData(selectedSymbol, selectedTimeFrame);
     }
 
-    // 更新圖表數據
+    let minCandles = 10;   // 最少顯示10根K線
+    let maxCandles = 100;  // 最多顯示100根K線
+
+    // 更新圖表數據並控制可見範圍內的K線數量
     function updateChart() {
         const dataToShow = originalData.slice(-visibleCandles);
         candleSeries.setData(dataToShow);
+
         // 調整時間範圍以適應數據
-        chart.timeScale().fitContent();
+        const visibleLogicalRange = chart.timeScale().getVisibleLogicalRange();
+        const barsInfo = candleSeries.barsInLogicalRange(visibleLogicalRange);
+
+        // 計算當前顯示的K線數量
+        const visibleBars = barsInfo?.barsBefore + barsInfo?.barsAfter + 1;
+
+        // 控制顯示的K線數量在最小和最大範圍內
+        if (visibleBars < minCandles) {
+            // 如果顯示的K線數量小於最小值，擴大顯示範圍
+            visibleCandles = minCandles;
+            chart.timeScale().fitContent();  // 自動適應數據範圍
+        } else if (visibleBars > maxCandles) {
+            // 如果顯示的K線數量大於最大值，縮小顯示範圍
+            const logicalRange = chart.timeScale().getVisibleLogicalRange();
+            const newRange = {
+                from: logicalRange.from + (visibleBars - maxCandles),
+                to: logicalRange.to,
+            };
+            chart.timeScale().setVisibleLogicalRange(newRange);  // 設置新的顯示範圍
+        }
     }
 
-    // 監聽滑鼠滾輪事件以縮放K線數量
-    document.getElementById('chart').addEventListener('wheel', function(event) {
-        event.preventDefault(); // 防止頁面滾動
 
-        if (event.deltaY < 0) {
-            // 滾輪向上 (放大)
-            visibleCandles = Math.max(visibleCandles - 10, minCandles);
-        } else {
-            // 滾輪向下 (縮小)
-            visibleCandles = Math.min(visibleCandles + 10, maxCandles);
-        }
-        loadChart();
-    });
 
-    let isInitialLoad = true;  // 初始載入標誌
     let isLoading = false;  // 用來控制加載狀態
 
     // 監聽圖表的時間範圍變化來加載更多的歷史數據
+    let initialTriggerCount = 0;  // 用來追踪可見範圍變化的觸發次數
+
     chart.timeScale().subscribeVisibleTimeRangeChange(function() {
         // 初始載入完成後才監聽用戶的操作
-        if (isInitialLoad) {
-            isInitialLoad = false;
-            console.log('初始載入完成');
-            return;
+        if (initialTriggerCount < 2) {
+            initialTriggerCount++;  // 每次觸發都增加計數
+            console.log('初始觸發次數: ', initialTriggerCount);
+            return;  // 前兩次不執行加載數據
         }
 
         // 檢查圖表的可見範圍
@@ -260,15 +270,18 @@
         }
     });
 
+
     // 從已有數據中加載更多的歷史數據
     function loadMoreExistingData() {
-        console.log('加載更多本地的歷史數據...');
+        // 獲取當前可見範圍的開始和結束時間
+        const visibleRange = chart.timeScale().getVisibleRange();
 
-        // 計算還能顯示的數據量，這裡每次顯示30筆
-        visibleCandles = Math.min(visibleCandles + 100, originalData.length);
-
-        // 加載本地數據到圖表中
+        // 加載數據邏輯
+        visibleCandles = Math.min(visibleCandles + 400, originalData.length);
         loadChart();
+
+        // 在加載數據後，將顯示範圍設置回之前的範圍
+        chart.timeScale().setVisibleRange(visibleRange);
 
         // 檢查本地數據是否已經全部加載完畢
         if (visibleCandles >= originalData.length) {
