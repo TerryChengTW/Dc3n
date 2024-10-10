@@ -25,7 +25,7 @@ public class RedisOrderRepository {
 
     public List<OrderDTO> getUserOrders(String userId) {
         List<OrderDTO> orders = new ArrayList<>();
-        String[] symbols = {"BTCUSDT"}; // 可以擴展到更多交易對
+        String[] symbols = {"BTCUSDT","ETHUSDT"}; // 可以擴展到更多交易對
         String[] sides = {"BUY", "SELL"};
 
         for (String symbol : symbols) {

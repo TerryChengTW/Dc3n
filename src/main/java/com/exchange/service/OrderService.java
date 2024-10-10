@@ -57,7 +57,7 @@ public class OrderService {
 
     private Order findOrderInRedis(String orderId) {
         String[] sides = {"BUY", "SELL"};
-        String[] symbols = {"BTCUSDT"}; // 您可能需要擴展此列表以包含所有支持的交易對
+        String[] symbols = {"BTCUSDT","ETHUSDT"}; // 您可能需要擴展此列表以包含所有支持的交易對
 
         for (String symbol : symbols) {
             for (String side : sides) {
