@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 public class OrderBookDeltaSubscriptionManager {
@@ -29,23 +30,22 @@ public class OrderBookDeltaSubscriptionManager {
         String topic = "order-book-delta-" + symbol.toLowerCase();
 
         if (!topicContainers.containsKey(topic)) {
+            // 動態生成唯一的 groupId
+            String dynamicGroupId = "order-book-group-" + UUID.randomUUID();
+
             ContainerProperties containerProps = new ContainerProperties(topic);
             containerProps.setMessageListener(messageListener);
 
-            // Create a new Kafka listener container
-            KafkaMessageListenerContainer<String, String> container = new KafkaMessageListenerContainer<>(consumerFactory, containerProps);
+            // 配置 Kafka 消費者工廠，使用動態的 groupId
+            Map<String, Object> consumerConfig = new HashMap<>(consumerFactory.getConfigurationProperties());
+            consumerConfig.put(ConsumerConfig.GROUP_ID_CONFIG, dynamicGroupId);
+
+            ConsumerFactory<String, String> dynamicConsumerFactory = new DefaultKafkaConsumerFactory<>(consumerConfig);
+
+            // Create a new Kafka listener container with the dynamic consumer factory
+            KafkaMessageListenerContainer<String, String> container = new KafkaMessageListenerContainer<>(dynamicConsumerFactory, containerProps);
             container.start();
             topicContainers.put(topic, container);
-        }
-    }
-
-    public void unsubscribeFromSymbol(String symbol) {
-        String topic = "order-book-delta-" + symbol.toLowerCase();
-        KafkaMessageListenerContainer<String, String> container = topicContainers.remove(topic);
-
-        if (container != null) {
-            // Stop and remove the Kafka listener container
-            container.stop();
         }
     }
 }

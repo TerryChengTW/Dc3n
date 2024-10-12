@@ -22,7 +22,7 @@ public class UserOrderConsumer {
 
     @KafkaListener(
             topics = "user-order-updates",
-            groupId = "websocket-group",
+            groupId = "#{T(java.util.UUID).randomUUID().toString()}",  // 動態生成唯一的 groupId
             containerFactory = "kafkaListenerContainerFactory",
             properties = {"auto.offset.reset=latest"}
     )

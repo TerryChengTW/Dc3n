@@ -19,14 +19,19 @@ public class KlineKafkaConsumer {
     @Autowired
     private ObjectMapper objectMapper;
 
-    @KafkaListener(topics = "kline-updates", groupId = "kline-updates-group")
+    @KafkaListener(
+            topics = "kline-updates",
+            groupId = "#{T(java.util.UUID).randomUUID().toString()}",  // 動態生成唯一的 groupId
+            containerFactory = "kafkaListenerContainerFactory",
+            properties = {"auto.offset.reset=latest"}
+    )
     public void consume(String message) {
         try {
             // 手動解析簡單的 JSON 結構
             var jsonNode = objectMapper.readTree(message);
             String symbol = jsonNode.get("symbol").asText();
             BigDecimal price = new BigDecimal(jsonNode.get("price").asText());
-            long tradeTime = jsonNode.get("tradeTime").asLong(); // 獲取tradeTime
+            long tradeTime = jsonNode.get("tradeTime").asLong(); // 獲取 tradeTime
 
             Instant tradeInstant = Instant.ofEpochSecond(tradeTime);
 

@@ -16,7 +16,12 @@ public class RecentTradesKafkaConsumer {
     @Autowired
     private ObjectMapper objectMapper;
 
-    @KafkaListener(topics = "recent-trades", groupId = "recent-trades-group")
+    @KafkaListener(
+            topics = "recent-trades",
+            groupId = "#{T(java.util.UUID).randomUUID().toString()}",  // 動態生成唯一的 groupId
+            containerFactory = "kafkaListenerContainerFactory",
+            properties = {"auto.offset.reset=latest"}
+    )
     public void consume(String message) {
         try {
             Trade trade = objectMapper.readValue(message, Trade.class);

@@ -51,7 +51,12 @@ public class MatchedOrderConsumer {
     }
 
     @Transactional
-    @KafkaListener(topics = "matched_orders", groupId = "order_group")
+    @KafkaListener(
+            topics = "matched_orders",
+            groupId = "#{T(java.util.UUID).randomUUID().toString()}",  // 動態生成唯一的 groupId
+            containerFactory = "kafkaListenerContainerFactory",
+            properties = {"auto.offset.reset=latest"}
+    )
     public void consumeTradeOrdersMessage(String messageJson) {
         try {
             // 反序列化 MatchedMessage
