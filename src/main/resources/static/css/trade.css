@@ -41,6 +41,7 @@ body::-webkit-scrollbar {
 /* K 線圖區域 */
 .chart-container {
     flex: 4; /* 讓 K 線圖佔用更多空間 */
+    min-width: 60%;
     background-color: #fff;
     padding: 20px;
     border-radius: 10px;
@@ -58,12 +59,14 @@ body::-webkit-scrollbar {
 /* 訂單簿容器 */
 .orderbook-container {
     flex: 1;
+    max-width: 250px; /* 根據需求調整寬度 */
     position: relative;
 }
 
 /* 最新成交容器 */
 #recentTradesContainer {
     flex: 1;
+    max-width: 250px; /* 根據需求調整寬度 */
 }
 
 /* 手機端樣式：當螢幕寬度小於768px時，進行調整 */
@@ -103,6 +106,11 @@ body::-webkit-scrollbar {
         min-width: 220px; /* 減少最小寬度，確保有更多空間 */
         max-width: 48%; /* 各佔48%寬度 */
         margin-bottom: 20px;
+    }
+
+    .trade-window {
+        width: 100%;
+        max-width: 100% !important;
     }
 
     /* 當螢幕過窄（例如 4xx px）時，強制上下排列，並讓容器置中 */
@@ -204,8 +212,8 @@ th {
     padding: 5px 10px 10px;
     border-radius: 8px;
     box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
-    width: 100%; /* 保持寬度 100% */
-    height: 317px; /* 限制高度為畫面的一半 */
+    max-width: 220px;
+    height: 317px;
     overflow-y: auto; /* 當內容超出高度時顯示滾動條 */
 }
 
