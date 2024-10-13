@@ -487,19 +487,18 @@ function connectOrderbookWebSocket(symbol) {
         // 如果是完整快照（包含 `buy` 或 `sell`）
         if (orderbookUpdate.buy || orderbookUpdate.sell) {
             if (orderbookUpdate.buy) {
+                // 處理買單快照
                 orderbook.buy = aggregateOrderbook(orderbookUpdate.buy, currentInterval, "BUY");
             }
 
             if (orderbookUpdate.sell) {
+                // 處理賣單快照
                 orderbook.sell = aggregateOrderbook(orderbookUpdate.sell, currentInterval, "SELL");
             }
 
             // 更新訂單簿顯示
-            // console.log("訂單簿快照更新：", orderbook);
             updateOrderbookDisplay(orderbook);
         } else {
-            // 增量更新
-            // console.log("訂單簿增量：", orderbookUpdate);
             updateOrderbookDelta(orderbookUpdate);
         }
     };
@@ -516,22 +515,29 @@ function connectOrderbookWebSocket(symbol) {
 function aggregateOrderbook(orderbookSide, interval, side) {
     const aggregated = {};
 
-    for (const [priceStr, quantity] of Object.entries(orderbookSide)) {
-        const price = parseFloat(priceStr);
+    // 迭代後端返回的訂單簿快照，格式為 [{priceLevel, totalQuantity}, ...]
+    orderbookSide.forEach(level => {
+        const price = parseFloat(level.priceLevel);
+        const quantity = parseFloat(level.totalQuantity);
 
-        // 將價格調整到合適的精度來避免浮點數問題
-        let aggregatedPrice = side === "BUY"
-            ? Math.floor(price / interval + 1e-10) * interval // 加入微小數字避免浮點數誤差
-            : Math.ceil(price / interval - 1e-10) * interval; // 減去微小數字避免浮點數誤差
+        // 如果有有效的數量，才進行聚合
+        if (quantity > 0) {
+            // 將價格調整到合適的精度來避免浮點數問題
+            let aggregatedPrice = side === "BUY"
+                ? Math.floor(price / interval + 1e-10) * interval // 加入微小數字避免浮點數誤差
+                : Math.ceil(price / interval - 1e-10) * interval; // 減去微小數字避免浮點數誤差
 
-        // 如果 interval 是 0.1，保留一位小數；否則保持整數
-        aggregatedPrice = interval === 0.1 ? parseFloat(aggregatedPrice.toFixed(1)) : aggregatedPrice;
+            // 如果 interval 是 0.1，保留一位小數；否則保持整數
+            aggregatedPrice = interval === 0.1 ? parseFloat(aggregatedPrice.toFixed(1)) : parseFloat(aggregatedPrice.toFixed(2));
 
-        if (!aggregated[aggregatedPrice]) {
-            aggregated[aggregatedPrice] = 0;
+            // 將相同價格層的數量加總
+            if (!aggregated[aggregatedPrice]) {
+                aggregated[aggregatedPrice] = 0;
+            }
+
+            aggregated[aggregatedPrice] += quantity;
         }
-        aggregated[aggregatedPrice] += quantity;
-    }
+    });
 
     return aggregated;
 }

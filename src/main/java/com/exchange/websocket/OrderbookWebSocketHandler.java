@@ -11,10 +11,7 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Component
@@ -131,12 +128,18 @@ public class OrderbookWebSocketHandler extends TextWebSocketHandler {
         return BigDecimal.valueOf(100); // Default value
     }
 
-    private void sendOrderbookSnapshot(WebSocketSession session, String symbol, BigDecimal Interval) throws IOException {
-        Map<String, Object> snapshot = orderbookService.getOrderbookSnapshot(symbol, Interval);
-//        System.out.println("Sending orderbook snapshot: " + snapshot);
+    private void sendOrderbookSnapshot(WebSocketSession session, String symbol, BigDecimal interval) throws IOException {
+        // 獲取 orderbook snapshot，返回值為 Map<String, List<OrderbookSnapshot>>
+        Map<String, List<OrderbookSnapshotService.OrderbookSnapshot>> snapshot = orderbookService.getOrderbookSnapshot(symbol, interval);
+
+        // 將快照結果轉換為 JSON 字符串
         String snapshotJson = objectMapper.writeValueAsString(snapshot);
+        System.out.println("Orderbook snapshot for symbol: " + symbol + ", snapshot: " + snapshotJson);
+
+        // 發送給 WebSocket 客戶端
         session.sendMessage(new TextMessage(snapshotJson));
     }
+
 
     private String getSymbolFromSession(WebSocketSession session) {
         return (String) session.getAttributes().get("symbol");
