@@ -393,13 +393,6 @@ th {
     cursor: pointer;
 }
 
-/* 左側容器：Flexbox布局 */
-.left-container {
-    display: flex;
-    flex-direction: column;
-    width: 15%;
-}
-
 #orderbookContainer, #recentTradesContainer {
     background-color: #fff;
     padding: 5px;
@@ -566,7 +559,7 @@ th {
 .table-container {
     height: 500px; /* 限制表格高度 */
     overflow-y: scroll; /* 保持垂直滾動功能 */
-    overflow-x: hidden; /* 隱藏水平滾動條 */
+    overflow-x: auto; /* 允許水平滾動 */
     scrollbar-width: none; /* 隱藏滾動條（適用於 Firefox） */
 }
 
@@ -579,6 +572,7 @@ th {
 /* 調整表格樣式 */
 #currentOrdersTable, #historicalOrdersTable, #historicalTradesTable, #assetManagementTable {
     width: 100%;
+    min-width: 442px; /* 設定最小寬度，避免表格過於壓縮 */
     border-collapse: collapse;
 }
 
@@ -610,7 +604,7 @@ th {
     white-space: nowrap; /* 不換行 */
 }
 
-/* 如果需要，可以調整表頭陰影效果 */
+/* 表頭陰影效果 */
 #currentOrdersTable th, #historicalOrdersTable th, #historicalTradesTable th, #assetManagementTable th {
     box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.1); /* 添加表頭陰影 */
 }
