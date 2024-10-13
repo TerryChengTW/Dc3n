@@ -6,6 +6,7 @@
     <title>交易介面</title>
     <link rel="stylesheet" href="/css/trade.css">
     <script src="/js/auth.js"></script>
+    <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
 </head>
 <body>
 
@@ -18,7 +19,25 @@
 <!-- Flex 容器，包含 K 線圖、訂單簿和最新成交、以及用戶下單 -->
 <div class="main-content">
     <!-- 左側：K線圖 -->
-    <div class="chart-container" th:replace="~{kline.html :: kline}"></div>
+    <div class="chart-container">
+        <div id="kline-bar" style="width: 100%; height: 40px; background-color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 10px; box-sizing: border-box;">
+            <div>
+                <span>時間: <span id="info-time">-</span></span>
+                <span style="margin-left: 20px;">開: <span id="info-open">-</span></span>
+                <span style="margin-left: 20px;">高: <span id="info-high">-</span></span>
+                <span style="margin-left: 20px;">低: <span id="info-low">-</span></span>
+                <span style="margin-left: 20px;">收: <span id="info-close">-</span></span>
+            </div>
+            <!-- 時間框架選擇按鈕 -->
+            <div>
+                <button onclick="updateTimeFrame('1m')" class="custom-button">1分鐘</button>
+                <button onclick="updateTimeFrame('5m')" class="custom-button">5分鐘</button>
+                <button onclick="updateTimeFrame('1h')" class="custom-button">1小時</button>
+            </div>
+        </div>
+
+        <div id="chart" style="width: 100%; height: 455px;"></div>
+    </div>
 
     <!-- 中間：訂單簿 + 最新成交 -->
     <div class="middle-section">

@@ -1124,3 +1124,315 @@ function redirectToLogin() {
     // 這裡處理轉到登入頁面的邏輯
     window.location.href = '/login';
 }
+
+// 創建圖表
+const chart = LightweightCharts.createChart(document.getElementById('chart'), {
+    layout: {
+        backgroundColor: '#FFFFFF',
+        textColor: '#000',
+    },
+    grid: {
+        vertLines: {
+            color: '#e1e1e1',
+        },
+        horzLines: {
+            color: '#e1e1e1',
+        },
+    },
+    crosshair: {
+        mode: LightweightCharts.CrosshairMode.Normal,
+    },
+    rightPriceScale: {
+        borderColor: '#AAA',
+    },
+    timeScale: {
+        borderColor: '#AAA',
+        timeVisible: true,
+        secondsVisible: false,
+    },
+});
+
+const candleSeries = chart.addCandlestickSeries();
+let visibleCandles = 20; // 初始顯示50根K線
+let originalData = []; // 用來儲存K線數據
+let lastCandle = null; // 用來儲存最新的未結束K棒
+
+// 設置 WebSocket 連接
+let kLineSocket = null;
+let selectedSymbol = 'BTCUSDT'; // 默認幣種
+let selectedTimeFrame = '1m'; // 默認時間框架
+
+function calculateCurrentIntervalTime(time, timeFrame) {
+    let intervalInSeconds;
+    switch (timeFrame) {
+        case '1m':
+            intervalInSeconds = 60;
+            break;
+        case '5m':
+            intervalInSeconds = 300; // 5分鐘
+            break;
+        case '1h':
+            intervalInSeconds = 3600; // 1小時
+            break;
+        default:
+            intervalInSeconds = 60; // 默認為1分鐘
+            break;
+    }
+    return Math.floor(time / intervalInSeconds) * intervalInSeconds;
+}
+
+// 創建 WebSocket 連接
+function loadKlineData(symbol, timeFrame) {
+    // 如果已有 WebSocket 連接，先關閉它
+    if (kLineSocket) {
+        kLineSocket.close();
+        console.log('kline WebSocket 已斷開');
+        lastCandle = null;
+    }
+
+    // 建立新的 WebSocket 連接，帶上選擇的幣種和時間框架
+    const wsUrl = `/ws/kline?symbol=${symbol}&timeFrame=${timeFrame}`;
+    kLineSocket = new WebSocket(wsUrl);
+
+    kLineSocket.onmessage = function(event) {
+        const message = JSON.parse(event.data);
+        console.log("kline 收到消息: ", message);
+
+        // 處理歷史K線數據
+        if (Array.isArray(message) && message.length > 0 && message[0].type === 'historical') {
+            originalData = message.map(d => ({
+                time: d.time, // 假設傳來的是秒級時間戳
+                open: d.open,
+                high: d.high,
+                low: d.low,
+                close: d.close
+            })).sort((a, b) => a.time - b.time);
+
+            console.log("kline 歷史數據：", originalData);
+            candleSeries.setData(originalData); // 初始化時直接設定K線數據
+            updateChart();
+        }
+
+        // 處理當前K棒的既有數據
+        else if (message.type === 'current_kline' && message.symbol === symbol) {
+            const currentInterval = calculateCurrentIntervalTime(message.time, timeFrame);
+
+            if (!lastCandle || lastCandle.time !== currentInterval) {
+                // 創建新K棒
+                lastCandle = {
+                    time: currentInterval,
+                    open: message.open,
+                    high: message.high,
+                    low: message.low,
+                    close: message.close
+                };
+            } else {
+                lastCandle.high = Math.max(lastCandle.high, message.high);
+                lastCandle.low = Math.min(lastCandle.low, message.low);
+                lastCandle.close = message.close;
+            }
+
+            // 更新圖表
+            candleSeries.update(lastCandle);
+        }
+
+        // 處理實時成交數據
+        else if (message.type === 'trade' && message.symbol === symbol) {
+            const tradeInterval = calculateCurrentIntervalTime(message.time, timeFrame);
+
+            if (lastCandle && lastCandle.time === tradeInterval) {
+                // 更新當前K棒
+                lastCandle.close = message.price;
+                lastCandle.high = Math.max(lastCandle.high, message.price);
+                lastCandle.low = Math.min(lastCandle.low, message.price);
+
+                // 更新圖表
+                candleSeries.update(lastCandle);
+            } else if (lastCandle) {
+                console.log('新時間段，將當前K棒視為完成');
+
+                // 創建新K棒
+                lastCandle = {
+                    time: tradeInterval,
+                    open: message.price,
+                    high: message.price,
+                    low: message.price,
+                    close: message.price
+                };
+
+                // 更新新K棒到圖表
+                candleSeries.update(lastCandle);
+            }
+        }
+    };
+
+    kLineSocket.onerror = function(error) {
+        console.error('WebSocket 錯誤: ', error);
+    };
+
+    kLineSocket.onclose = function() {
+        console.log('WebSocket 已關閉');
+    };
+}
+
+// 初始化載入數據
+loadKlineData(selectedSymbol, selectedTimeFrame);
+
+// 用戶選擇不同幣種或時間框架時調用此函數
+function updateTimeFrame(timeFrame) {
+    selectedTimeFrame = timeFrame;
+    loadKlineData(selectedSymbol, selectedTimeFrame);
+}
+
+let minCandles = 20;   // 最少顯示10根K線
+let maxCandles = 100;  // 最多顯示100根K線
+
+// 更新圖表數據並控制可見範圍內的K線數量
+function updateChart() {
+    const dataToShow = originalData.slice(-visibleCandles);
+    candleSeries.setData(dataToShow);
+
+    // 調整時間範圍以適應數據
+    const visibleLogicalRange = chart.timeScale().getVisibleLogicalRange();
+    const barsInfo = candleSeries.barsInLogicalRange(visibleLogicalRange);
+
+    // 計算當前顯示的K線數量
+    const visibleBars = barsInfo?.barsBefore + barsInfo?.barsAfter + 1;
+
+    // 控制顯示的K線數量在最小和最大範圍內
+    if (visibleBars < minCandles) {
+        // 如果顯示的K線數量小於最小值，擴大顯示範圍
+        visibleCandles = minCandles;
+        chart.timeScale().fitContent();  // 自動適應數據範圍
+    } else if (visibleBars > maxCandles) {
+        // 如果顯示的K線數量大於最大值，縮小顯示範圍
+        const logicalRange = chart.timeScale().getVisibleLogicalRange();
+        const newRange = {
+            from: logicalRange.from + (visibleBars - maxCandles),
+            to: logicalRange.to,
+        };
+        chart.timeScale().setVisibleLogicalRange(newRange);  // 設置新的顯示範圍
+    }
+}
+
+
+
+let isLoading = false;  // 用來控制加載狀態
+
+// 監聽圖表的時間範圍變化來加載更多的歷史數據
+let initialTriggerCount = 0;  // 用來追踪可見範圍變化的觸發次數
+
+chart.timeScale().subscribeVisibleTimeRangeChange(function() {
+    // 初始載入完成後才監聽用戶的操作
+    if (initialTriggerCount < 2) {
+        initialTriggerCount++;  // 每次觸發都增加計數
+        console.log('初始觸發次數: ', initialTriggerCount);
+        return;  // 前兩次不執行加載數據
+    }
+
+    // 檢查圖表的可見範圍
+    const visibleLogicalRange = chart.timeScale().getVisibleLogicalRange();
+    const barsInfo = candleSeries.barsInLogicalRange(visibleLogicalRange);
+
+    // 當顯示的數據到達圖表左邊界並且無更多數據可顯示時，才加載更多數據
+    // console.log('barsInfo:', barsInfo);
+    if (!isLoading && barsInfo.barsBefore<0) {
+        console.log('準備加載更多數據...');
+        isLoading = true;  // 標記正在加載
+        loadMoreExistingData();  // 加載數據
+    }
+});
+
+
+// 從已有數據中加載更多的歷史數據
+function loadMoreExistingData() {
+    // 獲取當前可見範圍的開始和結束時間
+    const visibleRange = chart.timeScale().getVisibleRange();
+
+    // 加載數據邏輯
+    visibleCandles = Math.min(visibleCandles + 400, originalData.length);
+    loadChart();
+
+    // 在加載數據後，將顯示範圍設置回之前的範圍
+    chart.timeScale().setVisibleRange(visibleRange);
+
+    // 檢查本地數據是否已經全部加載完畢
+    if (visibleCandles >= originalData.length) {
+        const earliestTimestamp = originalData[0]?.time || 0;
+        console.log('最早的時間戳:', earliestTimestamp);
+        console.log('本地數據已經顯示完，開始加載更多數據...');
+        // 如果本地數據加載完，向後端請求更多數據
+        fetch(`/api/kline/${selectedSymbol}/${earliestTimestamp}?timeframe=${selectedTimeFrame}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(newData => {
+                console.log('接收到後端數據:', newData);
+
+                if (newData.length > 0) {
+                    // 合併新數據與現有的 originalData
+                    originalData = newData.concat(originalData);
+                    console.log('合併後的 originalData:', originalData);
+                    originalData.sort((a, b) => a.time - b.time);
+                    visibleCandles = Math.min(visibleCandles + 100, originalData.length);
+                    loadChart();  // 更新圖表
+                    console.log('圖表已更新，當前 visibleCandles:', visibleCandles);
+                } else {
+                    console.log('後端沒有返回新的數據');
+                }
+                isLoading = false;  // 加載完成後重置加載標誌
+            })
+            .catch(error => {
+                console.error("加載數據失敗", error);
+                isLoading = false;
+            });
+    } else {
+        // 如果還有本地數據可以顯示
+        setTimeout(() => {
+            isLoading = false;  // 加載完成後重置加載標誌
+            console.log('本地數據加載完成');
+        }, 500);  // 模擬耗時
+    }
+}
+
+
+// 更新圖表數據
+function loadChart() {
+    const dataToShow = originalData.slice(-visibleCandles);  // 顯示最近的 visibleCandles 根K棒
+    if (lastCandle) {
+        // 如果存在未完成的當前K棒，將它添加到數據中
+        dataToShow.push(lastCandle);
+    }
+    candleSeries.setData(dataToShow);  // 更新圖表
+}
+
+
+chart.subscribeCrosshairMove(function(param) {
+    if (!param || !param.time || !param.seriesData.get(candleSeries)) {
+        // 如果沒有滑鼠指向的 K 線數據，顯示為 '-'
+        document.getElementById('info-time').textContent = '-';
+        document.getElementById('info-open').textContent = '-';
+        document.getElementById('info-high').textContent = '-';
+        document.getElementById('info-low').textContent = '-';
+        document.getElementById('info-close').textContent = '-';
+        return;
+    }
+
+    const klineData = param.seriesData.get(candleSeries);
+
+    // 更新 K 線數據
+    document.getElementById('info-time').textContent = new Date(param.time * 1000).toLocaleString();  // 假設是 Unix 時間戳，轉換為本地時間
+    document.getElementById('info-open').textContent = klineData.open.toFixed(2);
+    document.getElementById('info-high').textContent = klineData.high.toFixed(2);
+    document.getElementById('info-low').textContent = klineData.low.toFixed(2);
+    document.getElementById('info-close').textContent = klineData.close.toFixed(2);
+});
+
+// 監聽窗口大小變化
+window.addEventListener('resize', () => {
+    const chartContainer = document.getElementById('chart');
+    chart.resize(chartContainer.clientWidth, chartContainer.clientHeight);
+});
