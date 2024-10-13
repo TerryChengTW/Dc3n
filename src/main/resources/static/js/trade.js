@@ -1251,10 +1251,10 @@ function loadKlineData(symbol, timeFrame) {
             } else if (lastCandle) {
                 console.log('新時間段，將當前K棒視為完成');
 
-                // 創建新K棒
+                // 創建新K棒，將上一根K棒的收盤價作為新K棒的開盤價
                 lastCandle = {
                     time: tradeInterval,
-                    open: message.price,
+                    open: lastCandle.close,  // 使用上一根K棒的收盤價作為新K棒的開盤價
                     high: message.price,
                     low: message.price,
                     close: message.price
