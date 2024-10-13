@@ -1213,7 +1213,7 @@ function loadKlineData(symbol, timeFrame) {
             updateChart();
         }
 
-        // 處理當前K棒的既有數據
+        // 處理當前K棒數據
         else if (message.type === 'current_kline' && message.symbol === symbol) {
             const currentInterval = calculateCurrentIntervalTime(message.time, timeFrame);
 
@@ -1236,9 +1236,32 @@ function loadKlineData(symbol, timeFrame) {
             candleSeries.update(lastCandle);
         }
 
+        // 處理空K棒數據 (price = -1)
+        else if (message.price === -1 && message.symbol === symbol) {
+            const emptyInterval = calculateCurrentIntervalTime(message.time, timeFrame);
+            console.log('空K棒時間:', emptyInterval);
+
+            // 如果是新的時間間隔，創建空K棒
+            if (lastCandle && lastCandle.time !== emptyInterval) {
+                // console.log('收到空K棒數據，使用上一根收盤價來創建新K棒');
+
+                lastCandle = {
+                    time: emptyInterval,
+                    open: lastCandle.close,  // 使用上一根K棒的收盤價作為新K棒的開盤價
+                    high: lastCandle.close,
+                    low: lastCandle.close,
+                    close: lastCandle.close
+                };
+
+                // 更新圖表
+                candleSeries.update(lastCandle);
+            }
+        }
+
         // 處理實時成交數據
         else if (message.type === 'trade' && message.symbol === symbol) {
             const tradeInterval = calculateCurrentIntervalTime(message.time, timeFrame);
+            console.log('tradeInterval:', tradeInterval);
 
             if (lastCandle && lastCandle.time === tradeInterval) {
                 // 更新當前K棒

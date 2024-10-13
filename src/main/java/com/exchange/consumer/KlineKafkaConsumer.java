@@ -35,6 +35,7 @@ public class KlineKafkaConsumer {
 
             Instant tradeInstant = Instant.ofEpochSecond(tradeTime);
 
+            System.out.println("Received kline update: " + symbol + " " + price + " " + tradeInstant);
             // 使用 symbol, price 和 tradeTime 推送到 WebSocket
             klineWebSocketHandler.broadcastKlineUpdate(symbol, price, tradeInstant);
         } catch (Exception e) {
