@@ -5,14 +5,14 @@ import time
 import numpy as np
 
 # 配置參數
-BASE_URL = 'https://dc3n.xyz'
+BASE_URL = 'http://localhost:8081'
 SYMBOLS = {
     'ETHUSDT': {'initial_price': 3000, 'price_range': (1000, 5000), 'stddev': 50, 'volatility': 0.01},
     'BTCUSDT': {'initial_price': 50000, 'price_range': (30000, 70000), 'stddev': 500, 'volatility': 0.01}
 }
 ORDER_QUANTITY_RANGE = (0.1, 1.0)  # 訂單數量範圍
 MARKET_ORDER_PROBABILITY = 0.00  # 市價單的概率
-CONCURRENCY = 100  # 控制同時提交訂單的數量
+CONCURRENCY = 50  # 控制同時提交訂單的數量
 
 # JWT 令牌
 JWT_TOKENS = [

@@ -104,7 +104,7 @@
         // 如果已有 WebSocket 連接，先關閉它
         if (kLineSocket) {
             kLineSocket.close();
-            console.log('kline WebSocket 已斷開');
+            // console.log('kline WebSocket 已斷開');
             lastCandle = null;
         }
 
@@ -114,7 +114,7 @@
 
         kLineSocket.onmessage = function(event) {
             const message = JSON.parse(event.data);
-            console.log("kline 收到消息: ", message);
+            // console.log("kline 收到消息: ", message);
 
             // 處理歷史K線數據
             if (Array.isArray(message) && message.length > 0 && message[0].type === 'historical') {
@@ -126,7 +126,7 @@
                     close: d.close
                 })).sort((a, b) => a.time - b.time);
 
-                console.log("kline 歷史數據：", originalData);
+                // console.log("kline 歷史數據：", originalData);
                 candleSeries.setData(originalData); // 初始化時直接設定K線數據
                 updateChart();
             }
@@ -167,7 +167,7 @@
                     // 更新圖表
                     candleSeries.update(lastCandle);
                 } else if (lastCandle) {
-                    console.log('新時間段，將當前K棒視為完成');
+                    // console.log('新時間段，將當前K棒視為完成');
 
                     // 創建新K棒
                     lastCandle = {
@@ -189,7 +189,7 @@
         };
 
         kLineSocket.onclose = function() {
-            console.log('WebSocket 已關閉');
+            // console.log('WebSocket 已關閉');
         };
     }
 
@@ -244,7 +244,7 @@
         // 初始載入完成後才監聽用戶的操作
         if (initialTriggerCount < 2) {
             initialTriggerCount++;  // 每次觸發都增加計數
-            console.log('初始觸發次數: ', initialTriggerCount);
+            // console.log('初始觸發次數: ', initialTriggerCount);
             return;  // 前兩次不執行加載數據
         }
 
@@ -255,7 +255,7 @@
         // 當顯示的數據到達圖表左邊界並且無更多數據可顯示時，才加載更多數據
         // console.log('barsInfo:', barsInfo);
         if (!isLoading && barsInfo.barsBefore<0) {
-            console.log('準備加載更多數據...');
+            // console.log('準備加載更多數據...');
             isLoading = true;  // 標記正在加載
             loadMoreExistingData();  // 加載數據
         }
@@ -277,8 +277,8 @@
         // 檢查本地數據是否已經全部加載完畢
         if (visibleCandles >= originalData.length) {
             const earliestTimestamp = originalData[0]?.time || 0;
-            console.log('最早的時間戳:', earliestTimestamp);
-            console.log('本地數據已經顯示完，開始加載更多數據...');
+            // console.log('最早的時間戳:', earliestTimestamp);
+            // console.log('本地數據已經顯示完，開始加載更多數據...');
             // 如果本地數據加載完，向後端請求更多數據
             fetch(`/api/kline/${selectedSymbol}/${earliestTimestamp}?timeframe=${selectedTimeFrame}`)
                 .then(response => {
@@ -288,18 +288,18 @@
                     return response.json();
                 })
                 .then(newData => {
-                    console.log('接收到後端數據:', newData);
+                    // console.log('接收到後端數據:', newData);
 
                     if (newData.length > 0) {
                         // 合併新數據與現有的 originalData
                         originalData = newData.concat(originalData);
-                        console.log('合併後的 originalData:', originalData);
+                        // console.log('合併後的 originalData:', originalData);
                         originalData.sort((a, b) => a.time - b.time);
                         visibleCandles = Math.min(visibleCandles + 100, originalData.length);
                         loadChart();  // 更新圖表
-                        console.log('圖表已更新，當前 visibleCandles:', visibleCandles);
+                        // console.log('圖表已更新，當前 visibleCandles:', visibleCandles);
                     } else {
-                        console.log('後端沒有返回新的數據');
+                        // console.log('後端沒有返回新的數據');
                     }
                     isLoading = false;  // 加載完成後重置加載標誌
                 })
@@ -311,7 +311,7 @@
             // 如果還有本地數據可以顯示
             setTimeout(() => {
                 isLoading = false;  // 加載完成後重置加載標誌
-                console.log('本地數據加載完成');
+                // console.log('本地數據加載完成');
             }, 500);  // 模擬耗時
         }
     }

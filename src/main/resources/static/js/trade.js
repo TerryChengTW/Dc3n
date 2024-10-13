@@ -4,19 +4,19 @@ function connectUserOrderWebSocket() {
     const token = localStorage.getItem('jwtToken');
 
     if (!token) {
-        console.log("未找到 jwtToken，不建立 WebSocket 連線");
+        // console.log("未找到 jwtToken，不建立 WebSocket 連線");
         return;
     }
 
     userOrderSocket = new WebSocket(`/ws?token=${token}`);
 
     userOrderSocket.onopen = function() {
-        console.log("UserOrderWebSocket 連接已建立");
+        // console.log("UserOrderWebSocket 連接已建立");
     };
 
     userOrderSocket.onmessage = function(event) {
         const message = JSON.parse(event.data);
-        console.log("UserOrderWebSocket 收到消息：", message);
+        // console.log("UserOrderWebSocket 收到消息：", message);
         if (message.type === 'snapshot') {
             handleOrderSnapshot(message.data);
         } else {
@@ -26,14 +26,14 @@ function connectUserOrderWebSocket() {
 
     userOrderSocket.onclose = function(event) {
         if (event.wasClean) {
-            console.log(`UserOrderWebSocket 連接已關閉，代碼=${event.code} 原因=${event.reason}`);
+            // console.log(`UserOrderWebSocket 連接已關閉，代碼=${event.code} 原因=${event.reason}`);
         } else {
-            console.log('UserOrderWebSocket 連接已中斷');
+            // console.log('UserOrderWebSocket 連接已中斷');
         }
     };
 
     userOrderSocket.onerror = function(error) {
-        console.log(`UserOrderWebSocket 錯誤: ${error.message}`);
+        // console.log(`UserOrderWebSocket 錯誤: ${error.message}`);
     };
 }
 
@@ -356,7 +356,7 @@ function connectRecentTradesWebSocket(symbol) {
     recentTradesSocket = new WebSocket(`/ws/recent-trades/${symbol}`);
 
     recentTradesSocket.onopen = function() {
-        console.log(`最新成交 WebSocket 連接已建立，交易對：${symbol}`);
+        // console.log(`最新成交 WebSocket 連接已建立，交易對：${symbol}`);
     };
 
     let isFirstMessage = true; // 標誌變數
@@ -364,7 +364,7 @@ function connectRecentTradesWebSocket(symbol) {
     recentTradesSocket.onmessage = function(event) {
         const tradesList = document.getElementById('recentTradesList');
         const tradesData = JSON.parse(event.data);
-        console.log("最新成交：", tradesData);
+        // console.log("最新成交：", tradesData);
 
         if (isFirstMessage) {
             // 清空默認的空白行
@@ -403,11 +403,11 @@ function connectRecentTradesWebSocket(symbol) {
     };
 
     recentTradesSocket.onclose = function() {
-        console.log(`最新成交 WebSocket 連接已關閉，交易對：${symbol}`);
+        // console.log(`最新成交 WebSocket 連接已關閉，交易對：${symbol}`);
     };
 
     recentTradesSocket.onerror = function(error) {
-        console.log(`最新成交 WebSocket 錯誤: ${error.message}`);
+        // console.log(`最新成交 WebSocket 錯誤: ${error.message}`);
     };
 }
 
@@ -442,10 +442,11 @@ function addRecentTrade(trade) {
 function updateSymbol() {
     const symbol = document.getElementById('symbol').value;
     if (symbol !== currentSymbol) {
+        currentSymbol = symbol;
+        selectedSymbol = symbol;
         connectOrderbookWebSocket(symbol);
         connectRecentTradesWebSocket(symbol);
         loadKlineData(symbol, selectedTimeFrame);
-        currentSymbol = symbol;
     }
 }
 
@@ -477,7 +478,7 @@ function connectOrderbookWebSocket(symbol) {
     orderbookSocket = new WebSocket(`/ws/orderbook?symbol=${symbol}&interval=${currentInterval}`);
 
     orderbookSocket.onopen = function() {
-        console.log(`訂單簿 WebSocket 連接已建立，交易對：${symbol}，價格間隔：${currentInterval}`);
+        // console.log(`訂單簿 WebSocket 連接已建立，交易對：${symbol}，價格間隔：${currentInterval}`);
     };
 
     orderbookSocket.onmessage = function(event) {
@@ -494,21 +495,21 @@ function connectOrderbookWebSocket(symbol) {
             }
 
             // 更新訂單簿顯示
-            console.log("訂單簿快照更新：", orderbook);
+            // console.log("訂單簿快照更新：", orderbook);
             updateOrderbookDisplay(orderbook);
         } else {
             // 增量更新
-            console.log("訂單簿增量：", orderbookUpdate);
+            // console.log("訂單簿增量：", orderbookUpdate);
             updateOrderbookDelta(orderbookUpdate);
         }
     };
 
     orderbookSocket.onclose = function() {
-        console.log(`訂單簿 WebSocket 連接已關閉，交易對：${symbol}`);
+        // console.log(`訂單簿 WebSocket 連接已關閉，交易對：${symbol}`);
     };
 
     orderbookSocket.onerror = function(error) {
-        console.log(`訂單簿 WebSocket 錯誤: ${error.message}`);
+        // console.log(`訂單簿 WebSocket 錯誤: ${error.message}`);
     };
 }
 
@@ -550,7 +551,7 @@ function updateOrderbookDelta(deltaUpdate) {
     // 如果 interval 是 0.1，保留一位小數；否則保持整數
     aggregatedPrice = currentInterval === 0.1 ? parseFloat(aggregatedPrice.toFixed(1)) : aggregatedPrice;
 
-    console.log(`原始價格: ${parsedPrice}, 聚合後價格: ${aggregatedPrice}, 未成交數量: ${parsedQuantity}`);
+    // console.log(`原始價格: ${parsedPrice}, 聚合後價格: ${aggregatedPrice}, 未成交數量: ${parsedQuantity}`);
 
     // 根據買賣方向更新對應的訂單簿
     if (side === "BUY") {
@@ -898,7 +899,7 @@ async function fetchHistoricalDelegatesData() {
 
         // 解析返回的數據
         const orderHistory = await response.json();
-        console.log('Historical trades:', orderHistory); // 調試用
+        // console.log('Historical trades:', orderHistory); // 調試用
 
         // 更新表格
         const tbody = document.getElementById('historicalOrdersTable').getElementsByTagName('tbody')[0];
@@ -995,7 +996,7 @@ async function fetchHistoricalDelegatesData() {
             });
         });
 
-        console.log('Table updated successfully'); // 調試用
+        // console.log('Table updated successfully'); // 調試用
 
     } catch (error) {
         console.error('Error fetching historical trades:', error);
@@ -1106,13 +1107,12 @@ function simulateAssetManagementData() {
 
 document.addEventListener('DOMContentLoaded', function() {
     const token = localStorage.getItem('jwtToken');
-    console.log('JWT Token:', token); // 除錯用
     if (token) {
-        console.log('Token found, showing submit button.');
+        // console.log('Token found, showing submit button.');
         document.getElementById('submitButton').style.display = 'block';
         document.getElementById('loginButton').style.display = 'none';
     } else {
-        console.log('No token found, showing login button.');
+        // console.log('No token found, showing login button.');
         document.getElementById('submitButton').style.display = 'none';
         document.getElementById('loginButton').style.display = 'block';
     }
@@ -1186,8 +1186,9 @@ function loadKlineData(symbol, timeFrame) {
     // 如果已有 WebSocket 連接，先關閉它
     if (kLineSocket) {
         kLineSocket.close();
-        console.log('kline WebSocket 已斷開');
+        // console.log('kline WebSocket 已斷開');
         lastCandle = null;
+        originalData = [];
     }
 
     // 建立新的 WebSocket 連接，帶上選擇的幣種和時間框架
@@ -1196,7 +1197,7 @@ function loadKlineData(symbol, timeFrame) {
 
     kLineSocket.onmessage = function(event) {
         const message = JSON.parse(event.data);
-        console.log("kline 收到消息: ", message);
+        // console.log("kline 收到消息: ", message);
 
         // 處理歷史K線數據
         if (Array.isArray(message) && message.length > 0 && message[0].type === 'historical') {
@@ -1208,7 +1209,7 @@ function loadKlineData(symbol, timeFrame) {
                 close: d.close
             })).sort((a, b) => a.time - b.time);
 
-            console.log("kline 歷史數據：", originalData);
+            // console.log("kline 歷史數據：", originalData);
             candleSeries.setData(originalData); // 初始化時直接設定K線數據
             updateChart();
         }
@@ -1239,7 +1240,7 @@ function loadKlineData(symbol, timeFrame) {
         // 處理空K棒數據 (price = -1)
         else if (message.price === -1 && message.symbol === symbol) {
             const emptyInterval = calculateCurrentIntervalTime(message.time, timeFrame);
-            console.log('空K棒時間:', emptyInterval);
+            // console.log('空K棒時間:', emptyInterval);
 
             // 如果是新的時間間隔，創建空K棒
             if (lastCandle && lastCandle.time !== emptyInterval) {
@@ -1261,7 +1262,7 @@ function loadKlineData(symbol, timeFrame) {
         // 處理實時成交數據
         else if (message.type === 'trade' && message.symbol === symbol) {
             const tradeInterval = calculateCurrentIntervalTime(message.time, timeFrame);
-            console.log('tradeInterval:', tradeInterval);
+            // console.log('tradeInterval:', tradeInterval);
 
             if (lastCandle && lastCandle.time === tradeInterval) {
                 // 更新當前K棒
@@ -1272,7 +1273,7 @@ function loadKlineData(symbol, timeFrame) {
                 // 更新圖表
                 candleSeries.update(lastCandle);
             } else if (lastCandle) {
-                console.log('新時間段，將當前K棒視為完成');
+                // console.log('新時間段，將當前K棒視為完成');
 
                 // 創建新K棒，將上一根K棒的收盤價作為新K棒的開盤價
                 lastCandle = {
@@ -1290,11 +1291,11 @@ function loadKlineData(symbol, timeFrame) {
     };
 
     kLineSocket.onerror = function(error) {
-        console.error('WebSocket 錯誤: ', error);
+        // console.error('WebSocket 錯誤: ', error);
     };
 
     kLineSocket.onclose = function() {
-        console.log('WebSocket 已關閉');
+        // console.log('WebSocket 已關閉');
     };
 }
 
@@ -1350,7 +1351,7 @@ chart.timeScale().subscribeVisibleTimeRangeChange(function() {
     // 初始載入完成後才監聽用戶的操作
     if (initialTriggerCount < 2) {
         initialTriggerCount++;  // 每次觸發都增加計數
-        console.log('初始觸發次數: ', initialTriggerCount);
+        // console.log('初始觸發次數: ', initialTriggerCount);
         return;  // 前兩次不執行加載數據
     }
 
@@ -1361,7 +1362,7 @@ chart.timeScale().subscribeVisibleTimeRangeChange(function() {
     // 當顯示的數據到達圖表左邊界並且無更多數據可顯示時，才加載更多數據
     // console.log('barsInfo:', barsInfo);
     if (!isLoading && barsInfo.barsBefore<0) {
-        console.log('準備加載更多數據...');
+        // console.log('準備加載更多數據...');
         isLoading = true;  // 標記正在加載
         loadMoreExistingData();  // 加載數據
     }
@@ -1383,8 +1384,9 @@ function loadMoreExistingData() {
     // 檢查本地數據是否已經全部加載完畢
     if (visibleCandles >= originalData.length) {
         const earliestTimestamp = originalData[0]?.time || 0;
-        console.log('最早的時間戳:', earliestTimestamp);
-        console.log('本地數據已經顯示完，開始加載更多數據...');
+        // console.log('最早的時間戳:', earliestTimestamp);
+        // console.log('本地數據已經顯示完，開始加載更多數據...');
+        // console.log('幣種:', selectedSymbol);
         // 如果本地數據加載完，向後端請求更多數據
         fetch(`/api/kline/${selectedSymbol}/${earliestTimestamp}?timeframe=${selectedTimeFrame}`)
             .then(response => {
@@ -1394,30 +1396,30 @@ function loadMoreExistingData() {
                 return response.json();
             })
             .then(newData => {
-                console.log('接收到後端數據:', newData);
+                // console.log('接收到後端數據:', newData);
 
                 if (newData.length > 0) {
                     // 合併新數據與現有的 originalData
                     originalData = newData.concat(originalData);
-                    console.log('合併後的 originalData:', originalData);
+                    // console.log('合併後的 originalData:', originalData);
                     originalData.sort((a, b) => a.time - b.time);
                     visibleCandles = Math.min(visibleCandles + 100, originalData.length);
                     loadChart();  // 更新圖表
-                    console.log('圖表已更新，當前 visibleCandles:', visibleCandles);
+                    // console.log('圖表已更新，當前 visibleCandles:', visibleCandles);
                 } else {
-                    console.log('後端沒有返回新的數據');
+                    // console.log('後端沒有返回新的數據');
                 }
                 isLoading = false;  // 加載完成後重置加載標誌
             })
             .catch(error => {
-                console.error("加載數據失敗", error);
+                // console.error("加載數據失敗", error);
                 isLoading = false;
             });
     } else {
         // 如果還有本地數據可以顯示
         setTimeout(() => {
             isLoading = false;  // 加載完成後重置加載標誌
-            console.log('本地數據加載完成');
+            // console.log('本地數據加載完成');
         }, 500);  // 模擬耗時
     }
 }

@@ -4,7 +4,6 @@ import com.exchange.dto.OrderRequest;
 import com.exchange.model.Order;
 import com.exchange.service.OrderService;
 import com.exchange.utils.ApiResponse;
-import com.exchange.utils.OrderProcessingTracker;
 import com.exchange.utils.SnowflakeIdGenerator;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,7 +32,6 @@ public class OrderController {
     @PostMapping("/submit")
     public ResponseEntity<ApiResponse<?>> submitOrder(@RequestBody OrderRequest orderRequest, HttpServletRequest request) {
         String orderId = String.valueOf(idGenerator.nextId());
-        OrderProcessingTracker.startTracking(orderId);
         try {
             String userId = (String) request.getAttribute("userId");
 
