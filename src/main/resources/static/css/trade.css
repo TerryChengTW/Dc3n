@@ -54,6 +54,7 @@ body::-webkit-scrollbar {
     display: flex;
     flex-direction: column; /* 上下排列訂單簿和最新成交 */
     gap: 20px; /* 保持區域間隔 */
+    max-width: 250px;
 }
 
 /* 訂單簿容器 */
@@ -69,8 +70,8 @@ body::-webkit-scrollbar {
     max-width: 250px; /* 根據需求調整寬度 */
 }
 
-/* 手機端樣式：當螢幕寬度小於768px時，進行調整 */
-@media (max-width: 1056px) {
+
+@media (max-width: 1220px) {
     .main-content {
         flex-direction: column;
         align-items: center;
@@ -96,7 +97,6 @@ body::-webkit-scrollbar {
         align-items: flex-start;
         width: 100%;
         gap: 10px;
-        flex-wrap: wrap; /* 當空間不足時自動換行 */
     }
 
     /* 訂單簿和最新成交的最小和最大寬度調整 */
@@ -207,107 +207,79 @@ th {
 
 /* 下單窗口樣式 */
 .trade-window {
-    flex: 1; /* 佔 1 份 */
+    flex: 1;
     background-color: #fff;
     padding: 5px 10px 10px;
     border-radius: 8px;
     box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
-    max-width: 220px;
-    height: 317px;
-    overflow-y: auto; /* 當內容超出高度時顯示滾動條 */
+    max-width: 220px; /* 可調整的最大寬度 */
+    min-height: 317px;
+    overflow-y: auto;
 }
 
-.trade-window label {
-    display: block;
-    margin-bottom: 8px;
-    font-weight: bold;
-    color: #555;
-}
-
+/* 輸入框和選單樣式 */
 .trade-window input,
 .trade-window select {
     width: 100%;
-    padding: 10px;
-    margin-bottom: 15px;
+    padding: 6px;
+    margin-bottom: 10px;
     border: 1px solid #ddd;
     border-radius: 4px;
     font-size: 12px;
 }
 
-/* 調整 form-group 讓 label 和輸入框更好對齊 */
-/* 調整 form-group 讓項目更緊湊 */
+/* 表單組，讓 label 和輸入框同時水平對齊 */
 .form-group {
     display: flex;
-    justify-content: space-between; /* 調整位置 */
-    align-items: center; /* 垂直居中對齊 */
-    margin-bottom: 8px; /* 減少間距 */
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
 }
 
-/* 調整 label 的寬度 */
+/* 調整 label 寬度，讓輸入框佔據剩餘空間 */
 .form-group label {
-    width: 35%; /* 調整寬度比例，使文字更易讀 */
-    text-align: left; /* 靠左對齊 */
-    margin-right: 5px; /* 減少 label 與輸入框的間距 */
+    width: 35%; /* 調整 label 寬度 */
+    text-align: left; /* 左對齊 */
 }
 
-/* 調整輸入框和選單的寬度與 padding */
 .form-group input,
 .form-group select {
-    width: 65%; /* 調整輸入框的寬度以平衡布局 */
-    padding: 6px; /* 減少 padding 使輸入框更緊湊 */
+    width: 65%; /* 輸入框佔剩下空間 */
+    padding: 6px;
+    margin-left: 5px; /* 增加一點間距讓布局更清晰 */
     border: 1px solid #ddd;
     border-radius: 4px;
     font-size: 14px;
 }
 
-/* 調整按鈕組樣式讓按鈕更好對齊 */
+/* 按鈕組樣式 */
 .btn-group {
     display: flex;
     justify-content: space-between;
-    align-items: center;
     width: 100%;
-    margin-bottom: 10px; /* 減少按鈕組的間距 */
+    margin-bottom: 10px;
 }
 
-/* 調整按鈕組樣式讓按鈕更好對齊 */
 .btn-group button {
+    width: 48%; /* 按鈕水平各佔一半空間 */
+    padding: 10px;
     font-size: 12px;
-    width: calc(50% - 5px); /* 改用 calc 確保按鈕的寬度自適應且保留間距 */
-    padding: 8px;
     border: 1px solid #ccc;
     border-radius: 4px;
-    cursor: pointer;
     background-color: #f9f9f9;
+    cursor: pointer;
     transition: background-color 0.3s;
 }
 
-
-/* 鼠標懸停時的背景色 */
-.btn-group button:hover {
-    background-color: #e0e0e0;
+/* 去除最後一個按鈕的右邊距 */
+.btn-group button:last-child {
+    margin-right: 0;
 }
 
-/* 點擊時的顏色變化 */
-.btn-group button:active {
-    background-color: #c0c0c0;
-}
-
-/* 按鈕被選中時的顏色 */
-.btn-group button:focus {
-    outline: none; /* 移除默認的藍色邊框 */
-    background-color: #b0b0b0;
-}
-
-/* 激活狀態的按鈕顏色 */
-.btn-group button.active {
-    background-color: #007bff;
-    color: white;
-}
-
-/* 提交按鈕 */
+/* 提交按鈕樣式 */
 .submit-btn {
     width: 100%;
-    padding: 10px; /* 減少提交按鈕 padding */
+    padding: 10px;
     background-color: #28a745;
     color: white;
     border: none;
@@ -317,17 +289,14 @@ th {
     transition: background-color 0.3s;
 }
 
-/* 鼠標懸停時變深 */
 .submit-btn:hover {
     background-color: #218838;
 }
 
-/* 點擊時的效果 */
 .submit-btn:active {
     background-color: #1e7e34;
 }
 
-/* 點擊後保持聚焦效果 */
 .submit-btn:focus {
     outline: none;
     background-color: #1e7e34;
@@ -349,6 +318,86 @@ th {
     margin-top: 20px;
     max-height: 300px; /* 限制高度，超出內容可滾動 */
     overflow-y: auto;
+}
+
+/* 調整表單的 label 和輸入框水平排列 */
+.form-group {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+/* 調整 label 的寬度，讓它和輸入框對齊 */
+.form-group label {
+    width: 35%; /* 調整寬度比例，使標籤和輸入框保持水平對齊 */
+    text-align: left;
+}
+
+.form-group input,
+.form-group select {
+    width: 65%; /* 調整輸入框的寬度以配合標籤 */
+    padding: 6px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+/* 調整按鈕組樣式，讓按鈕水平對齊 */
+.btn-group {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    margin-bottom: 10px;
+}
+
+.btn-group button {
+    width: 48%; /* 確保兩個按鈕各占一半空間並保持水平對齊 */
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    cursor: pointer;
+    background-color: #f9f9f9;
+    transition: background-color 0.3s;
+}
+
+/* 調整提交按鈕樣式 */
+.submit-btn {
+    width: 100%;
+    padding: 10px;
+    background-color: #28a745;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.submit-btn:hover {
+    background-color: #218838;
+}
+
+.submit-btn:active {
+    background-color: #1e7e34;
+}
+
+.submit-btn:focus {
+    outline: none;
+    background-color: #1e7e34;
+}
+
+.submit-btn:disabled {
+    background-color: #ddd;
+    cursor: not-allowed;
+    color: #888;
+}
+
+.btn-group button.active {
+    background-color: #007bff; /* 選中後的背景顏色 */
+    color: white; /* 選中後的文字顏色 */
+    border: 1px solid #007bff; /* 選中後的邊框顏色 */
 }
 
 #errorPopup {
@@ -407,6 +456,7 @@ th {
 }
 
 #recentTradesContainer {
+    flex: 1;
     max-height: 220px; /* 調整高度 */
     overflow-y: auto;
 }
