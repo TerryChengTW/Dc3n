@@ -41,7 +41,7 @@ public class MarketDataInitializationService {
     public void initializeSymbolMarketData(String symbol) {
         Instant endTime = Instant.now().truncatedTo(ChronoUnit.MINUTES);
         Instant lastDataTime = getLastDataTime(symbol);
-        Instant startTime = lastDataTime != null ? lastDataTime.plus(1, ChronoUnit.MINUTES) : endTime.minus(300, ChronoUnit.HOURS);
+        Instant startTime = lastDataTime != null ? lastDataTime.plus(1, ChronoUnit.MINUTES) : endTime.minus(1000, ChronoUnit.HOURS);
 
         if (startTime.isAfter(endTime)) {
             System.out.println(symbol + " 的數據已經是最新的，無需初始化。");
@@ -210,7 +210,8 @@ public class MarketDataInitializationService {
         try {
             return jdbcTemplate.queryForObject(sql, (rs, rowNum) -> rs.getBigDecimal(1), symbol, time);
         } catch (EmptyResultDataAccessException e) {
-            return BigDecimal.valueOf(50000);
+            // 根據 symbol 設定不同的預設值
+            return symbol.equals("ETHUSDT") ? BigDecimal.valueOf(4000) : BigDecimal.valueOf(50000);
         }
     }
 

@@ -1281,6 +1281,7 @@ loadKlineData(selectedSymbol, selectedTimeFrame);
 // 用戶選擇不同幣種或時間框架時調用此函數
 function updateTimeFrame(timeFrame) {
     selectedTimeFrame = timeFrame;
+    selectedSymbol = document.getElementById('symbol').value;
     loadKlineData(selectedSymbol, selectedTimeFrame);
 }
 
