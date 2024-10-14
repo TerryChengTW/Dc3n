@@ -2,6 +2,8 @@ package com.exchange.controller;
 
 import com.exchange.dto.OrderRequest;
 import com.exchange.model.Order;
+import com.exchange.model.OrderRecord;
+import com.exchange.service.OrderLoggerService;
 import com.exchange.service.OrderService;
 import com.exchange.utils.ApiResponse;
 import com.exchange.utils.SnowflakeIdGenerator;
@@ -21,11 +23,13 @@ public class OrderController {
 
     private final OrderService orderService;
     private final SnowflakeIdGenerator idGenerator;
+    private final OrderLoggerService orderLoggerService;
 
     @Autowired
-    public OrderController(OrderService orderService, SnowflakeIdGenerator idGenerator) {
+    public OrderController(OrderService orderService, SnowflakeIdGenerator idGenerator, OrderLoggerService orderLoggerService) {
         this.orderService = orderService;
         this.idGenerator = idGenerator;
+        this.orderLoggerService = orderLoggerService;
     }
 
     // 提交新訂單
@@ -53,6 +57,13 @@ public class OrderController {
             order.setCreatedAt(Instant.now());
             order.setUpdatedAt(Instant.now());
             order.setModifiedAt(Instant.now());
+
+            // 記錄接收時間（毫秒級別的epoch time）
+            long receivedTime = System.currentTimeMillis();
+            OrderRecord orderRecord = new OrderRecord(order, receivedTime);
+
+            // 保存到暫存的列表中
+            orderLoggerService.addOrderRecord(orderRecord);
 
             // 保存訂單並發送到 Kafka
             orderService.saveOrder(order);
