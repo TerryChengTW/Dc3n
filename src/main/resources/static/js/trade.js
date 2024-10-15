@@ -161,64 +161,96 @@ function editOrder(orderId) {
     const side = orderRow.children[6].textContent; // 買賣方向
     const modifiedAt = orderRow.getAttribute('data-modified-at'); // 修改時間
 
-    // 顯示彈出視窗
-    const editBox = document.getElementById("editOrderBox");
-    editBox.style.display = "block";
-
     // 預填訂單的價格和數量
-    document.getElementById("editPrice").value = oldPrice;
-    document.getElementById("editQuantity").value = quantity;
+    const editPriceInput = document.getElementById("editPrice");
+    const editQuantityInput = document.getElementById("editQuantity");
+
+    editPriceInput.value = oldPrice;
+    editQuantityInput.value = quantity;
+
+    // 禁用「確認」按鈕，直到價格或數量有變更
+    const confirmButton = document.getElementById("confirmEditButton");
+    confirmButton.disabled = true;  // 初始化時禁用按鈕，CSS會自動應用樣式
+
+    // 檢查是否有變更
+    function checkChanges() {
+        const newPrice = editPriceInput.value;
+        const newQuantity = editQuantityInput.value;
+
+        // 價格或數量有變化才啟用按鈕
+        if (newPrice !== oldPrice || newQuantity !== quantity) {
+            confirmButton.disabled = false; // 按鈕變為可用，恢復正常樣式
+        } else {
+            confirmButton.disabled = true;  // 按鈕禁用，變為灰色
+        }
+    }
+
+    // 監聽價格和數量的變更事件
+    editPriceInput.addEventListener('input', checkChanges);
+    editQuantityInput.addEventListener('input', checkChanges);
 
     // 儲存額外信息
-    document.getElementById("editOrderBox").setAttribute('data-old-price', oldPrice);
-    document.getElementById("editOrderBox").setAttribute('data-symbol', symbol);
-    document.getElementById("editOrderBox").setAttribute('data-side', side);
-    document.getElementById("editOrderBox").setAttribute('data-modified-at', modifiedAt);
-}
-
-function closeEditBox() {
-    // 隱藏彈出視窗
     const editBox = document.getElementById("editOrderBox");
-    editBox.style.display = "none";
+    editBox.setAttribute('data-old-price', oldPrice);
+    editBox.setAttribute('data-symbol', symbol);
+    editBox.setAttribute('data-side', side);
+    editBox.setAttribute('data-modified-at', modifiedAt);
+
+    // 顯示彈出視窗並顯示背景遮罩
+    openEditBox();
 }
 
 
-function showConfirm(message) {
-    return new Promise((resolve) => {
-        const confirmBox = document.getElementById('confirmBox');
-        confirmBox.style.display = 'block';
+// 顯示確認框和遮罩
+function showConfirm(message, onConfirm) {
+    const confirmBox = document.getElementById("confirmBox");
+    const overlay = document.getElementById("overlay");
+    const confirmMessage = document.querySelector(".confirm-message");
 
-        document.getElementById('confirmYes').onclick = () => {
-            confirmBox.style.display = 'none';
-            resolve(true); // 使用者確認
-        };
+    // 設置確認框中的消息
+    confirmMessage.textContent = message;
 
-        document.getElementById('confirmNo').onclick = () => {
-            confirmBox.style.display = 'none';
-            resolve(false); // 使用者取消
-        };
-    });
+    // 顯示確認框和背景遮罩
+    confirmBox.style.display = "block";
+    overlay.style.display = "block";
+
+    // 當用戶點擊確定按鈕時，執行 onConfirm 函數
+    document.getElementById("confirmYes").onclick = function () {
+        confirmBox.style.display = "none";
+        overlay.style.display = "none";
+        onConfirm(); // 執行確認邏輯
+    };
+
+    // 當用戶點擊取消按鈕時，隱藏彈出框和遮罩
+    document.getElementById("confirmNo").onclick = function () {
+        confirmBox.style.display = "none";
+        overlay.style.display = "none";
+    };
+
+    // 點擊背景遮罩時也隱藏彈出框和遮罩
+    overlay.onclick = function () {
+        confirmBox.style.display = "none";
+        overlay.style.display = "none";
+    };
 }
 
-async function deleteOrder(orderId) {
+function deleteOrder(orderId) {
     const token = localStorage.getItem('jwtToken');
-    const confirmed = await showConfirm("確定要刪除這筆訂單嗎？");
 
-    if (confirmed) {
-        // 從表格中獲取相關訂單資料
+    // 顯示確認彈出框並設定確認操作
+    showConfirm("確定要刪除這筆訂單嗎？", function () {
         const orderRow = document.getElementById(`order-${orderId}`);
-        const price = orderRow.children[3].textContent;  // 假設價格在第四個欄位
-        const modifiedAt = orderRow.getAttribute('data-modified-at'); // 假設你有儲存 modifiedAt 在 DOM
-        const symbol = orderRow.children[2].textContent; // 交易對
-        const side = orderRow.children[6].textContent; // 買賣方向
+        const price = orderRow.children[3].textContent;
+        const modifiedAt = orderRow.getAttribute('data-modified-at');
+        const symbol = orderRow.children[2].textContent;
+        const side = orderRow.children[6].textContent;
 
-        // 確保獲取的資料都存在
         if (!price || !modifiedAt || !symbol || !side) {
             showErrorPopup('無法刪除訂單，缺少必要的資料');
             return;
         }
 
-        // 發送 PUT 請求進行訂單刪除
+        // 發送 PUT 請求刪除訂單
         fetch(`/orders/cancel/${orderId}`, {
             method: 'PUT',
             headers: {
@@ -235,7 +267,7 @@ async function deleteOrder(orderId) {
             .then(response => response.json().then(data => {
                 if (response.ok) {
                     showSuccessPopup('訂單已取消');
-                    removeOrderRow(orderId); // 從前端表格中移除該訂單行
+                    removeOrderRow(orderId); // 從表格中移除該行
                 } else {
                     throw new Error(data.error || '訂單刪除失敗');
                 }
@@ -243,7 +275,7 @@ async function deleteOrder(orderId) {
             .catch((error) => {
                 showErrorPopup('刪除失敗: ' + error.message);
             });
-    }
+    });
 }
 
 function removeOrderRow(orderId) {
@@ -262,14 +294,19 @@ function updateSubmitButtonState() {
     const quantity = document.getElementById('quantity').value;
     const submitButton = document.getElementById('submitButton');
 
-    // 依據 orderType 檢查條件：如果是 LIMIT，price 和 quantity 必填；如果是 MARKET，quantity 必填
-    if (selectedSide && selectedOrderType && quantity &&
-        (selectedOrderType === 'MARKET' || (selectedOrderType === 'LIMIT' && price))) {
+    // 檢查數量和價格是否為有效的正數
+    const isValidPrice = !isNaN(price) && parseFloat(price) > 0;
+    const isValidQuantity = !isNaN(quantity) && parseFloat(quantity) > 0;
+
+    // 依據 orderType 檢查條件：如果是 LIMIT，price 和 quantity 必填且為有效數值；如果是 MARKET，quantity 必填且為有效數值
+    if (selectedSide && selectedOrderType && isValidQuantity &&
+        (selectedOrderType === 'MARKET' || (selectedOrderType === 'LIMIT' && isValidPrice))) {
         submitButton.disabled = false; // 啟用按鈕
     } else {
         submitButton.disabled = true; // 禁用按鈕
     }
 }
+
 
 // 更新的 selectSide 函數
 function selectSide(side) {
@@ -692,15 +729,19 @@ document.getElementById("confirmEditButton").addEventListener("click", function 
         })
             .then(response => response.json().then(data => {
                 if (response.ok) {
-                    showSuccessPopup('訂單修改成功');
-                    // 先刪除前端表格，等待後續kafka處理更新的訂單並且自動推送前端
-                    if (data.data) {
-                        removeOrderRow(data.data); // 根據 orderId 移除行
-                    }
-                    // 隱藏彈出視窗
+                    // 隱藏彈出視窗和背景遮罩
                     document.getElementById("editOrderBox").style.display = "none";
+                    document.getElementById("overlay").style.display = "none"; // 立即隱藏背景遮罩
+
+                    // 顯示成功的popup，這裡不會影響遮罩
+                    showSuccessPopup('訂單修改成功');
+
+                    // 更新前端表格中的訂單
+                    addOrUpdateOrderRow(data.data);
+
                 } else {
-                    throw new Error(data.error || '訂單修改失敗');
+                    // 提取後端返回的具體錯誤訊息並顯示給用戶
+                    showErrorPopup('修改失敗: ' + (data.message || '未知錯誤'));
                 }
             }))
             .catch((error) => {
@@ -1508,4 +1549,46 @@ chart.subscribeCrosshairMove(function(param) {
 window.addEventListener('resize', () => {
     const chartContainer = document.getElementById('chart');
     chart.resize(chartContainer.clientWidth, chartContainer.clientHeight);
+});
+
+function limitDecimalPlaces(input, decimalPlaces) {
+    const value = input.value;
+    // 使用正則表達式限制小數位數
+    const regex = new RegExp(`^\\d*(\\.\\d{0,${decimalPlaces}})?$`);
+    if (!regex.test(value)) {
+        input.value = value.slice(0, value.length - 1); // 刪除多餘的部分
+    }
+}
+
+document.getElementById('price').addEventListener('input', function (e) {
+    limitDecimalPlaces(e.target, 2); // 限制最多兩位小數
+});
+
+document.getElementById('quantity').addEventListener('input', function (e) {
+    limitDecimalPlaces(e.target, 2); // 限制最多兩位小數
+});
+
+document.getElementById('editPrice').addEventListener('input', function (e) {
+    limitDecimalPlaces(e.target, 2); // 限制最多兩位小數
+});
+
+document.getElementById('editQuantity').addEventListener('input', function (e) {
+    limitDecimalPlaces(e.target, 2); // 限制最多兩位小數
+});
+
+// 顯示彈出框和遮罩
+function openEditBox() {
+    document.getElementById("editOrderBox").style.display = "block";
+    document.getElementById("overlay").style.display = "block"; // 顯示背景遮罩
+}
+
+// 隱藏彈出框和遮罩
+function closeEditBox() {
+    document.getElementById("editOrderBox").style.display = "none";
+    document.getElementById("overlay").style.display = "none"; // 隱藏背景遮罩
+}
+
+// 點擊遮罩層時關閉彈出框
+document.getElementById("overlay").addEventListener("click", function() {
+    closeEditBox();
 });

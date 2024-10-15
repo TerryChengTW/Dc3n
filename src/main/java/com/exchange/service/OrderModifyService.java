@@ -26,7 +26,7 @@ public class OrderModifyService {
         this.objectMapper = objectMapper;
     }
 
-    public ResponseEntity<ApiResponse<?>> checkAndRemoveOrderFromRedis(String symbol, String side, String orderId, BigDecimal price, long modifiedAt, String userId) {
+    public ResponseEntity<ApiResponse<?>> checkAndRemoveOrderFromRedis(String symbol, String side, String orderId, BigDecimal price, long modifiedAt, String userId, boolean isModify, BigDecimal newQuantity) {
         try {
             // 計算 ZSet 的 score
             double score = calculateScore(price, modifiedAt, side);
@@ -50,6 +50,12 @@ public class OrderModifyService {
 
                 // 檢查 orderId 和 userId 是否符合
                 if (order.getId().equals(orderId) && order.getUserId().equals(userId)) {
+
+                    // 如果是修改操作，檢查新數量是否存在並且大於未成交數量
+                    if (isModify && (newQuantity == null || newQuantity.compareTo(order.getFilledQuantity()) <= 0)) {
+                        return ResponseEntity.badRequest().body(new ApiResponse<>("修改後的數量小於已成交數量", "40001"));
+                    }
+
                     // 找到對應訂單，移除 ZSet 中的該訂單
                     redisTemplate.opsForZSet().remove(redisKey, orderJson);
                     return ResponseEntity.ok(new ApiResponse<>("訂單查詢並移除成功", order));

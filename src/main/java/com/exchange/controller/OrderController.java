@@ -76,6 +76,7 @@ public class OrderController {
     }
 
     // 更新訂單
+// 更新訂單
     @PutMapping("/modify/{orderId}")
     public ResponseEntity<ApiResponse<?>> modifyOrder(
             @PathVariable String orderId,
@@ -89,19 +90,41 @@ public class OrderController {
             BigDecimal oldPrice = orderRequest.getOldPrice(); // 舊的價格
             BigDecimal newPrice = orderRequest.getPrice(); // 新的價格
             BigDecimal newQuantity = orderRequest.getQuantity(); // 新的數量
-            long modifiedAt = orderRequest.getModifiedAt().toInstant().toEpochMilli(); // 假設前端傳遞 ZonedDateTime
+            long modifiedAt = orderRequest.getModifiedAt().toInstant().toEpochMilli(); // 前端傳遞的修改時間
 
             // 檢查並移除 Redis 中的舊訂單（使用舊價格查詢）
-            ResponseEntity<ApiResponse<?>> response = orderModifyService.checkAndRemoveOrderFromRedis(symbol, side.name(), orderId, oldPrice, modifiedAt, userId);
+            ResponseEntity<ApiResponse<?>> response = orderModifyService.checkAndRemoveOrderFromRedis(
+                    symbol, side.name(), orderId, oldPrice, modifiedAt, userId, true, newQuantity);
 
-            // 如果訂單未找到或驗證失敗，直接返回相應的響應
+            // 如果訂單未找到或數量檢查失敗，直接返回相應的響應（檢查是否有業務邏輯錯誤）
             if (response.getStatusCode() != HttpStatus.OK) {
                 return response;
             }
 
-            // 進行後續訂單更新邏輯，如發送到 Kafka
+            // 從 Redis 返回的舊訂單
+            Order oldOrder = (Order) response.getBody().getData();
 
-            return ResponseEntity.ok(new ApiResponse<>("訂單修改成功", orderId));
+            // 發送舊訂單數據到 Delta 服務
+            orderBookDeltaProducer.sendDelta(
+                    oldOrder.getSymbol(),
+                    oldOrder.getSide().toString(),
+                    oldOrder.getPrice().toString(),
+                    "-" + oldOrder.getUnfilledQuantity().toString()
+            );
+
+            // 更新訂單的相關字段
+            oldOrder.setPrice(newPrice);
+            oldOrder.setQuantity(newQuantity);
+            oldOrder.setFilledQuantity(oldOrder.getFilledQuantity()); // 更新已成交數量
+            oldOrder.setUnfilledQuantity(newQuantity.subtract(oldOrder.getFilledQuantity())); // 使用 subtract 來更新未成交數量
+            oldOrder.setModifiedAt(Instant.now());
+            oldOrder.setUpdatedAt(Instant.now());
+
+            // 保存更新後的訂單並發送到 Kafka
+            orderRepository.save(oldOrder);
+            orderService.saveOrder(oldOrder);
+
+            return ResponseEntity.ok(new ApiResponse<>("訂單修改成功", oldOrder));
 
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(new ApiResponse<>(e.getMessage(), 40002));
@@ -126,7 +149,7 @@ public class OrderController {
             long modifiedAt = orderRequest.getModifiedAt().toInstant().toEpochMilli(); // 修改時間
 
             // 查詢 Redis 中的訂單
-            ResponseEntity<ApiResponse<?>> response = orderModifyService.checkAndRemoveOrderFromRedis(symbol, side.name(), orderId, price, modifiedAt, userId);
+            ResponseEntity<ApiResponse<?>> response = orderModifyService.checkAndRemoveOrderFromRedis(symbol, side.name(), orderId, price, modifiedAt, userId, false, null);
 
             // 如果訂單未找到或驗證失敗，直接返回相應的響應
             if (response.getStatusCode() != HttpStatus.OK) {

@@ -95,11 +95,11 @@
             </div>
             <div class="form-group">
                 <label for="price">Price:</label>
-                <input type="number" id="price" name="price" step="0.01">
+                <input type="number" id="price" name="price" step="0.01" min="0.01" inputmode="decimal">
             </div>
             <div class="form-group">
                 <label for="quantity">Quantity:</label>
-                <input type="number" id="quantity" name="quantity" value="1">
+                <input type="number" id="quantity" name="quantity" step="0.01" min="0.01" inputmode="decimal">
             </div>
             <div class="form-group">
                 <label>Side:</label>
@@ -239,6 +239,8 @@
     </div>
 </div>
 
+<div id="overlay" class="overlay"></div>
+
 <div id="editOrderBox" class="confirm-box">
     <h2>編輯訂單</h2>
     <div>
@@ -254,6 +256,7 @@
         <button id="cancelEditButton" class="confirm-btn confirm-btn-no" onclick="closeEditBox()">取消</button>
     </div>
 </div>
+
 
 <div id="errorPopup" style="display: none; position: fixed; top: 50px; left: 50%; transform: translateX(-50%); background-color: red; color: white; padding: 10px; border-radius: 5px; z-index: 1000;">
     <span id="errorPopupMessage"></span>

@@ -479,65 +479,105 @@ th {
 }
 
 /* Confirm Box 的樣式 */
+/* 背景遮罩層 */
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5); /* 半透明的黑色 */
+    z-index: 999; /* 保證遮罩層在彈出框下面，其他內容上面 */
+    display: none; /* 預設不顯示，通過 JS 控制 */
+}
+
+/* 彈出框樣式 */
 .confirm-box {
     display: none;
     position: fixed;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: 300px;
-    padding: 20px;
+    width: 450px;
+    padding: 30px;
     background-color: #fff;
-    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
-    border-radius: 8px;
-    text-align: center;
+    box-shadow: 0px 12px 24px rgba(0, 0, 0, 0.2);
+    border-radius: 12px;
     z-index: 1000;
+    text-align: center;
+    font-family: 'Arial', sans-serif;
+    box-sizing: border-box;
 }
 
-/* 確認消息的樣式 */
-.confirm-message {
-    font-size: 16px;
-    margin-bottom: 20px;
+.confirm-box h2 {
+    margin-bottom: 25px;
+    font-size: 22px;
+    font-weight: 600;
     color: #333;
 }
 
-/* 確認框按鈕容器 */
+.confirm-box label {
+    display: block;
+    font-size: 16px; /* 增加字體大小 */
+    font-weight: 500;
+    color: #666;
+    margin-bottom: 10px;
+    text-align: left; /* 左對齊標籤 */
+}
+
+.confirm-box input[type="number"] {
+    width: 100%;
+    padding: 14px; /* 增加 padding 讓輸入框更大 */
+    margin-bottom: 20px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 16px;
+    box-sizing: border-box;
+}
+
 .confirm-buttons {
     display: flex;
-    justify-content: space-around;
+    justify-content: space-between;
+    margin-top: 25px;
 }
 
-/* 按鈕的基礎樣式 */
 .confirm-btn {
-    padding: 10px 20px;
-    font-size: 14px;
-    border-radius: 5px;
-    cursor: pointer;
+    padding: 14px 30px; /* 增加按鈕大小 */
     border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
+    width: 45%;
 }
 
-/* 確定按鈕的樣式 */
 .confirm-btn-yes {
-    background-color: #4CAF50;
+    background-color: #28a745;
     color: white;
-    transition: background-color 0.3s ease;
 }
 
-/* 取消按鈕的樣式 */
+.confirm-btn-yes:disabled {
+    background-color: #ccc; /* 灰色背景 */
+    color: #666; /* 灰色文字 */
+    cursor: not-allowed; /* 禁用時的鼠標樣式 */
+}
+
 .confirm-btn-no {
-    background-color: #f44336;
+    background-color: #dc3545;
     color: white;
-    transition: background-color 0.3s ease;
 }
 
-/* 按鈕的 hover 效果 */
 .confirm-btn-yes:hover {
-    background-color: #45a049;
+    background-color: #218838;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
 }
 
 .confirm-btn-no:hover {
-    background-color: #e41e1e;
+    background-color: #c82333;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
 }
+
+
 
 /* Tabs 樣式 */
 .tab-container {
@@ -895,4 +935,16 @@ input:disabled {
 #loginButton:hover {
     background-color: #333;
     color: #00dfb6;
+}
+
+/* 隱藏 Chrome 和 Safari 中的上下箭頭 */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+/* 隱藏 Firefox 中的上下箭頭 */
+input[type=number] {
+    -moz-appearance: textfield;
 }
