@@ -75,6 +75,8 @@ function handleOrderSnapshot(orders) {
 function createOrderRow(order) {
     const row = document.createElement('tr');
     row.id = `order-${order.id}`;
+    row.setAttribute('data-modified-at', order.modifiedAt);  // 隱藏 modifiedAt
+
     if (order.side === 'BUY') {
         row.classList.add('bid-row');
     } else if (order.side === 'SELL') {
@@ -83,7 +85,7 @@ function createOrderRow(order) {
 
     row.innerHTML = `
         <td>${order.id}</td>
-        <td>${order.userId}</td>
+        <td>${new Date(order.createdAt).toLocaleString()}</td> <!-- 顯示創建時間 -->
         <td>${order.symbol}</td>
         <td>${order.price}</td>
         <td>${order.quantity}</td>
@@ -123,9 +125,12 @@ function addOrUpdateOrderRow(order) {
         document.querySelector('#currentOrdersTable tbody').appendChild(orderRow);
     }
 
+    // 在行中隱藏 modifiedAt 的值
+    orderRow.setAttribute('data-modified-at', order.modifiedAt);
+
     orderRow.innerHTML = `
         <td>${order.id}</td>
-        <td>${order.userId}</td>
+        <td>${new Date(order.createdAt).toLocaleString()}</td> <!-- 顯示 createdAt -->
         <td>${order.symbol}</td>
         <td>${order.price}</td>
         <td>${order.quantity}</td>
@@ -139,6 +144,7 @@ function addOrUpdateOrderRow(order) {
         </td>        
     `;
 
+    // 如果訂單已完成，延遲3秒後移除該行
     if (order.status === 'COMPLETED') {
         setTimeout(() => removeOrderRow(order.id), 3000);
     }
