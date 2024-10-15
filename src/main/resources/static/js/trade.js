@@ -155,16 +155,25 @@ let editingOrderId = null;
 function editOrder(orderId) {
     editingOrderId = orderId;
     const orderRow = document.getElementById(`order-${orderId}`);
-    const price = orderRow.children[3].textContent;
+    const oldPrice = orderRow.children[3].textContent; // 舊價格
     const quantity = orderRow.children[4].textContent;
+    const symbol = orderRow.children[2].textContent; // 交易對
+    const side = orderRow.children[6].textContent; // 買賣方向
+    const modifiedAt = orderRow.getAttribute('data-modified-at'); // 修改時間
 
     // 顯示彈出視窗
     const editBox = document.getElementById("editOrderBox");
     editBox.style.display = "block";
 
     // 預填訂單的價格和數量
-    document.getElementById("editPrice").value = price;
+    document.getElementById("editPrice").value = oldPrice;
     document.getElementById("editQuantity").value = quantity;
+
+    // 儲存額外信息
+    document.getElementById("editOrderBox").setAttribute('data-old-price', oldPrice);
+    document.getElementById("editOrderBox").setAttribute('data-symbol', symbol);
+    document.getElementById("editOrderBox").setAttribute('data-side', side);
+    document.getElementById("editOrderBox").setAttribute('data-modified-at', modifiedAt);
 }
 
 function closeEditBox() {
@@ -196,16 +205,37 @@ async function deleteOrder(orderId) {
     const confirmed = await showConfirm("確定要刪除這筆訂單嗎？");
 
     if (confirmed) {
+        // 從表格中獲取相關訂單資料
+        const orderRow = document.getElementById(`order-${orderId}`);
+        const price = orderRow.children[3].textContent;  // 假設價格在第四個欄位
+        const modifiedAt = orderRow.getAttribute('data-modified-at'); // 假設你有儲存 modifiedAt 在 DOM
+        const symbol = orderRow.children[2].textContent; // 交易對
+        const side = orderRow.children[6].textContent; // 買賣方向
+
+        // 確保獲取的資料都存在
+        if (!price || !modifiedAt || !symbol || !side) {
+            showErrorPopup('無法刪除訂單，缺少必要的資料');
+            return;
+        }
+
+        // 發送 PUT 請求進行訂單刪除
         fetch(`/orders/cancel/${orderId}`, {
-            method: 'DELETE',
+            method: 'PUT',
             headers: {
-                'Authorization': 'Bearer ' + token
-            }
+                'Authorization': 'Bearer ' + token,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                price: parseFloat(price),
+                modifiedAt: modifiedAt,
+                symbol: symbol,
+                side: side
+            })
         })
             .then(response => response.json().then(data => {
                 if (response.ok) {
                     showSuccessPopup('訂單已取消');
-                    removeOrderRow(orderId);
+                    removeOrderRow(orderId); // 從前端表格中移除該訂單行
                 } else {
                     throw new Error(data.error || '訂單刪除失敗');
                 }
@@ -638,6 +668,11 @@ document.getElementById("confirmEditButton").addEventListener("click", function 
     const newPrice = document.getElementById("editPrice").value;
     const newQuantity = document.getElementById("editQuantity").value;
 
+    const oldPrice = document.getElementById("editOrderBox").getAttribute('data-old-price'); // 舊價格
+    const symbol = document.getElementById("editOrderBox").getAttribute('data-symbol'); // 交易對
+    const side = document.getElementById("editOrderBox").getAttribute('data-side'); // 買賣方向
+    const modifiedAt = document.getElementById("editOrderBox").getAttribute('data-modified-at'); // 修改時間
+
     if (newPrice && newQuantity && editingOrderId) {
         const token = localStorage.getItem('jwtToken');
         fetch(`/orders/modify/${editingOrderId}`, {
@@ -647,15 +682,21 @@ document.getElementById("confirmEditButton").addEventListener("click", function 
                 'Authorization': 'Bearer ' + token
             },
             body: JSON.stringify({
+                oldPrice: parseFloat(oldPrice),
                 price: parseFloat(newPrice),
-                quantity: parseFloat(newQuantity)
+                quantity: parseFloat(newQuantity),
+                symbol: symbol, // 傳遞 symbol
+                side: side, // 傳遞 side
+                modifiedAt: modifiedAt
             }),
         })
             .then(response => response.json().then(data => {
                 if (response.ok) {
                     showSuccessPopup('訂單修改成功');
-                    // 更新前端表格
-                    addOrUpdateOrderRow(data.data);
+                    // 先刪除前端表格，等待後續kafka處理更新的訂單並且自動推送前端
+                    if (data.data) {
+                        removeOrderRow(data.data); // 根據 orderId 移除行
+                    }
                     // 隱藏彈出視窗
                     document.getElementById("editOrderBox").style.display = "none";
                 } else {

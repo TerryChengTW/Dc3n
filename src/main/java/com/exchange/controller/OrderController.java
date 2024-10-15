@@ -2,7 +2,9 @@ package com.exchange.controller;
 
 import com.exchange.dto.OrderRequest;
 import com.exchange.model.Order;
-import com.exchange.model.OrderRecord;
+import com.exchange.producer.OrderBookDeltaProducer;
+import com.exchange.repository.OrderRepository;
+import com.exchange.service.OrderModifyService;
 import com.exchange.service.OrderService;
 import com.exchange.utils.ApiResponse;
 import com.exchange.utils.SnowflakeIdGenerator;
@@ -22,11 +24,17 @@ public class OrderController {
 
     private final OrderService orderService;
     private final SnowflakeIdGenerator idGenerator;
+    private final OrderModifyService orderModifyService;
+    private final OrderRepository orderRepository;
+    private final OrderBookDeltaProducer orderBookDeltaProducer;
 
     @Autowired
-    public OrderController(OrderService orderService, SnowflakeIdGenerator idGenerator) {
+    public OrderController(OrderService orderService, SnowflakeIdGenerator idGenerator, OrderModifyService orderModifyService, OrderRepository orderRepository, OrderBookDeltaProducer orderBookDeltaProducer) {
         this.orderService = orderService;
         this.idGenerator = idGenerator;
+        this.orderModifyService = orderModifyService;
+        this.orderRepository = orderRepository;
+        this.orderBookDeltaProducer = orderBookDeltaProducer;
     }
 
     // 提交新訂單
@@ -38,7 +46,7 @@ public class OrderController {
 
             // 確認是否有從 JWT 中提取到 userId
             if (userId == null) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ApiResponse<>("JWT 無效或過期", "40301"));
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ApiResponse<>("JWT 無效或過期", 40301));
             }
 
             Order order = new Order();
@@ -61,9 +69,9 @@ public class OrderController {
             return ResponseEntity.ok(new ApiResponse<>("訂單提交成功", order));
 
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(new ApiResponse<>(e.getMessage(), "40001"));
+            return ResponseEntity.badRequest().body(new ApiResponse<>(e.getMessage(), 40001));
         } catch (Exception e) {
-            return ResponseEntity.status(500).body(new ApiResponse<>("訂單提交失敗，請稍後再試", "50001"));
+            return ResponseEntity.status(500).body(new ApiResponse<>("訂單提交失敗，請稍後再試", 50001));
         }
     }
 
@@ -74,73 +82,76 @@ public class OrderController {
             @RequestBody OrderRequest orderRequest,
             HttpServletRequest request) {
         try {
-            // 從 JWT 中提取 userId
             String userId = (String) request.getAttribute("userId");
 
-            // 根據 orderId 查找訂單
-            Optional<Order> orderOptional = orderService.getOrderById(orderId);
-            if (orderOptional.isEmpty()) {
-                return ResponseEntity.badRequest().body(new ApiResponse<>("訂單未找到", "40401"));
-            }
-            Order order = orderOptional.get();
+            String symbol = orderRequest.getSymbol();
+            Order.Side side = orderRequest.getSide();
+            BigDecimal oldPrice = orderRequest.getOldPrice(); // 舊的價格
+            BigDecimal newPrice = orderRequest.getPrice(); // 新的價格
+            BigDecimal newQuantity = orderRequest.getQuantity(); // 新的數量
+            long modifiedAt = orderRequest.getModifiedAt().toInstant().toEpochMilli(); // 假設前端傳遞 ZonedDateTime
 
-            // 驗證訂單的擁有者是否與 JWT 中的 userId 一致
-            if (!order.getUserId().equals(userId)) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ApiResponse<>("無權修改此訂單", "40302"));
-            }
+            // 檢查並移除 Redis 中的舊訂單（使用舊價格查詢）
+            ResponseEntity<ApiResponse<?>> response = orderModifyService.checkAndRemoveOrderFromRedis(symbol, side.name(), orderId, oldPrice, modifiedAt, userId);
 
-            // 檢查訂單狀態
-            if (order.getStatus() != Order.OrderStatus.PENDING && order.getStatus() != Order.OrderStatus.PARTIALLY_FILLED) {
-                return ResponseEntity.badRequest().body(new ApiResponse<>("只有PENDING或PARTIALLY_FILLED狀態的訂單可以更新", "40003"));
+            // 如果訂單未找到或驗證失敗，直接返回相應的響應
+            if (response.getStatusCode() != HttpStatus.OK) {
+                return response;
             }
 
-            // 準備更新訂單資料
-            BigDecimal newQuantity = orderRequest.getQuantity();
-            BigDecimal newPrice = orderRequest.getPrice();
+            // 進行後續訂單更新邏輯，如發送到 Kafka
 
-            // 更新訂單
-            Order updatedOrder = orderService.updateOrder(order, newQuantity, newPrice);
-
-            return ResponseEntity.ok(new ApiResponse<>("訂單修改成功", updatedOrder));
+            return ResponseEntity.ok(new ApiResponse<>("訂單修改成功", orderId));
 
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(new ApiResponse<>(e.getMessage(), "40002"));
+            return ResponseEntity.badRequest().body(new ApiResponse<>(e.getMessage(), 40002));
         } catch (Exception e) {
-            return ResponseEntity.status(500).body(new ApiResponse<>("訂單更新失敗，請稍後再試", "50002"));
+            return ResponseEntity.status(500).body(new ApiResponse<>("訂單更新失敗，請稍後再試", 50002));
         }
     }
 
-
     // 取消訂單
-    @DeleteMapping("/cancel/{orderId}")
+    @PutMapping("/cancel/{orderId}")
     public ResponseEntity<ApiResponse<?>> cancelOrder(
             @PathVariable String orderId,
+            @RequestBody OrderRequest orderRequest, // 新增需要傳遞的資料
             HttpServletRequest request) {
         try {
-            // 從 JWT 中提取 userId
             String userId = (String) request.getAttribute("userId");
 
-            // 根據 orderId 查找訂單
-            Optional<Order> orderOptional = orderService.getOrderById(orderId);
-            if (orderOptional.isEmpty()) {
-                return ResponseEntity.badRequest().body(new ApiResponse<>("訂單未找到", "40401"));
-            }
-            Order order = orderOptional.get();
+            // 從前端請求中提取訂單信息
+            String symbol = orderRequest.getSymbol();
+            Order.Side side = orderRequest.getSide();
+            BigDecimal price = orderRequest.getPrice(); // 訂單的價格
+            long modifiedAt = orderRequest.getModifiedAt().toInstant().toEpochMilli(); // 修改時間
 
-            // 驗證訂單的擁有者是否與 JWT 中的 userId 一致
-            if (!order.getUserId().equals(userId)) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ApiResponse<>("無權取消此訂單", "40302"));
-            }
+            // 查詢 Redis 中的訂單
+            ResponseEntity<ApiResponse<?>> response = orderModifyService.checkAndRemoveOrderFromRedis(symbol, side.name(), orderId, price, modifiedAt, userId);
 
-            // 檢查訂單狀態
-            if (order.getStatus() != Order.OrderStatus.PENDING && order.getStatus() != Order.OrderStatus.PARTIALLY_FILLED) {
-                return ResponseEntity.badRequest().body(new ApiResponse<>("只有 PENDING 或 PARTIALLY_FILLED 狀態的訂單可以取消", "40003"));
+            // 如果訂單未找到或驗證失敗，直接返回相應的響應
+            if (response.getStatusCode() != HttpStatus.OK) {
+                return response;
             }
 
-            // 執行取消訂單
-            orderService.cancelOrder(order);
+            // 取得要移除的訂單
+            Order order = (Order) response.getBody().getData();
 
-            return ResponseEntity.ok(new ApiResponse<>("訂單取消成功", order));
+            // 將取消的訂單狀態寫入 MySQL
+            order.setStatus(Order.OrderStatus.CANCELLED);
+            order.setUpdatedAt(Instant.now());
+            order.setModifiedAt(Instant.now());
+
+            // 保存到數據庫
+            orderRepository.save(order);
+
+            orderBookDeltaProducer.sendDelta(
+                    order.getSymbol(),
+                    order.getSide().toString(),
+                    order.getPrice().toString(),
+                    "-" + order.getUnfilledQuantity().toString()
+            );
+
+            return ResponseEntity.ok(new ApiResponse<>("訂單取消成功，已更新到資料庫", order));
 
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(new ApiResponse<>(e.getMessage(), "40004"));
@@ -148,6 +159,4 @@ public class OrderController {
             return ResponseEntity.status(500).body(new ApiResponse<>("訂單取消失敗，請稍後再試", "50003"));
         }
     }
-
-
 }

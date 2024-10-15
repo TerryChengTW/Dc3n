@@ -6,7 +6,7 @@ import lombok.Setter;
 
 @Setter
 @Getter
-@JsonInclude(JsonInclude.Include.NON_NULL) // 只包含非空字段
+@JsonInclude(JsonInclude.Include.NON_NULL) // 確保只包含非空字段
 public class ApiResponse<T> {
     private String message;
     private T data;
@@ -16,12 +16,12 @@ public class ApiResponse<T> {
     public ApiResponse(String message, T data) {
         this.message = message;
         this.data = data;
+        this.errorCode = null; // 成功回應不需要 errorCode
     }
 
-    // 錯誤回應
-    public ApiResponse(String message, String errorCode) {
+    public ApiResponse(String message, Integer errorCode) {
         this.message = message;
-        this.errorCode = errorCode;
+        this.errorCode = errorCode.toString(); // 錯誤回應需要 errorCode
+        this.data = null;
     }
-
 }
