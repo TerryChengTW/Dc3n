@@ -143,6 +143,9 @@
         <button type="button" class="custom-button" onclick="loginUser()">登入</button>
     </form>
 
+    <!-- 新增模擬登入按鈕 -->
+    <button type="button" class="custom-button" onclick="simulateLogin()">模擬登入</button>
+
     <p>還沒有帳戶？<a href="/register">註冊</a></p>
 </main>
 
@@ -185,6 +188,35 @@
             })
             .catch((error) => {
                 showNotification('登入失敗：' + error.message);  // 顯示錯誤通知
+            });
+    }
+
+    // 模擬登入功能
+    function simulateLogin() {
+        const loginData = {
+            username: "terry",  // 模擬的用戶名
+            password: "terry"   // 模擬的密碼
+        };
+
+        fetch('/users/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(loginData),
+        })
+            .then(response => {
+                return response.json().then(data => {
+                    if (response.ok) {
+                        localStorage.setItem('jwtToken', data.token);  // 保存 token 到 localStorage
+                        showNotification('模擬登入成功！', '/');  // 顯示通知並跳轉到首頁
+                    } else {
+                        throw new Error(data.message || '模擬登入失敗');
+                    }
+                });
+            })
+            .catch((error) => {
+                showNotification('模擬登入失敗：' + error.message);  // 顯示錯誤通知
             });
     }
 </script>
