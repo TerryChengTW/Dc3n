@@ -32,7 +32,7 @@ You can log in and test the platform via the following link:
 
 ### Test Account:
 
-- **Email**: terry@gmail.com
+- **Username**: terry
 - **Password**: terry
 
 After logging in, you can:
