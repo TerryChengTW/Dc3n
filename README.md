@@ -1,11 +1,14 @@
-# Dc3n - Cryptocurrency Exchange
+# Dc3n - Cryptocurrency Exchange Platform (Main Service)
 
-**Dc3n** is a professional cryptocurrency exchange platform designed to handle high-frequency trading. The platform utilizes a **single-order matching** mechanism, ensuring that each incoming order is matched with a single counterpart order, rather than being processed in bulk. This approach guarantees precise and real-time execution of trades. Additionally, **price-time priority** is enforced to ensure fairness in order matching, meaning orders are processed based on the best price first, and in cases of equal prices, the earliest submitted order is prioritized.
+**Dc3n** is a professional cryptocurrency exchange platform designed to handle high-frequency trading. This repository represents the **main service**, which includes order submission, user interaction, and real-time updates. It is integrated with a separate **order matching engine**, ensuring accurate and efficient trade execution.
+
+The **order matching engine** used by Dc3n is hosted at:  
+[Dc3n Order Matching Engine Repository](https://github.com/TerryChengTW/dc3n-order-matching-engine)
 
 ## Key Features
 
-- **Single-Order Matching Engine**: dc3n uses a single-order matching mechanism, ensuring that each order is matched with only one counter-order at a time. This provides efficient and immediate order execution without batch processing.
-- **Price-Time Priority**: The platform ensures fairness by following the price-time priority rule. Orders are matched based on the best price, and if multiple orders have the same price, the system prioritizes the one that was submitted first.
+- **Single-Order Matching Engine**: The system integrates with a single-order matching engine, ensuring that each order is matched with only one counter-order at a time. This provides efficient and immediate order execution without batch processing.
+- **Price-Time Priority**: The platform ensures fairness by enforcing the price-time priority rule. Orders are matched based on the best price, and if multiple orders have the same price, the system prioritizes the earliest submitted order.
 - **Limit and Market Order Matching**: Users can submit limit and market orders, and the system will automatically match them based on market conditions.
 - **Real-Time Order Book**: The system updates the order book in real time, displaying the market depth with buy and sell prices and volumes.
 - **Live Market Data**: Real-time market data, including order statuses and executed trades, are pushed via WebSocket, keeping users up to date with the latest market movements.
@@ -25,7 +28,7 @@
 
 You can log in and test the platform via the following link:
 
-[dc3n.xyz](https://dc3n.xyz)
+[Dc3n.xyz](https://dc3n.xyz)
 
 ### Test Account:
 
@@ -38,6 +41,13 @@ After logging in, you can:
 - View real-time order book and market depth
 - Receive live updates on order statuses and trades
 - Access historical trade records
+
+## Order Matching Engine
+
+The core of Dc3n’s trading functionality is powered by a separate order matching engine, which you can find here:  
+[Dc3n Order Matching Engine Repository](https://github.com/TerryChengTW/Dc3n-order-matching-engine)
+
+This engine handles all trade matching processes based on price-time priority, ensuring fair and accurate trade execution.
 
 ## Contact
 
