@@ -1,6 +1,6 @@
-# dc3n - Cryptocurrency Exchange Platform
+# Dc3n - Cryptocurrency Exchange
 
-**dc3n** is a professional cryptocurrency exchange platform designed to handle high-frequency trading. The platform utilizes a **single-order matching** mechanism, ensuring that each incoming order is matched with a single counterpart order, rather than being processed in bulk. This approach guarantees precise and real-time execution of trades. Additionally, **price-time priority** is enforced to ensure fairness in order matching, meaning orders are processed based on the best price first, and in cases of equal prices, the earliest submitted order is prioritized.
+**Dc3n** is a professional cryptocurrency exchange platform designed to handle high-frequency trading. The platform utilizes a **single-order matching** mechanism, ensuring that each incoming order is matched with a single counterpart order, rather than being processed in bulk. This approach guarantees precise and real-time execution of trades. Additionally, **price-time priority** is enforced to ensure fairness in order matching, meaning orders are processed based on the best price first, and in cases of equal prices, the earliest submitted order is prioritized.
 
 ## Key Features
 
